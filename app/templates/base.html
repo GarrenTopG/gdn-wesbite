@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Aurorah CAN Digital Hub{% endblock %}</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        // Custom Tailwind Theme Configuration
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#fdf2f8',
+                            100: '#fce7f3',
+                            500: '#d5105c',
+                            700: '#a33957', 
+                            800: '#943d56', // Deep mauve/burgundy
+                            900: '#752d42',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Segoe UI', 'Roboto', 'Helvetica Neue', 'sans-serif'],
+                    },
+                    keyframes: {
+                        pulseHeart: {
+                            '0%, 100%': { transform: 'scale(1)' },
+                            '50%': { transform: 'scale(1.15)' }
+                        },
+                        floatSlow: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-8px)' }
+                        }
+                    },
+                    animation: {
+                        'pulse-heart': 'pulseHeart 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'floatSlow 4s ease-in-out infinite'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Smooth transitions for interactive components */
+        .card-pop {
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .card-pop:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 25px -5px rgba(148, 61, 86, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .btn-bounce {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .btn-bounce:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+        }
+        .btn-bounce:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col font-sans overflow-x-hidden">
+
+    <!-- Navbar -->
+    <header class="bg-brand-800 text-white sticky top-0 z-50 shadow-md">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <!-- Logo -->
+            <a href="/" class="flex items-center space-x-3 text-2xl font-bold tracking-wide group">
+                <i class="fa-solid fa-heart animate-pulse-heart text-pink-300"></i>
+                <span class="group-hover:text-pink-100 transition">Aurorah CAN</span>
+            </a>
+            
+            <!-- Navigation Links (Mobile App Link Removed) -->
+            <nav class="hidden md:flex items-center space-x-8 font-medium">
+                <a href="/" class="border-b-2 border-white pb-1 text-white">Home</a>
+                <a href="#" class="text-white/80 hover:text-white hover:scale-105 transition transform inline-block">About Us</a>
+                <a href="#" class="text-white/80 hover:text-white hover:scale-105 transition transform inline-block">Get Involved</a>
+                <a href="#" class="text-white/80 hover:text-white hover:scale-105 transition transform inline-block">Impact</a>
+                <a href="#" class="text-white/80 hover:text-white hover:scale-105 transition transform inline-block">Admin Login</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow w-full">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-brand-800 text-white pt-16 pb-8 border-t border-brand-900">
+        <div class="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
+            <!-- Brand Column -->
+            <div>
+                <div class="flex items-center space-x-2 text-xl font-bold mb-4">
+                    <i class="fa-solid fa-heart text-pink-300"></i>
+                    <span>Aurorah CAN</span>
+                </div>
+                <p class="text-white/80 leading-relaxed text-sm">
+                    Community Action Network serving Kuils River since the COVID-19 pandemic. Empowering communities through volunteerism and transparent aid.
+                </p>
+            </div>
+            
+            <!-- Quick Links -->
+            <div>
+                <h3 class="font-bold text-lg mb-4 border-b border-brand-700 pb-2 inline-block">Quick Links</h3>
+                <ul class="space-y-3 text-white/80 text-sm">
+                    <li><a href="/" class="hover:text-white hover:pl-2 transition-all duration-200 block">Home</a></li>
+                    <li><a href="#" class="hover:text-white hover:pl-2 transition-all duration-200 block">About Us</a></li>
+                    <li><a href="#" class="hover:text-white hover:pl-2 transition-all duration-200 block">Get Involved</a></li>
+                    <li><a href="#" class="hover:text-white hover:pl-2 transition-all duration-200 block">Impact Reports</a></li>
+                    <li><a href="#" class="hover:text-white hover:pl-2 transition-all duration-200 block">Privacy & POPIA</a></li>
+                </ul>
+            </div>
+            
+            <!-- Contact & Social -->
+            <div>
+                <h3 class="font-bold text-lg mb-4 border-b border-brand-700 pb-2 inline-block">Contact & Follow</h3>
+                <ul class="space-y-3 text-white/80 text-sm mb-6">
+                    <li><i class="fa-solid fa-envelope mr-2 text-pink-300"></i> info@aurorahcan.org</li>
+                    <li><i class="fa-solid fa-phone mr-2 text-pink-300"></i> +27 (0)XX XXXX XXXX</li>
+                </ul>
+                <div class="flex space-x-4">
+                    <div class="w-9 h-9 rounded-full bg-white/10 hover:bg-[#1DA1F2] flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-110">
+                        <i class="fa-brands fa-twitter text-white"></i>
+                    </div>
+                    <div class="w-9 h-9 rounded-full bg-white/10 hover:bg-brand-500 flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-110">
+                        <i class="fa-brands fa-instagram text-white"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bottom Bar -->
+        <div class="max-w-7xl mx-auto px-6 pt-8 border-t border-white/20 text-center text-xs text-white/60 space-y-2">
+            <p>&copy; 2026 Aurorah Community Action Network. All rights reserved.</p>
+            <p class="space-x-4">
+                <a href="#" class="hover:text-white transition">Privacy Policy</a>
+                <span>|</span>
+                <a href="#" class="hover:text-white transition">Terms of Service</a>
+                <span>|</span>
+                <a href="#" class="hover:text-white transition">POPIA Compliance</a>
+            </p>
+        </div>
+    </footer>
+
+</body>
+</html>
