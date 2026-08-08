@@ -78,13 +78,32 @@
                 <span class="group-hover:text-pink-100 transition">Aurorah CAN</span>
             </a>
             
-            <!-- Navigation Links (Mobile App Link Removed) -->
+            <!-- Navigation Links -->
             <nav class="hidden md:flex items-center space-x-8 font-medium">
-                <a href="/" class="border-b-2 border-white pb-1 text-white">Home</a>
-                <a href="#" class="text-white/80 hover:text-white hover:scale-105 transition transform inline-block">About Us</a>
-                <a href="#" class="text-white/80 hover:text-white hover:scale-105 transition transform inline-block">Get Involved</a>
-                <a href="#" class="text-white/80 hover:text-white hover:scale-105 transition transform inline-block">Impact</a>
-                <a href="#" class="text-white/80 hover:text-white hover:scale-105 transition transform inline-block">Admin Login</a>
+                <a href="/" 
+                class="transition transform inline-block pb-1 {% if active_page == 'home' %}text-white border-b-2 border-white{% else %}text-white/80 hover:text-white hover:scale-105{% endif %}">
+                    Home
+                </a>
+                <a href="/about" 
+                class="transition transform inline-block pb-1 {% if active_page == 'about' %}text-white border-b-2 border-white{% else %}text-white/80 hover:text-white hover:scale-105{% endif %}">
+                    About Us
+                </a>
+                <a href="/volunteer" 
+                class="transition transform inline-block pb-1 {% if active_page == 'volunteer' %}text-white border-b-2 border-white{% else %}text-white/80 hover:text-white hover:scale-105{% endif %}">
+                    Get Involved
+                </a>
+                <a href="/request-assistance"
+                class="transition transform inline-block pb-1 {% if active_page == 'assistance' %}text-white border-b-2 border-white{% else %}text-white/80 hover:text-white hover:scale-105{% endif %}">
+                    Ask for Assistance
+                </a>
+                <a href="#" 
+                class="transition transform inline-block pb-1 {% if active_page == 'impact' %}text-white border-b-2 border-white{% else %}text-white/80 hover:text-white hover:scale-105{% endif %}">
+                    Impact
+                </a>
+                <a href="#" 
+                class="transition transform inline-block pb-1 {% if active_page == 'admin' %}text-white border-b-2 border-white{% else %}text-white/80 hover:text-white hover:scale-105{% endif %}">
+                    Admin Login
+                </a>
             </nav>
         </div>
     </header>
