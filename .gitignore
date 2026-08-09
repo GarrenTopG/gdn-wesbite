@@ -19,3 +19,6 @@ __pycache__/
 # Operating System Files
 .DS_Store
 Thumbs.db
+aurorah.db
+/__pycache__
+/__pycache__
