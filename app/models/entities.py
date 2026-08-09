@@ -51,9 +51,13 @@ class Donation(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     donor_name: str
     donor_email: str
+    donor_phone: Optional[str] = None
     amount: float
-    payment_method: str  # 'Gateway', 'EFT Upload'
-    proof_of_payment_url: Optional[str] = None  # Upload file path for EFTs
+    cause: str = Field(default="General Fund")  # 'Food Parcels', 'Educational Programs', etc.
+    payment_method: str = Field(default="Gateway")  # 'Gateway', 'EFT Upload'
+    proof_of_payment_url: Optional[str] = None
+    message: Optional[str] = None
+    is_anonymous: bool = Field(default=False)
     is_verified: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -68,11 +72,17 @@ class VolunteerMatch(SQLModel, table=True):
     matched_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-# --- NEWS FEED ENTITY ---
+# --- NEWS ARTICLE ENTITY ---
 class NewsArticle(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str
-    category: str  # 'Announcement', 'Story', 'Impact'
+    slug: str = Field(index=True, unique=True)
+    category: str = Field(
+        default="Community"
+    )  # e.g., 'Community', 'Projects', 'Events', 'Relief'
+    summary: str
     content: str
-    published_by: str = Field(default="Latifah Jacobs")
+    image_url: Optional[str] = None
+    author: str = Field(default="Aurorah Team")
+    is_featured: bool = Field(default=False)  # Determines Hero card status
     created_at: datetime = Field(default_factory=datetime.utcnow)
