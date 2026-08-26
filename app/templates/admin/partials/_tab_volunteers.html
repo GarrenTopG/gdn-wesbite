@@ -1,0 +1,43 @@
+<!-- TAB 2: VOLUNTEERS -->
+<div id="tab-volunteers" class="tab-content hidden space-y-6">
+  <div class="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-gray-100 gap-4">
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">Recent Volunteer Registrations</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Manage and review community volunteer sign-ups.</p>
+      </div>
+      <button class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
+        <i class="fa-solid fa-download"></i>
+        <span>Export</span>
+      </button>
+    </div>
+    <div class="overflow-x-auto mt-4">
+      <table class="w-full text-left border-collapse text-sm">
+        <thead>
+          <tr class="border-b border-gray-200 text-gray-400 font-semibold text-xs uppercase tracking-wider">
+            <th class="py-3 px-4">Name</th>
+            <th class="py-3 px-4">Skills / Role</th>
+            <th class="py-3 px-4">Date</th>
+            <th class="py-3 px-4 text-right">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for volunteer in volunteers %}
+          <tr class="hover:bg-gray-50/80 transition">
+            <td class="py-4 px-4 font-bold text-gray-800">{{ volunteer.full_name }}</td>
+            <td class="py-4 px-4 text-gray-600">{{ volunteer.skills or 'General Support' }}</td>
+            <td class="py-4 px-4 text-gray-500 text-xs">{{ volunteer.created_at.strftime('%Y-%m-%d') if volunteer.created_at else '2026-05-10' }}</td>
+            <td class="py-4 px-4 text-right">
+              <span class="px-3 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800">Active</span>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="4" class="py-8 text-center text-gray-400">No volunteer records registered yet.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

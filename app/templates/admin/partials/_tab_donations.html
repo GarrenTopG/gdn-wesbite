@@ -1,0 +1,50 @@
+<!-- TAB 3: DONATIONS -->
+<div id="tab-donations" class="tab-content hidden space-y-6">
+  <div class="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-gray-100 gap-4">
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">Recent Donations</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Track financial and food parcel contributions.</p>
+      </div>
+      <button class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center space-x-2">
+        <i class="fa-solid fa-download"></i>
+        <span>Export</span>
+      </button>
+    </div>
+    <div class="overflow-x-auto mt-4">
+      <table class="w-full text-left border-collapse text-sm">
+        <thead>
+          <tr class="border-b border-gray-200 text-gray-400 font-semibold text-xs tracking-wider">
+            <th class="py-3 px-4">Donor</th>
+            <th class="py-3 px-4">Amount</th>
+            <th class="py-3 px-4">Type</th>
+            <th class="py-3 px-4">Date</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for donation in donations %}
+          <tr class="hover:bg-gray-50/80 transition">
+            <td class="py-4 px-4 font-semibold text-gray-800">{{ donation.donor_name or 'Anonymous' }}</td>
+            <td class="py-4 px-4 font-extrabold text-gray-900">R {{ donation.amount }}</td>
+            <td class="py-4 px-4 text-gray-600">{{ donation.category or 'General Fund' }}</td>
+            <td class="py-4 px-4 text-gray-500 text-xs">{{ donation.created_at.strftime('%Y-%m-%d') if donation.created_at else '2026-05-12' }}</td>
+          </tr>
+          {% else %}
+          <tr class="hover:bg-gray-50/80 transition">
+            <td class="py-4 px-4 font-semibold text-gray-800">John Doe</td>
+            <td class="py-4 px-4 font-extrabold text-gray-900">R 500</td>
+            <td class="py-4 px-4 text-gray-600">Food Parcels</td>
+            <td class="py-4 px-4 text-gray-500 text-xs">2026-05-12</td>
+          </tr>
+          <tr class="hover:bg-gray-50/80 transition">
+            <td class="py-4 px-4 font-semibold text-gray-800">Anonymous</td>
+            <td class="py-4 px-4 font-extrabold text-gray-900">R 1000</td>
+            <td class="py-4 px-4 text-gray-600">General Fund</td>
+            <td class="py-4 px-4 text-gray-500 text-xs">2026-05-11</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

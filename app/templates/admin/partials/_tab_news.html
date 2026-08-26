@@ -1,0 +1,59 @@
+<!-- TAB 6: NEWS MANAGEMENT -->
+<div id="tab-news" class="tab-content hidden space-y-6">
+  <div class="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-gray-100 gap-4">
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">News & Announcements Management</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Publish impact stories, update community bulletins, and manage news categories.</p>
+      </div>
+      <button onclick="toggleModal('addNewsModal')" class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
+        <i class="fa-solid fa-plus"></i>
+        <span>Add News Article</span>
+      </button>
+    </div>
+    <div class="overflow-x-auto mt-4">
+      <table class="w-full text-left border-collapse text-sm">
+        <thead>
+          <tr class="border-b border-gray-200 text-gray-400 font-semibold text-xs tracking-wider uppercase">
+            <th class="py-3 px-4">Article Title</th>
+            <th class="py-3 px-4">Category</th>
+            <th class="py-3 px-4">Publish Date</th>
+            <th class="py-3 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for article in news_articles %}
+          <tr class="hover:bg-gray-50/80 transition">
+            <td class="py-4 px-4 font-bold text-gray-800">{{ article.title }}</td>
+            <td class="py-4 px-4 text-gray-600">{{ article.category or 'Announcement' }}</td>
+            <td class="py-4 px-4 text-gray-500 text-xs">{{ article.created_at.strftime('%Y-%m-%d') if article.created_at else '2026-05-15' }}</td>
+            <td class="py-4 px-4 text-right space-x-2">
+              <button class="text-brand-800 hover:text-brand-900 font-bold text-xs"><i class="fa-solid fa-pen mr-1"></i>Edit</button>
+              <button class="text-rose-600 hover:text-rose-700 font-bold text-xs ml-3"><i class="fa-solid fa-trash mr-1"></i>Delete</button>
+            </td>
+          </tr>
+          {% else %}
+          <tr class="hover:bg-gray-50/80 transition">
+            <td class="py-4 px-4 font-bold text-gray-800">Winter Relief Drive Launched Across Port Elizabeth</td>
+            <td class="py-4 px-4 text-gray-600">Community Outreaches</td>
+            <td class="py-4 px-4 text-gray-500 text-xs">2026-05-15</td>
+            <td class="py-4 px-4 text-right space-x-2">
+              <button class="text-brand-800 hover:text-brand-900 font-bold text-xs"><i class="fa-solid fa-pen mr-1"></i>Edit</button>
+              <button class="text-rose-600 hover:text-rose-700 font-bold text-xs ml-3"><i class="fa-solid fa-trash mr-1"></i>Delete</button>
+            </td>
+          </tr>
+          <tr class="hover:bg-gray-50/80 transition">
+            <td class="py-4 px-4 font-bold text-gray-800">New Food Distribution Hub Opened in Northern Areas</td>
+            <td class="py-4 px-4 text-gray-600">Impact Update</td>
+            <td class="py-4 px-4 text-gray-500 text-xs">2026-05-08</td>
+            <td class="py-4 px-4 text-right space-x-2">
+              <button class="text-brand-800 hover:text-brand-900 font-bold text-xs"><i class="fa-solid fa-pen mr-1"></i>Edit</button>
+              <button class="text-rose-600 hover:text-rose-700 font-bold text-xs ml-3"><i class="fa-solid fa-trash mr-1"></i>Delete</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

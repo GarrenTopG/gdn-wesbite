@@ -1,0 +1,57 @@
+<!-- ADD COMMUNITY NEED MODAL -->
+<div id="addNeedModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+    <div class="flex justify-between items-center border-b pb-3">
+      <h3 class="font-bold text-lg text-gray-900">Add Community Need</h3>
+      <button type="button" onclick="toggleModal('addNeedModal')" aria-label="Close modal" class="text-gray-400 hover:text-gray-600">
+        <i class="fa-solid fa-xmark text-lg" aria-hidden="true"></i>
+      </button>
+    </div>
+    
+    <form action="/admin/needs/add" method="POST" class="space-y-4 text-xs">
+      <div>
+        <label for="need_title" class="block font-bold text-gray-700 mb-1">Need Title</label>
+        <input type="text" id="need_title" name="anonymised_title" required placeholder="e.g., Food parcels required in Bethelsdorp" class="w-full p-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:outline-none">
+      </div>
+      
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label for="need_area" class="block font-bold text-gray-700 mb-1">Area / Location</label>
+          <input type="text" id="need_area" name="area" required placeholder="e.g., Bethelsdorp" class="w-full p-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:outline-none">
+        </div>
+        <div>
+          <label for="need_category" class="block font-bold text-gray-700 mb-1">Category</label>
+          <select id="need_category" name="category" class="w-full p-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:outline-none">
+            <option value="Food Relief">Food Relief</option>
+            <option value="Clothing">Clothing</option>
+            <option value="Shelter">Shelter</option>
+            <option value="Education">Education</option>
+            <option value="General">General</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label for="need_urgency" class="block font-bold text-gray-700 mb-1">Urgency Level</label>
+          <select id="need_urgency" name="urgency" class="w-full p-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:outline-none">
+            <option value="Low">Low</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="High">High</option>
+            <option value="Critical">Critical</option>
+          </select>
+        </div>
+        <div>
+          <!-- NEW target_amount FIELD TO MATCH YOUR BACKEND -->
+          <label for="target_amount" class="block font-bold text-gray-700 mb-1">Target Amount (ZAR)</label>
+          <input type="number" step="0.01" id="target_amount" name="target_amount" value="0.00" placeholder="0.00" class="w-full p-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:outline-none">
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2">
+        <button type="button" onclick="toggleModal('addNeedModal')" class="px-4 py-2 bg-gray-100 font-bold rounded-xl text-gray-600">Cancel</button>
+        <button type="submit" class="px-4 py-2 bg-brand-800 text-white font-bold rounded-xl hover:bg-brand-900">Save Need</button>
+      </div>
+    </form>
+  </div>
+</div>

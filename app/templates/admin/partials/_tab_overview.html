@@ -1,0 +1,56 @@
+<!-- TAB 1: OVERVIEW -->
+<div id="tab-overview" class="tab-content space-y-6">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm flex items-center justify-between">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Total Volunteers</p>
+        <p class="text-3xl font-extrabold text-gray-900 mt-1">{{ total_volunteers }}</p>
+      </div>
+      <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl">
+        <i class="fa-solid fa-users"></i>
+      </div>
+    </div>
+    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm flex items-center justify-between">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Total Donations</p>
+        <p class="text-3xl font-extrabold text-gray-900 mt-1">R {{ "%.2f"|format(total_donation_amount) }}</p>
+      </div>
+      <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl">
+        <i class="fa-solid fa-coins"></i>
+      </div>
+    </div>
+    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm flex items-center justify-between">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Intake Requests</p>
+        <p class="text-3xl font-extrabold text-gray-900 mt-1">{{ total_requests }}</p>
+      </div>
+      <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl">
+        <i class="fa-solid fa-hand-holding-hand"></i>
+      </div>
+    </div>
+    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm flex items-center justify-between">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-wider text-gray-400">News Published</p>
+        <p class="text-3xl font-extrabold text-gray-900 mt-1">{{ total_news }}</p>
+      </div>
+      <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-xl">
+        <i class="fa-solid fa-newspaper"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
+      <h3 class="text-base font-bold text-gray-900 mb-4">Volunteer Growth Trend</h3>
+      <div class="h-64">
+        <canvas id="growthChart"></canvas>
+      </div>
+    </div>
+    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
+      <h3 class="text-base font-bold text-gray-900 mb-4">Monthly Donation Value (ZAR)</h3>
+      <div class="h-64">
+        <canvas id="donationChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>

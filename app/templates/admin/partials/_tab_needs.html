@@ -1,0 +1,55 @@
+<!-- TAB 5: COMMUNITY NEEDS -->
+<div id="tab-needs" class="tab-content hidden space-y-6">
+  <div class="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-gray-100 gap-4">
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">Community Needs Tracking</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Track urgent local community requirements and target funding amounts.</p>
+      </div>
+      <button onclick="toggleModal('addNeedModal')" class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
+        <i class="fa-solid fa-plus"></i>
+        <span>Add New Need</span>
+      </button>
+    </div>
+    <div class="overflow-x-auto mt-4">
+      <table class="w-full text-left border-collapse text-sm">
+        <thead>
+          <tr class="border-b border-gray-200 text-gray-400 font-semibold text-xs tracking-wider uppercase">
+            <th class="py-3 px-4">Title / Area</th>
+            <th class="py-3 px-4">Category</th>
+            <th class="py-3 px-4">Urgency</th>
+            <th class="py-3 px-4">Target Amount</th>
+            <th class="py-3 px-4">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for need in needs %}
+          <tr class="hover:bg-gray-50/80 transition">
+            <td class="py-4 px-4 font-bold text-gray-800">
+              {{ need.anonymised_title }}
+              <span class="block font-normal text-xs text-gray-500"><i class="fa-solid fa-location-dot mr-1"></i>{{ need.area }}</span>
+            </td>
+            <td class="py-4 px-4 text-gray-600">{{ need.category }}</td>
+            <td class="py-4 px-4">
+              <span class="px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-md 
+                {% if need.urgency == 'High' or need.urgency == 'Critical' %}bg-rose-100 text-rose-800{% else %}bg-amber-100 text-amber-800{% endif %}">
+                {{ need.urgency }}
+              </span>
+            </td>
+            <td class="py-4 px-4 font-extrabold text-gray-900">
+              R {{ "%.2f"|format(need.target_amount or 0.0) }}
+            </td>
+            <td class="py-4 px-4">
+              <span class="px-3 py-1 text-xs font-bold rounded-full bg-amber-100 text-amber-800">{{ need.status or 'Pending' }}</span>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="py-8 text-center text-gray-400">No community needs logged yet. Click "Add New Need" to add one.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

@@ -83,18 +83,31 @@
                     <p class="text-xs text-gray-500 mt-1">Minimum donation: R10</p>
                 </div>
 
-                <!-- Cause Dropdown -->
+                <!-- Cause / Need Allocation Dropdown -->
                 <div class="mb-4">
-                    <label for="cause" class="block text-sm font-semibold text-gray-700 mb-1">What Will Your Donation Support? <span class="text-red-500">*</span></label>
-                    <select id="cause" name="cause" required aria-label="What Will Your Donation Support?"
+                    <label for="need_id" class="block text-sm font-semibold text-gray-700 mb-1">What Will Your Donation Support? <span class="text-red-500">*</span></label>
+                        <select id="need_id" name="need_id" required aria-label="What Will Your Donation Support?"
                             class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm bg-white transition">
                         <option value="" disabled selected>Select a cause...</option>
+                        
+                        <!-- Static Causes (will pass directly into cause_val) -->
                         <option value="Food Parcels">Food Parcels</option>
                         <option value="Educational Programs">Educational Programs</option>
                         <option value="Healthcare Initiatives">Healthcare Initiatives</option>
                         <option value="Skills Training">Skills Training</option>
                         <option value="Emergency Relief">Emergency Relief</option>
                         <option value="General Fund (Where Most Needed)">General Fund (Where Most Needed)</option>
+
+                        <!-- Dynamic Database Needs -->
+                        {% if active_needs %}
+                            <optgroup label="Direct Community Needs">
+                                {% for need in active_needs %}
+                                    <option value="{{ need.id }}">
+                                        Targeted: {{ need.anonymised_title }} (Target: R{{ "{:,.2f}".format(need.target_amount) if need.target_amount else "N/A" }})
+                                    </option>
+                                {% endfor %}
+                            </optgroup>
+                        {% endif %}
                     </select>
                 </div>
             </div>
@@ -179,10 +192,8 @@
 
 <script>
 function selectPreset(val, btnEl) {
-    // 1. Update Custom Amount field
     document.getElementById('amount').value = val;
     
-    // 2. Reset all preset buttons to neutral white
     document.querySelectorAll('.preset-btn').forEach(b => {
         b.style.backgroundColor = '#ffffff';
         b.style.borderColor = '#d1d5db';
@@ -190,13 +201,11 @@ function selectPreset(val, btnEl) {
         b.style.boxShadow = 'none';
     });
     
-    // 3. Highlight currently hovered button (Sky Blue fill + border)
-    btnEl.style.backgroundColor = '#e0f2fe'; // Tailwind sky-100
-    btnEl.style.borderColor = '#0284c7';     // Tailwind sky-600
+    btnEl.style.backgroundColor = '#e0f2fe';
+    btnEl.style.borderColor = '#0284c7';
     btnEl.style.boxShadow = '0 0 0 2px #38bdf8';
 }
 
-// Reset preset highlights if the user manually types in the custom amount box
 document.addEventListener('DOMContentLoaded', () => {
     const amountInput = document.getElementById('amount');
     if (amountInput) {

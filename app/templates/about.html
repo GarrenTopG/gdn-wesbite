@@ -4,70 +4,117 @@
 
 {% block content %}
 
-<!-- 1. Header Banner -->
-<section class="bg-brand-800 text-white py-16 px-6 text-center relative overflow-hidden">
-    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-brand-500/20 rounded-full blur-3xl pointer-events-none"></div>
+<!-- 1. Dynamic Hero Banner -->
+<section class="relative bg-brand-800 text-white py-24 px-6 text-center overflow-hidden">
+    <!-- Overlay Background Image -->
+    <div class="absolute inset-0 z-0 opacity-20">
+        <img src="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=1600&auto=format&fit=crop" 
+             alt="Community Support" 
+             class="w-full h-full object-cover object-center" />
+        <div class="absolute inset-0 bg-gradient-to-b from-brand-900/80 via-brand-800 to-brand-800"></div>
+    </div>
+
+    <!-- Soft Ambient Glow -->
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-brand-500/30 rounded-full blur-3xl pointer-events-none"></div>
+
     <div class="max-w-4xl mx-auto relative z-10">
-        <h1 class="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight drop-shadow">About Aurorah CAN</h1>
-        <p class="text-lg text-pink-100 max-w-2xl mx-auto leading-relaxed">
+        <h1 class="text-4xl md:text-6xl font-black mb-6 tracking-tight drop-shadow">About Aurorah CAN</h1>
+        <p class="text-lg md:text-xl text-pink-100 max-w-2xl mx-auto leading-relaxed">
             Bridging gaps in our community through transparent aid, dedicated volunteerism, and localized action in Kuils River.
         </p>
     </div>
 </section>
 
-<!-- 2. Core Story & Origin -->
-<section class="py-16 px-6 bg-white">
-    <div class="max-w-5xl mx-auto">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+<!-- 2. Core Story & Visual Media Grid -->
+<section class="py-20 px-6 bg-white">
+    <div class="max-w-6xl mx-auto">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            
+            <!-- Left: Text & Founder Quote -->
             <div>
                 <span class="text-brand-500 font-bold uppercase tracking-wider text-sm block mb-2">Our Beginnings</span>
-                <h2 class="text-3xl font-extrabold text-gray-900 mb-6">Born Out of Community Resilience</h2>
+                <h2 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-6 leading-tight">Born Out of Community Resilience</h2>
                 <p class="text-gray-600 leading-relaxed mb-4">
                     The Aurorah Kuils River Community Action Network (CAN) was established during the heights of the COVID-19 pandemic. What started as an emergency grassroots initiative to distribute meals quickly transformed into a vital community backbone.
                 </p>
-                <p class="text-gray-600 leading-relaxed">
+                <p class="text-gray-600 leading-relaxed mb-6">
                     We saw firsthand that traditional support channels were often overwhelmed or slow to adapt. Aurorah CAN was created to ensure help gets directly to where it is needed most, without bureaucratic delay or lack of visibility.
                 </p>
-            </div>
-            <div class="card-pop bg-brand-50 p-8 rounded-2xl border border-brand-100 relative">
-                <i class="fa-solid fa-quote-left text-brand-500/20 text-6xl absolute top-4 left-4"></i>
-                <blockquote class="relative z-10 text-brand-900 font-medium text-lg italic mb-4">
-                    "When neighbors come together with clear intent and digital tools, we don't just solve immediate crises—we build lasting resilience."
-                </blockquote>
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-full bg-brand-800 text-white flex items-center justify-center font-bold">
-                        LC
-                    </div>
-                    <div>
-                        <div class="font-bold text-gray-900 text-sm">Latifah Jacobs</div>
-                        <div class="text-xs text-gray-500">Community Lead & Operations Manager</div>
+
+                <!-- Founder Quote Card -->
+                <div class="card-pop bg-brand-50 p-6 rounded-2xl border border-brand-100 relative shadow-sm">
+                    <i class="fa-solid fa-quote-left text-brand-500/20 text-5xl absolute top-4 left-4"></i>
+                    <blockquote class="relative z-10 text-brand-900 font-medium text-base italic mb-4">
+                        "When neighbours come together with clear intent and digital tools, we don't just solve immediate crises—we build lasting resilience."
+                    </blockquote>
+                    <div class="flex items-center space-x-3">
+                        <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&auto=format&fit=crop" 
+                             alt="Latifah Jacobs" 
+                             class="w-12 h-12 rounded-full object-cover border-2 border-brand-500" />
+                        <div>
+                            <div class="font-bold text-gray-900 text-sm">Latifah Jacobs</div>
+                            <div class="text-xs text-gray-500">Community Lead & Operations Manager</div>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Right: Dynamic Image Collage -->
+            <div class="grid grid-cols-2 gap-4 relative">
+                <div class="space-y-4">
+                    <div class="overflow-hidden rounded-2xl shadow-md border border-gray-100 group">
+                        <img src="https://images.unsplash.com/photo-1593113598332-cd288d649433?q=80&w=600&auto=format&fit=crop" 
+                             alt="Food Parcel Distribution" 
+                             class="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500" />
+                    </div>
+                    <div class="overflow-hidden rounded-2xl shadow-md border border-gray-100 group">
+                        <img src="https://images.unsplash.com/photo-1559027615-cd4628902d4a?q=80&w=600&auto=format&fit=crop" 
+                             alt="Volunteers at Work" 
+                             class="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-500" />
+                    </div>
+                </div>
+                <div class="space-y-4 pt-8">
+                    <div class="overflow-hidden rounded-2xl shadow-md border border-gray-100 group">
+                        <img src="https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?q=80&w=600&auto=format&fit=crop" 
+                             alt="Community Outreach" 
+                             class="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-500" />
+                    </div>
+                    <!-- Live Metric Badge Card -->
+                    <div class="bg-brand-800 text-white p-6 rounded-2xl shadow-md flex flex-col justify-center items-center text-center">
+                        <i class="fa-solid fa-hands-holding-circle text-3xl text-pink-300 mb-2"></i>
+                        <span class="text-3xl font-black text-white">100%</span>
+                        <span class="text-xs text-pink-100 font-medium uppercase tracking-wider">Direct Community Impact</span>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 </section>
 
 <!-- 3. Our 3 Pillars -->
-<section class="py-16 px-6 bg-gray-50">
+<section class="py-20 px-6 bg-gray-50">
     <div class="max-w-6xl mx-auto">
-        <h2 class="text-3xl font-extrabold text-gray-800 text-center mb-12 tracking-wide">Driven by Purpose</h2>
+        <div class="text-center mb-16">
+            <span class="text-brand-500 font-bold uppercase tracking-wider text-sm block mb-2">Guided by Integrity</span>
+            <h2 class="text-3xl font-extrabold text-gray-900 tracking-wide">Driven by Purpose</h2>
+        </div>
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <!-- Pillar 1 -->
             <div class="card-pop bg-white p-8 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col items-center text-center">
-                <div class="w-16 h-16 rounded-full bg-brand-800 text-white flex items-center justify-center text-2xl mb-6 shadow-md">
+                <div class="w-16 h-16 rounded-full bg-brand-800 text-pink-200 flex items-center justify-center text-2xl mb-6 shadow-md">
                     <i class="fa-solid fa-bullseye"></i>
                 </div>
                 <h3 class="text-xl font-bold text-gray-900 mb-3">Our Mission</h3>
                 <p class="text-gray-600 text-sm leading-relaxed">
-                    To empower the Kuils River community through structured volunteerism, transparent distribution of aid, and unified digital action.
+                    To empower the Kuils River community through structured volunteerism, transparent distribution of aid, and unified digital action[cite: 1].
                 </p>
             </div>
 
             <!-- Pillar 2 -->
             <div class="card-pop bg-white p-8 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col items-center text-center">
-                <div class="w-16 h-16 rounded-full bg-brand-800 text-white flex items-center justify-center text-2xl mb-6 shadow-md">
+                <div class="w-16 h-16 rounded-full bg-brand-800 text-pink-200 flex items-center justify-center text-2xl mb-6 shadow-md">
                     <i class="fa-solid fa-eye"></i>
                 </div>
                 <h3 class="text-xl font-bold text-gray-900 mb-3">Our Vision</h3>
@@ -78,12 +125,12 @@
 
             <!-- Pillar 3 -->
             <div class="card-pop bg-white p-8 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col items-center text-center">
-                <div class="w-16 h-16 rounded-full bg-brand-800 text-white flex items-center justify-center text-2xl mb-6 shadow-md">
+                <div class="w-16 h-16 rounded-full bg-brand-800 text-pink-200 flex items-center justify-center text-2xl mb-6 shadow-md">
                     <i class="fa-solid fa-shield-heart"></i>
                 </div>
                 <h3 class="text-xl font-bold text-gray-900 mb-3">Our Core Values</h3>
                 <p class="text-gray-600 text-sm leading-relaxed">
-                    Complete financial transparency, protection of individual privacy (POPIA compliance), community dignity, and rapid execution.
+                    Complete financial transparency, protection of individual privacy (POPIA compliance)[cite: 1], community dignity, and rapid execution[cite: 1].
                 </p>
             </div>
         </div>
@@ -92,50 +139,77 @@
 
 <!-- 4. How the Digital Hub Works -->
 <section class="py-20 px-6 bg-white">
-    <div class="max-w-5xl mx-auto">
-        <div class="text-center mb-14">
+    <div class="max-w-6xl mx-auto">
+        <div class="text-center mb-16">
+            <span class="text-brand-500 font-bold uppercase tracking-wider text-sm block mb-2">Modernising Assistance</span>
             <h2 class="text-3xl font-extrabold text-gray-900 mb-3">How the Digital Platform Connects Us</h2>
-            <p class="text-gray-600 max-w-xl mx-auto text-sm">Transitioning from physical logbooks to an efficient automated central hub.</p>
+            <p class="text-gray-600 max-w-xl mx-auto text-sm">Transitioning from physical logbooks to an efficient automated central hub[cite: 1].</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div class="relative p-6 bg-brand-50/50 rounded-xl border border-brand-100">
-                <span class="text-3xl font-black text-brand-500/30 mb-2 block">01</span>
-                <h4 class="font-bold text-gray-900 mb-2 text-lg">Beneficiary Requests</h4>
-                <p class="text-gray-600 text-sm leading-relaxed">
-                    Requests for food aid, educational tools, or emergency support are verified and logged while keeping sensitive data private.
-                </p>
+            <div class="card-pop p-8 bg-brand-50/50 rounded-2xl border border-brand-100 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-6">
+                        <span class="text-4xl font-black text-brand-500/30">01</span>
+                        <div class="w-12 h-12 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center text-xl shadow-sm">
+                            <i class="fa-solid fa-clipboard-list"></i>
+                        </div>
+                    </div>
+                    <h4 class="font-bold text-gray-900 mb-2 text-lg">Beneficiary Requests</h4>
+                    <p class="text-gray-600 text-sm leading-relaxed">
+                        Requests for food aid, educational tools, or emergency support are verified and logged while keeping sensitive data private under POPIA standards.
+                    </p>
+                </div>
             </div>
             
-            <div class="relative p-6 bg-brand-50/50 rounded-xl border border-brand-100">
-                <span class="text-3xl font-black text-brand-500/30 mb-2 block">02</span>
-                <h4 class="font-bold text-gray-900 mb-2 text-lg">Volunteer Matching</h4>
-                <p class="text-gray-600 text-sm leading-relaxed">
-                    Local volunteers are matched with tasks based on location, availability, and specific skill sets (driving, packing, admin).
-                </p>
+            <div class="card-pop p-8 bg-brand-50/50 rounded-2xl border border-brand-100 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-6">
+                        <span class="text-4xl font-black text-brand-500/30">02</span>
+                        <div class="w-12 h-12 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center text-xl shadow-sm">
+                            <i class="fa-solid fa-people-arrows"></i>
+                        </div>
+                    </div>
+                    <h4 class="font-bold text-gray-900 mb-2 text-lg">Volunteer Matching</h4>
+                    <p class="text-gray-600 text-sm leading-relaxed">
+                        Local volunteers are matched with tasks based on location, availability, and specific skill sets (driving, packing, admin).
+                    </p>
+                </div>
             </div>
 
-            <div class="relative p-6 bg-brand-50/50 rounded-xl border border-brand-100">
-                <span class="text-3xl font-black text-brand-500/30 mb-2 block">03</span>
-                <h4 class="font-bold text-gray-900 mb-2 text-lg">Direct Audit Impact</h4>
-                <p class="text-gray-600 text-sm leading-relaxed">
-                    Donors receive transparent real-time updates and proof of allocation for every financial or material donation made.
-                </p>
+            <div class="card-pop p-8 bg-brand-50/50 rounded-2xl border border-brand-100 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-6">
+                        <span class="text-4xl font-black text-brand-500/30">03</span>
+                        <div class="w-12 h-12 rounded-xl bg-brand-100 text-brand-800 flex items-center justify-center text-xl shadow-sm">
+                            <i class="fa-solid fa-chart-line"></i>
+                        </div>
+                    </div>
+                    <h4 class="font-bold text-gray-900 mb-2 text-lg">Direct Audit Impact</h4>
+                    <p class="text-gray-600 text-sm leading-relaxed">
+                        Donors receive transparent real-time updates and proof of allocation for every financial or material donation made.
+                    </p>
+                </div>
             </div>
         </div>
     </div>
 </section>
 
 <!-- 5. Call to Action -->
-<section class="bg-brand-800 text-white py-16 px-6 text-center">
-    <div class="max-w-3xl mx-auto">
-        <h2 class="text-3xl font-bold mb-4">Want to Join Hands With Us?</h2>
-        <p class="text-white/80 mb-8 text-sm md:text-base">Whether you can offer time, resources, or skills, every hand makes our community stronger.</p>
+<section class="relative bg-brand-800 text-white py-20 px-6 text-center overflow-hidden">
+    <div class="absolute inset-0 z-0 opacity-10">
+        <img src="https://images.unsplash.com/photo-1511632765486-a01980e01a18?q=80&w=1600&auto=format&fit=crop" alt="Community Hands" class="w-full h-full object-cover" />
+    </div>
+    <div class="max-w-3xl mx-auto relative z-10">
+        <h2 class="text-3xl md:text-4xl font-bold mb-4">Want to Join Hands With Us?</h2>
+        <p class="text-pink-100/90 mb-8 text-sm md:text-base max-w-xl mx-auto">
+            Whether you can offer time, resources, or skills, every hand makes our community stronger.
+        </p>
         <div class="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-4">
-            <a href="#" class="btn-bounce bg-white text-brand-800 font-bold px-8 py-3 rounded-lg shadow-md hover:bg-gray-100">
+            <a href="/volunteer" class="btn-bounce bg-white text-brand-800 font-bold px-8 py-3.5 rounded-xl shadow-md hover:bg-pink-50 transition">
                 Become a Volunteer
             </a>
-            <a href="#" class="btn-bounce bg-brand-500 text-white font-bold px-8 py-3 rounded-lg shadow-md hover:bg-brand-700">
+            <a href="/donate" class="btn-bounce bg-brand-500 text-white font-bold px-8 py-3.5 rounded-xl shadow-md hover:bg-brand-700 transition">
                 Support Our Work
             </a>
         </div>

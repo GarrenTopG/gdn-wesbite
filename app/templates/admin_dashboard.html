@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard - Aurorah CAN{% endblock %}
+
+{% block content %}
+<!-- 1. Header Banner -->
+{% include "admin/partials/_header.html" %}
+
+<!-- 2. Main Dashboard Area -->
+<section class="py-8 px-4 md:px-8 bg-gray-50 min-h-screen">
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- Tab Navigation -->
+    {% include "admin/partials/_tabs_nav.html" %}
+
+    <!-- Tab Contents -->
+    {% include "admin/partials/_tab_overview.html" %}
+    {% include "admin/partials/_tab_volunteers.html" %}
+    {% include "admin/partials/_tab_donations.html" %}
+    {% include "admin/partials/_tab_beneficiaries.html" %}
+    {% include "admin/partials/_tab_needs.html" %}
+    {% include "admin/partials/_tab_news.html" %}
+    {% include "admin/partials/_tab_reports.html" %}
+
+  </div>
+</section>
+
+<!-- 3. Modals -->
+{% include "admin/partials/_modal_add_news.html" %}
+{% include "admin/partials/_modal_add_need.html" %}
+
+<!-- 4. Dashboard Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  function switchTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(el => {
+      el.classList.remove('text-brand-800', 'bg-brand-50', 'border-b-2', 'border-brand-800');
+      el.classList.add('text-gray-500');
+    });
+
+    const target = document.getElementById(`tab-${tabName}`);
+    if (target) target.classList.remove('hidden');
+
+    const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+    if (activeBtn) {
+      activeBtn.classList.remove('text-gray-500');
+      activeBtn.classList.add('text-brand-800', 'bg-brand-50', 'border-b-2', 'border-brand-800');
+    }
+  }
+
+  function toggleModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.toggle('hidden');
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const brandColor = '#9f425c';
+
+    // Volunteer Growth Chart
+    const growthCtx = document.getElementById('growthChart');
+    if (growthCtx) {
+      new Chart(growthCtx, {
+        type: 'line',
+        data: {
+          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+          datasets: [{
+            label: 'Volunteer Count',
+            data: [42, 68, 85, 98, 120],
+            borderColor: brandColor,
+            backgroundColor: 'rgba(159, 66, 92, 0.1)',
+            fill: true,
+            tension: 0.3,
+            pointBackgroundColor: brandColor
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+    }
+
+    // Donation Trend Chart
+    const donationCtx = document.getElementById('donationChart');
+    if (donationCtx) {
+      new Chart(donationCtx, {
+        type: 'bar',
+        data: {
+          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+          datasets: [{
+            label: 'Amount (ZAR)',
+            data: [12500, 18200, 25000, 31800, 45000],
+            backgroundColor: brandColor,
+            borderRadius: 6
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+    }
+  });
+</script>
+{% endblock %}

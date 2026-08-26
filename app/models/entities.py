@@ -42,7 +42,12 @@ class BeneficiaryNeed(SQLModel, table=True):
     urgency: str  # 'Low', 'Medium', 'High', 'Critical'
     status: str = Field(
         default="Pending"
-    )  # 'Pending', 'Matched', 'Fulfilled'
+    )  # 'Pending', 'In Progress', 'Matched', 'Fulfilled'
+
+    # Financial/Resource Targets
+    target_amount: float = Field(default=0.0)
+    current_amount: float = Field(default=0.0)
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -53,12 +58,19 @@ class Donation(SQLModel, table=True):
     donor_email: str
     donor_phone: Optional[str] = None
     amount: float
-    cause: str = Field(default="General Fund")  # 'Food Parcels', 'Educational Programs', etc.
+    cause: str = Field(
+        default="General Fund"
+    )  # 'Food Parcels', 'Educational Programs', etc.
     payment_method: str = Field(default="Gateway")  # 'Gateway', 'EFT Upload'
     proof_of_payment_url: Optional[str] = None
     message: Optional[str] = None
     is_anonymous: bool = Field(default=False)
     is_verified: bool = Field(default=False)
+
+    # Relationship Link
+    need_id: Optional[int] = Field(
+        default=None, foreign_key="beneficiaryneed.id"
+    )
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
