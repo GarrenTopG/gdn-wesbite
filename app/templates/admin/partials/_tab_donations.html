@@ -6,41 +6,63 @@
         <h2 class="text-xl font-bold text-gray-900">Recent Donations</h2>
         <p class="text-xs text-gray-500 mt-0.5">Track financial and food parcel contributions.</p>
       </div>
-      <button class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center space-x-2">
-        <i class="fa-solid fa-download"></i>
-        <span>Export</span>
-      </button>
+      <a href="/admin/donations/export-pdf" target="_blank" class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center space-x-2">
+        <i class="fa-solid fa-file-pdf"></i>
+        <span>Export PDF</span>
+      </a>
     </div>
+
     <div class="overflow-x-auto mt-4">
       <table class="w-full text-left border-collapse text-sm">
         <thead>
-          <tr class="border-b border-gray-200 text-gray-400 font-semibold text-xs tracking-wider">
+          <tr class="border-b border-gray-200 text-gray-400 font-semibold text-xs tracking-wider uppercase">
             <th class="py-3 px-4">Donor</th>
-            <th class="py-3 px-4">Amount</th>
+            <th class="py-3 px-4">Total Amount</th>
+            <th class="py-3 px-4">Allocated</th>
             <th class="py-3 px-4">Type</th>
             <th class="py-3 px-4">Date</th>
+            <th class="py-3 px-4 text-right">Allocation</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
           {% for donation in donations %}
+          {% set total = donation.amount or 0 %}
+          {% set allocated = donation.allocated_amount or 0 %}
+          {% set remaining = total - allocated %}
           <tr class="hover:bg-gray-50/80 transition">
             <td class="py-4 px-4 font-semibold text-gray-800">{{ donation.donor_name or 'Anonymous' }}</td>
-            <td class="py-4 px-4 font-extrabold text-gray-900">R {{ donation.amount }}</td>
-            <td class="py-4 px-4 text-gray-600">{{ donation.category or 'General Fund' }}</td>
+            <td class="py-4 px-4 font-extrabold text-gray-900">R {{ "%.2f"|format(total) }}</td>
+            <td class="py-4 px-4 font-medium text-emerald-700">R {{ "%.2f"|format(allocated) }}</td>
+            <td class="py-4 px-4 text-gray-600">{{ donation.category or donation.donation_type or 'General Fund' }}</td>
             <td class="py-4 px-4 text-gray-500 text-xs">{{ donation.created_at.strftime('%Y-%m-%d') if donation.created_at else '2026-05-12' }}</td>
+            <td class="py-4 px-4 text-right">
+              {% if remaining <= 0 %}
+                <span class="inline-flex items-center px-2.5 py-1 text-xs font-bold text-emerald-800 bg-emerald-100 rounded-md">
+                  <i class="fa-solid fa-link mr-1"></i> Fully Allocated
+                </span>
+              {% else %}
+                <button type="button" 
+                        onclick="openAllocateModal('{{ donation.id }}', '{{ total }}', '{{ remaining }}')" 
+                        class="px-3 py-1.5 bg-brand-800 hover:bg-brand-900 text-white font-bold text-xs rounded-xl shadow-sm transition">
+                  Allocate Need (R {{ "%.2f"|format(remaining) }} left)
+                </button>
+              {% endif %}
+            </td>
           </tr>
           {% else %}
           <tr class="hover:bg-gray-50/80 transition">
             <td class="py-4 px-4 font-semibold text-gray-800">John Doe</td>
-            <td class="py-4 px-4 font-extrabold text-gray-900">R 500</td>
+            <td class="py-4 px-4 font-extrabold text-gray-900">R 500.00</td>
+            <td class="py-4 px-4 font-medium text-emerald-700">R 0.00</td>
             <td class="py-4 px-4 text-gray-600">Food Parcels</td>
             <td class="py-4 px-4 text-gray-500 text-xs">2026-05-12</td>
-          </tr>
-          <tr class="hover:bg-gray-50/80 transition">
-            <td class="py-4 px-4 font-semibold text-gray-800">Anonymous</td>
-            <td class="py-4 px-4 font-extrabold text-gray-900">R 1000</td>
-            <td class="py-4 px-4 text-gray-600">General Fund</td>
-            <td class="py-4 px-4 text-gray-500 text-xs">2026-05-11</td>
+            <td class="py-4 px-4 text-right">
+              <button type="button" 
+                      onclick="openAllocateModal(1, 500.00, 500.00)" 
+                      class="px-3 py-1.5 bg-brand-800 hover:bg-brand-900 text-white font-bold text-xs rounded-xl shadow-sm transition">
+                Allocate Need (R 500.00 left)
+              </button>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -48,3 +70,90 @@
     </div>
   </div>
 </div>
+
+<!-- ALLOCATION MODAL -->
+<div id="allocateModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100">
+    <div class="flex justify-between items-center pb-4 border-b border-gray-100">
+      <h3 class="text-lg font-bold text-gray-900">Allocate Donation</h3>
+      <!-- Fixed accessibility warning by adding title and aria-label -->
+      <button 
+        type="button" 
+        onclick="closeAllocateModal()" 
+        title="Close modal" 
+        aria-label="Close modal" 
+        class="text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-800 rounded-lg p-1"
+      >
+        <i class="fa-solid fa-xmark text-lg" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <form id="allocateForm" method="POST" action="" class="space-y-4 mt-4">
+      <div>
+        <!-- Linked label via 'for' attribute -->
+        <label for="need_id" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+          Select Beneficiary Need
+        </label>
+        <!-- Fixed accessibility warning by adding id and title -->
+        <select 
+          id="need_id" 
+          name="need_id" 
+          title="Select Beneficiary Need" 
+          required 
+          class="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-800"
+        >
+          <option value="" disabled selected>-- Choose a community need --</option>
+          {% for need in needs %}
+            <option value="{{ need.id }}">{{ need.anonymised_title }} (Target: R {{ "%.2f"|format(need.target_amount or 0) }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="allocateAmountInput" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+          Allocation Amount (R)
+        </label>
+        <input 
+          type="number" 
+          step="0.01" 
+          id="allocateAmountInput" 
+          name="allocate_amount" 
+          title="Allocation Amount in Rands" 
+          placeholder="0.00" 
+          min="0.01" 
+          required 
+          class="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-800"
+        />
+        <p class="text-xs text-gray-500 mt-1" id="maxAmountHelp">Max available: R 0.00</p>
+      </div>
+
+      <div class="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+        <button type="button" onclick="closeAllocateModal()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition">
+          Cancel
+        </button>
+        <button type="submit" class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold text-xs rounded-xl shadow-sm transition">
+          Confirm Allocation
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openAllocateModal(donationId, totalAmount, remainingAmount) {
+  const form = document.getElementById('allocateForm');
+  const input = document.getElementById('allocateAmountInput');
+  const helpText = document.getElementById('maxAmountHelp');
+  
+  form.action = '/admin/donations/' + donationId + '/allocate';
+  input.max = parseFloat(remainingAmount).toFixed(2);
+  input.value = parseFloat(remainingAmount).toFixed(2);
+  helpText.innerText = 'Max available balance: R ' + parseFloat(remainingAmount).toFixed(2);
+  
+  document.getElementById('allocateModal').classList.remove('hidden');
+}
+
+function closeAllocateModal() {
+  document.getElementById('allocateModal').classList.add('hidden');
+}
+</script>

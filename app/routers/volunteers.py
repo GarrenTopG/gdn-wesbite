@@ -3,15 +3,14 @@ from fastapi.responses import HTMLResponse
 from sqlmodel import Session
 
 from app.db.session import get_session
-from app.models.entities import Volunteer
+from app.models.entities import Volunteer, VolunteerStatus
 from app.templates_config import templates
 
-# Create router instance with prefix
 router = APIRouter(prefix="/volunteer", tags=["Volunteers"])
 
 
 @router.get("", response_class=HTMLResponse)
-def get_volunteer_page(request: Request):
+async def get_volunteer_page(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="volunteer.html",
@@ -26,25 +25,22 @@ async def submit_volunteer_form(
 ):
     form_data = await request.form()
 
+    # Name Parsing
     first_name = str(form_data.get("first_name", "")).strip()
     last_name = str(form_data.get("last_name", "")).strip()
-    full_name = f"{first_name} {last_name}"
+    full_name = f"{first_name} {last_name}".strip()
 
-    country_code = str(form_data.get("country_code", "+27"))
+    # Contact Details
+    country_code = str(form_data.get("country_code", "+27")).strip()
     phone_number = str(form_data.get("phone", "")).strip()
-    formatted_phone = f"{country_code} {phone_number}"
-
-    raw_days = form_data.getlist("availability")
-    selected_days = [
-        str(day)
-        for day in raw_days
-        if isinstance(day, str) or hasattr(day, "__str__")
-    ]
-    availability_str = (
-        ", ".join(selected_days) if selected_days else "Not specified"
-    )
-
+    formatted_phone = f"{country_code} {phone_number}" if phone_number else ""
     email = str(form_data.get("email", "")).strip()
+
+    # Form Multiselect / Array handling for availability
+    raw_days = form_data.getlist("availability")
+    selected_days = [str(day).strip() for day in raw_days if str(day).strip()]
+    availability_str = ", ".join(selected_days) if selected_days else "Not specified"
+
     skills = str(form_data.get("skills", "")).strip()
     location = str(form_data.get("location", "")).strip()
 
@@ -55,11 +51,20 @@ async def submit_volunteer_form(
         skills=skills,
         location=location,
         availability=availability_str,
+        status=VolunteerStatus.ACTIVE,
     )
 
     session.add(new_volunteer)
     session.commit()
     session.refresh(new_volunteer)
+
+    # Partial rendering support for HTMX
+    if request.headers.get("HX-Request"):
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/_volunteer_success.html",
+            context={"full_name": full_name},
+        )
 
     return templates.TemplateResponse(
         request=request,

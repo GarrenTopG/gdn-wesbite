@@ -26,7 +26,49 @@
 
 <!-- 3. Modals -->
 {% include "admin/partials/_modal_add_news.html" %}
+{% include "admin/partials/_modal_edit_news.html" %}
 {% include "admin/partials/_modal_add_need.html" %}
+
+<!-- DONATION ALLOCATION MODAL -->
+<div id="allocateModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm hidden items-center justify-center z-50">
+  <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-gray-100 space-y-4">
+    <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+      <h3 class="text-lg font-bold text-gray-900">Allocate Donation Balance</h3>
+      <button type="button" onclick="toggleModal('allocateModal')" aria-label="Close modal" title="Close modal" class="text-gray-400 hover:text-gray-600">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <form id="allocateForm" method="POST" action="" class="space-y-4">
+      <div>
+        <label for="need_id_select" class="block text-xs font-bold text-gray-700 uppercase mb-1">Select Target Need</label>
+        <select id="need_id_select" name="need_id" title="Select Community Need" required 
+                class="w-full text-sm rounded-xl border border-gray-400 bg-white focus:ring-2 focus:ring-brand-800 focus:border-brand-800 p-2.5 shadow-sm text-gray-900">
+          <option value="" disabled selected>-- Choose Community Need --</option>
+          {% for need in needs %}
+            <option value="{{ need.id }}">{{ need.anonymised_title }} (Target: R {{ "%.2f"|format(need.target_amount or 0.0) }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="allocate_amount_input" class="block text-xs font-bold text-gray-700 uppercase mb-1">Amount to Allocate (ZAR)</label>
+        <input type="number" step="0.01" min="0.01" id="allocate_amount_input" name="allocate_amount" required 
+               class="w-full text-sm rounded-xl border border-gray-400 bg-white focus:ring-2 focus:ring-brand-800 focus:border-brand-800 p-2.5 shadow-sm text-gray-900 font-semibold" />
+        <p id="remaining_hint" class="text-[11px] text-gray-500 mt-1 font-medium"></p>
+      </div>
+
+      <div class="flex justify-end space-x-3 pt-2">
+        <button type="button" onclick="toggleModal('allocateModal')" class="px-4 py-2 bg-gray-100 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-200 transition">
+          Cancel
+        </button>
+        <button type="submit" class="px-4 py-2 bg-brand-800 text-white font-bold rounded-xl text-xs hover:bg-brand-900 shadow-sm transition">
+          Confirm Allocation
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <!-- 4. Dashboard Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -50,10 +92,36 @@
 
   function toggleModal(modalId) {
     const modal = document.getElementById(modalId);
-    if (modal) modal.classList.toggle('hidden');
+    if (modal) {
+      modal.classList.toggle('hidden');
+      modal.classList.toggle('flex');
+    }
+  }
+
+  function openAllocateModal(donationId, totalAmount, allocatedAmount) {
+    const form = document.getElementById('allocateForm');
+    const input = document.getElementById('allocate_amount_input');
+    const hint = document.getElementById('remaining_hint');
+    
+    if (form && input && hint) {
+      const total = parseFloat(totalAmount) || 0;
+      const allocated = parseFloat(allocatedAmount) || 0;
+      const remaining = Math.max(0, total - allocated);
+
+      form.action = `/admin/donations/${donationId}/allocate`;
+      input.max = remaining.toFixed(2);
+      input.value = remaining.toFixed(2);
+      hint.innerText = `Available unallocated balance: R ${remaining.toFixed(2)}`;
+      
+      toggleModal('allocateModal');
+    }
   }
 
   document.addEventListener("DOMContentLoaded", function () {
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeTab = urlParams.get('tab') || 'overview';
+    switchTab(activeTab);
+
     const brandColor = '#9f425c';
 
     // Volunteer Growth Chart

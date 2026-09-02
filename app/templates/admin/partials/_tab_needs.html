@@ -6,10 +6,16 @@
         <h2 class="text-xl font-bold text-gray-900">Community Needs Tracking</h2>
         <p class="text-xs text-gray-500 mt-0.5">Track urgent local community requirements and target funding amounts.</p>
       </div>
-      <button onclick="toggleModal('addNeedModal')" class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
-        <i class="fa-solid fa-plus"></i>
-        <span>Add New Need</span>
-      </button>
+      <div class="flex items-center space-x-3">
+        <a href="/admin/needs/export-pdf" target="_blank" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl text-xs shadow-sm transition flex items-center space-x-2 border border-gray-300">
+          <i class="fa-solid fa-file-pdf"></i>
+          <span>Export PDF</span>
+        </a>
+        <button onclick="toggleModal('addNeedModal')" class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-plus"></i>
+          <span>Add New Need</span>
+        </button>
+      </div>
     </div>
     <div class="overflow-x-auto mt-4">
       <table class="w-full text-left border-collapse text-sm">
@@ -18,12 +24,17 @@
             <th class="py-3 px-4">Title / Area</th>
             <th class="py-3 px-4">Category</th>
             <th class="py-3 px-4">Urgency</th>
-            <th class="py-3 px-4">Target Amount</th>
+            <th class="py-3 px-4">Target / Progress</th>
             <th class="py-3 px-4">Status</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
           {% for need in needs %}
+          {% set urgency_str = (need.urgency.value if need.urgency.value is defined else need.urgency)|string|capitalize %}
+          {% set status_str = (need.status.value if need.status.value is defined else need.status)|string|capitalize %}
+          {% set target = (need.target_amount or 0.0) | float %}
+          {% set current = (need.current_amount or 0.0) | float %}
+          {% set progress_pct = ((current / target) * 100) if target > 0 else 0 %}
           <tr class="hover:bg-gray-50/80 transition">
             <td class="py-4 px-4 font-bold text-gray-800">
               {{ need.anonymised_title }}
@@ -32,15 +43,29 @@
             <td class="py-4 px-4 text-gray-600">{{ need.category }}</td>
             <td class="py-4 px-4">
               <span class="px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-md 
-                {% if need.urgency == 'High' or need.urgency == 'Critical' %}bg-rose-100 text-rose-800{% else %}bg-amber-100 text-amber-800{% endif %}">
-                {{ need.urgency }}
+                {% if urgency_str in ['High', 'Critical'] %}bg-rose-100 text-rose-800{% else %}bg-amber-100 text-amber-800{% endif %}">
+                {{ urgency_str }}
               </span>
             </td>
-            <td class="py-4 px-4 font-extrabold text-gray-900">
-              R {{ "%.2f"|format(need.target_amount or 0.0) }}
+            <td class="py-4 px-4">
+              <div class="font-extrabold text-gray-900 text-xs">
+                R {{ "%.2f"|format(current) }} / R {{ "%.2f"|format(target) }}
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-1.5 mt-1.5 max-w-[140px] overflow-hidden">
+                <div class="bg-brand-800 h-1.5 rounded-full transition-all duration-300" style="width: {{ [progress_pct, 100]|min }}%"></div>
+              </div>
             </td>
             <td class="py-4 px-4">
-              <span class="px-3 py-1 text-xs font-bold rounded-full bg-amber-100 text-amber-800">{{ need.status or 'Pending' }}</span>
+              {% if status_str in ['Fulfilled', 'Target met'] or (target > 0 and current >= target) %}
+                <span class="px-3 py-1 text-xs font-extrabold rounded-full bg-emerald-100 text-emerald-800 inline-flex items-center space-x-1">
+                  <i class="fa-solid fa-circle-check"></i>
+                  <span>Target Met</span>
+                </span>
+              {% else %}
+                <span class="px-3 py-1 text-xs font-bold rounded-full bg-amber-100 text-amber-800">
+                  {{ status_str }}
+                </span>
+              {% endif %}
             </td>
           </tr>
           {% else %}

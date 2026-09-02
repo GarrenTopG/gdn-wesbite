@@ -1,10 +1,14 @@
+from decimal import Decimal, InvalidOperation
+from io import BytesIO
 from typing import Optional
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse, StreamingResponse
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 from sqlmodel import Session, select
 
 from app.db.session import get_session
-from app.models.entities import BeneficiaryNeed, Donation
+from app.models.entities import BeneficiaryNeed, Donation, NeedStatus
 from app.templates_config import templates
 
 router = APIRouter(prefix="/donate", tags=["Donations"])
@@ -16,9 +20,8 @@ async def get_donate_page(
     need_id: Optional[int] = None,
     session: Session = Depends(get_session),
 ):
-    # Fetch active unfulfilled needs so donors can choose a specific cause
     active_needs = session.exec(
-        select(BeneficiaryNeed).where(BeneficiaryNeed.status != "Fulfilled")
+        select(BeneficiaryNeed).where(BeneficiaryNeed.status != NeedStatus.FULFILLED)
     ).all()
 
     return templates.TemplateResponse(
@@ -39,66 +42,71 @@ async def submit_donation_form(
 ):
     form_data = await request.form()
 
-    # Safe Form Extraction with type guards
+    donation_type = str(form_data.get("donation_type", "monetary")).strip()
     is_anon = form_data.get("is_anonymous") == "true"
+    donor_name_raw = str(form_data.get("donor_name", "")).strip()
+    donor_name = "Anonymous Donor" if (is_anon or not donor_name_raw) else donor_name_raw
 
-    donor_name_raw = form_data.get("donor_name")
-    donor_name_str = str(donor_name_raw).strip() if isinstance(donor_name_raw, str) else ""
-    donor_name = (
-        "Anonymous Donor"
-        if (is_anon or not donor_name_str)
-        else donor_name_str
-    )
-
-    country_code_raw = form_data.get("country_code")
-    country_code = str(country_code_raw).strip() if isinstance(country_code_raw, str) else "+27"
-    
-    phone_raw = form_data.get("phone")
-    phone_str = str(phone_raw).strip() if isinstance(phone_raw, str) else ""
+    country_code = str(form_data.get("country_code", "+27")).strip()
+    phone_str = str(form_data.get("phone", "")).strip()
     donor_phone = f"{country_code} {phone_str}" if phone_str else None
+    
+    # Clean email input: set to None if blank
+    raw_email = str(form_data.get("donor_email", "")).strip()
+    donor_email = raw_email if raw_email else None  # <-- UPDATED
 
-    # Safe Float Conversion
-    raw_amount = form_data.get("amount")
-    amount_val = 0.0
-    if isinstance(raw_amount, str):
+    message_val = str(form_data.get("message", "")).strip() or None
+
+    req_tax = form_data.get("request_tax_certificate") == "true"
+    tax_id = str(form_data.get("tax_id_number", "")).strip() if req_tax else None
+    tax_addr = str(form_data.get("tax_address", "")).strip() if req_tax else None
+
+    amount_val = Decimal("0.00")
+    cause_val = None
+    target_need_id = None
+
+    if donation_type == "monetary":
+        raw_amount = form_data.get("amount", "0")
         try:
-            amount_val = float(raw_amount)
-        except (ValueError, TypeError):
-            amount_val = 0.0
+            amount_val = Decimal(str(raw_amount))
+        except (ValueError, InvalidOperation):
+            amount_val = Decimal("0.00")
 
-   # Parse selected need ID or text cause from form
-    raw_need_id = form_data.get("need_id")
-    target_need_id: Optional[int] = None
-    cause_val = "General Fund (Where Most Needed)"
+        raw_need_id = form_data.get("need_id")
+        cause_val = "General Fund (Where Most Needed)"
 
-    if raw_need_id and isinstance(raw_need_id, str):
-        cleaned_need_id = raw_need_id.strip()
-        
-        # 1. If an integer ID was passed (Dynamic Database Need)
-        if cleaned_need_id.isdigit():
-            target_need_id = int(cleaned_need_id)
-            linked_need = session.get(BeneficiaryNeed, target_need_id)
-            if linked_need:
-                cause_val = f"Targeted: {linked_need.anonymised_title}"
-        
-        # 2. If a text string was passed (e.g. "Food Parcels", "Educational Programs")
-        elif cleaned_need_id:
-            cause_val = cleaned_need_id
+        if raw_need_id and isinstance(raw_need_id, str):
+            cleaned_need_id = raw_need_id.strip()
+            if cleaned_need_id.isdigit():
+                target_need_id = int(cleaned_need_id)
+                linked_need = session.get(BeneficiaryNeed, target_need_id)
+                if linked_need:
+                    cause_val = f"Targeted: {linked_need.anonymised_title}"
+            elif cleaned_need_id:
+                cause_val = cleaned_need_id
 
-    donor_email_raw = form_data.get("donor_email")
-    donor_email = str(donor_email_raw).strip() if isinstance(donor_email_raw, str) else ""
-
-    message_raw = form_data.get("message")
-    message_val = str(message_raw).strip() if isinstance(message_raw, str) and message_raw.strip() else None
+    # In-Kind Attributes
+    item_category = str(form_data.get("item_category", "")).strip() if donation_type == "inkind" else None
+    item_description = str(form_data.get("item_description", "")).strip() if donation_type == "inkind" else None
+    logistics_type = str(form_data.get("logistics_type", "")).strip() if donation_type == "inkind" else None
+    pickup_address = str(form_data.get("pickup_address", "")).strip() if logistics_type == "pickup" else None
 
     new_donation = Donation(
         donor_name=donor_name,
         donor_email=donor_email,
         donor_phone=donor_phone,
+        donation_type=donation_type,
         amount=amount_val,
         cause=cause_val,
         need_id=target_need_id,
-        payment_method="Gateway",
+        item_category=item_category,
+        item_description=item_description,
+        logistics_type=logistics_type,
+        pickup_address=pickup_address,
+        request_tax_certificate=req_tax,
+        tax_id_number=tax_id,
+        tax_address=tax_addr,
+        payment_method="Gateway" if donation_type == "monetary" else "In-Kind Delivery",
         message=message_val,
         is_anonymous=is_anon,
         is_verified=False,
@@ -108,9 +116,8 @@ async def submit_donation_form(
     session.commit()
     session.refresh(new_donation)
 
-    # Re-fetch active needs for response context
     active_needs = session.exec(
-        select(BeneficiaryNeed).where(BeneficiaryNeed.status != "Fulfilled")
+        select(BeneficiaryNeed).where(BeneficiaryNeed.status != NeedStatus.FULFILLED)
     ).all()
 
     return templates.TemplateResponse(
@@ -119,7 +126,54 @@ async def submit_donation_form(
         context={
             "active_page": "donate",
             "submitted": True,
+            "donation_id": new_donation.id,
+            "request_tax": req_tax,
             "amount": f"{amount_val:.2f}",
             "active_needs": active_needs,
         },
+    )
+
+@router.get("/tax-certificate/{donation_id}")
+async def download_tax_certificate(
+    donation_id: int,
+    session: Session = Depends(get_session),
+):
+    donation = session.get(Donation, donation_id)
+    if not donation or not donation.request_tax_certificate:
+        raise HTTPException(status_code=404, detail="Tax certificate not available for this record.")
+
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=letter)
+    
+    # Document Header
+    p.setFont("Helvetica-Bold", 18)
+    p.drawString(100, 750, "SECTION 18A TAX DEDUCTION RECEIPT")
+    p.setFont("Helvetica", 10)
+    p.drawString(100, 735, "Aurorah Community Action Network (PBO / NPO)")
+    p.line(100, 725, 500, 725)
+
+    # Details Grid
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(100, 690, f"Receipt Number: CAN-18A-2026-{donation.id}")
+    
+    p.setFont("Helvetica", 11)
+    p.drawString(100, 660, f"Donor Name: {donation.donor_name}")
+    p.drawString(100, 640, f"SARS Tax Ref / ID: {donation.tax_id_number or 'N/A'}")
+    p.drawString(100, 620, f"Address: {donation.tax_address or 'N/A'}")
+    p.drawString(100, 600, f"Date: {donation.id} (Recorded)")
+    p.drawString(100, 580, f"Amount Received: R{donation.amount:.2f}")
+    p.drawString(100, 560, f"Cause / Allocated Need: {donation.cause or 'General Fund'}")
+
+    p.setFont("Helvetica-Oblique", 9)
+    p.drawString(100, 500, "Issued in terms of Section 18A of the Income Tax Act No 58 of 1962.")
+    p.drawString(100, 485, "The funds will be used exclusively for public benefit activities.")
+
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=Section18A_Receipt_{donation.id}.pdf"},
     )

@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Request Assistance - Aurorah CAN{% endblock %}
+{% block title %}Get Help - Aurorah CAN{% endblock %}
 
 {% block content %}
 
 <!-- Header Banner -->
-<section class="bg-brand-800 text-white py-14 px-6 text-center relative overflow-hidden">
+<section class="bg-brand-800 text-white py-20 px-6 text-center relative overflow-hidden">
     <div class="max-w-4xl mx-auto relative z-10">
-        <div class="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+        <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
             <i class="fa-solid fa-hand-holding-heart"></i>
         </div>
         <h1 class="text-4xl md:text-5xl font-extrabold mb-2 tracking-tight">Request Assistance</h1>
@@ -19,7 +19,7 @@
 
 <!-- Form Section -->
 <section class="py-12 px-4 bg-gray-50 min-h-screen">
-    <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200/80 p-6 md:p-10">
+    <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200/80 p-8 md:p-12">
 
         {% if submitted %}
         <!-- Success State -->
@@ -28,14 +28,14 @@
                 <i class="fa-solid fa-check"></i>
             </div>
             <h3 class="text-2xl font-bold text-emerald-900 mb-2">Request Submitted</h3>
-            <p class="text-emerald-700 text-sm">
+            <p class="text-emerald-700 text-base">
                 Thank you, {{ full_name }}. Your request has been logged and our support team will get in touch with you shortly.
             </p>
         </div>
         {% endif %}
 
         <!-- Info Box -->
-        <div class="bg-brand-50/60 border-l-4 border-brand-800 p-4 rounded-r-lg mb-8 text-sm text-gray-700">
+        <div class="bg-brand-50/60 border-l-4 border-brand-800 p-4 rounded-r-lg mb-8 text-base text-gray-700">
             If you or someone you know needs assistance, we want to help. Please fill in the form below and we'll get back to you as soon as possible. Your information is kept confidential and protected by POPIA regulations.
         </div>
 
@@ -43,33 +43,33 @@
 
             <!-- 1. Personal Information -->
             <div>
-                <h3 class="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Personal Information</h3>
+                <h3 class="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Personal Information</h3>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                     <div>
-                        <label for="first_name" class="block text-sm font-semibold text-gray-700 mb-1">First Name <span class="text-red-500">*</span></label>
+                        <label for="first_name" class="block text-base font-semibold text-gray-800 mb-1.5">First Name <span class="text-red-500">*</span></label>
                         <input id="first_name" type="text" name="first_name" required placeholder="e.g. Jane"
-                               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm transition">
+                               class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base transition">
                     </div>
                     <div>
-                        <label for="last_name" class="block text-sm font-semibold text-gray-700 mb-1">Last Name <span class="text-red-500">*</span></label>
+                        <label for="last_name" class="block text-base font-semibold text-gray-800 mb-1.5">Last Name <span class="text-red-500">*</span></label>
                         <input id="last_name" type="text" name="last_name" required placeholder="e.g. Doe"
-                               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm transition">
+                               class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base transition">
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                     <div>
-                        <label for="email" class="block text-sm font-semibold text-gray-700 mb-1">Email Address <span class="text-red-500">*</span></label>
+                        <label for="email" class="block text-base font-semibold text-gray-800 mb-1.5">Email Address <span class="text-red-500">*</span></label>
                         <input id="email" type="email" name="email" required placeholder="name@example.com"
-                               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm transition">
+                               class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base transition">
                     </div>
 
                     <!-- Country Code + Phone Number Input -->
                     <div>
-                        <label for="phone" class="block text-sm font-semibold text-gray-700 mb-1">Phone Number <span class="text-red-500">*</span></label>
-                        <div class="flex rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-brand-800 focus-within:border-brand-800 overflow-hidden transition">
-                            <select id="country_code" name="country_code" aria-label="Country Dial Code" class="bg-gray-100 border-r border-gray-300 px-3 py-2.5 text-sm text-gray-700 outline-none cursor-pointer">
+                        <label for="phone" class="block text-base font-semibold text-gray-800 mb-1.5">Phone Number <span class="text-red-500">*</span></label>
+                        <div class="flex rounded-xl border border-gray-300 focus-within:ring-2 focus-within:ring-brand-800 focus-within:border-brand-800 overflow-hidden transition">
+                            <select id="country_code" name="country_code" aria-label="Country Dial Code" class="bg-gray-100 border-r border-gray-300 px-3.5 py-3 text-base text-gray-700 outline-none cursor-pointer">
                                 <option value="+27" selected>🇿🇦 +27</option>
                                 <option value="+264">🇳🇦 +264</option>
                                 <option value="+267">🇧🇼 +267</option>
@@ -79,14 +79,14 @@
                                 <option value="+266">🇱🇸 +266</option>
                             </select>
                             <input id="phone" type="tel" name="phone" required placeholder="82 123 4567"
-                                   class="w-full px-3 py-2.5 outline-none text-sm">
+                                   class="w-full px-4 py-3 outline-none text-base">
                         </div>
                     </div>
                 </div>
 
-                <div class="mb-4">
-                    <label for="location" class="block text-sm font-semibold text-gray-700 mb-1">Location / Area <span class="text-red-500">*</span></label>
-                    <select id="location" name="location" required aria-label="Location / Area" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm bg-white transition">
+                <div class="mb-5">
+                    <label for="location" class="block text-base font-semibold text-gray-800 mb-1.5">Location / Area <span class="text-red-500">*</span></label>
+                    <select id="location" name="location" required aria-label="Location / Area" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base bg-white transition">
                         <option value="" disabled selected>Select your area...</option>
                         <option value="Kuils River">Kuils River</option>
                         <option value="Blue Downs">Blue Downs</option>
@@ -99,11 +99,11 @@
 
             <!-- 2. Your Need Details -->
             <div>
-                <h3 class="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Your Need</h3>
+                <h3 class="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Your Need</h3>
 
-                <div class="mb-4">
-                    <label for="need_type" class="block text-sm font-semibold text-gray-700 mb-1">Type of Assistance Needed <span class="text-red-500">*</span></label>
-                    <select id="need_type" name="need_type" required aria-label="Type of Assistance Needed" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm bg-white transition">
+                <div class="mb-5">
+                    <label for="need_type" class="block text-base font-semibold text-gray-800 mb-1.5">Type of Assistance Needed <span class="text-red-500">*</span></label>
+                    <select id="need_type" name="need_type" required aria-label="Type of Assistance Needed" onchange="toggleFinancialAidField(this.value)" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base bg-white transition">
                         <option value="" disabled selected>Select type of need...</option>
                         <option value="Food Parcel">Food Parcel</option>
                         <option value="Financial Aid">Financial Aid</option>
@@ -115,15 +115,25 @@
                     </select>
                 </div>
 
-                <div class="mb-4">
-                    <label for="description" class="block text-sm font-semibold text-gray-700 mb-1">Describe Your Need <span class="text-red-500">*</span></label>
-                    <textarea id="description" name="description" rows="4" required placeholder="Please provide details about what assistance you need and why..."
-                              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm transition"></textarea>
+                <!-- Dynamic Requested Amount Container -->
+                <div id="financial_aid_container" class="hidden mb-5">
+                    <label for="target_amount" class="block text-base font-semibold text-gray-800 mb-1.5">Requested Financial Amount (ZAR) <span class="text-red-500">*</span></label>
+                    <div class="relative rounded-xl border border-gray-300 focus-within:ring-2 focus-within:ring-brand-800 focus-within:border-brand-800 overflow-hidden transition">
+                        <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 font-bold">R</span>
+                        <input id="target_amount" type="number" step="0.01" min="1" name="target_amount" placeholder="e.g. 500.00"
+                               class="w-full pl-9 pr-4 py-3 outline-none text-base">
+                    </div>
                 </div>
 
-                <div class="mb-4">
-                    <label for="urgency" class="block text-sm font-semibold text-gray-700 mb-1">How Urgent Is Your Need?</label>
-                    <select id="urgency" name="urgency" aria-label="How Urgent Is Your Need?" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm bg-white transition">
+                <div class="mb-5">
+                    <label for="description" class="block text-base font-semibold text-gray-800 mb-1.5">Describe Your Need <span class="text-red-500">*</span></label>
+                    <textarea id="description" name="description" rows="4" required placeholder="Please provide details about what assistance you need and why..."
+                              class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base transition"></textarea>
+                </div>
+
+                <div class="mb-5">
+                    <label for="urgency" class="block text-base font-semibold text-gray-800 mb-1.5">How Urgent Is Your Need?</label>
+                    <select id="urgency" name="urgency" aria-label="How Urgent Is Your Need?" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base bg-white transition">
                         <option value="Normal" selected>Normal</option>
                         <option value="Urgent">Urgent</option>
                         <option value="Critical - Immediate">Critical - Immediate</option>
@@ -135,14 +145,14 @@
             <div class="pt-2">
                 <div class="flex items-start mb-6">
                     <input id="popia" name="popia" type="checkbox" value="true" required
-                           class="w-4 h-4 mt-1 text-brand-800 border-gray-300 rounded focus:ring-brand-800">
-                    <label for="popia" class="ml-3 text-xs text-gray-600 leading-relaxed">
+                           class="w-5 h-5 mt-0.5 text-brand-800 border-gray-300 rounded focus:ring-brand-800">
+                    <label for="popia" class="ml-3 text-sm text-gray-600 leading-relaxed">
                         I agree to the Privacy Policy and POPIA Compliance and consent to be contacted regarding this request.
                     </label>
                 </div>
 
                 <button type="submit" 
-                        class="w-full btn-bounce bg-brand-800 text-white font-bold py-3.5 rounded-lg shadow hover:bg-brand-900 transition flex items-center justify-center space-x-2">
+                        class="w-full btn-bounce bg-brand-800 text-white font-bold py-4 rounded-xl shadow hover:bg-brand-900 transition flex items-center justify-center space-x-2 text-base">
                     <i class="fa-solid fa-circle-check"></i>
                     <span>Submit Request</span>
                 </button>
@@ -151,5 +161,21 @@
         </form>
     </div>
 </section>
+
+<script>
+    function toggleFinancialAidField(category) {
+        const container = document.getElementById('financial_aid_container');
+        const amountInput = document.getElementById('target_amount');
+        
+        if (category === 'Financial Aid') {
+            container.classList.remove('hidden');
+            amountInput.required = true;
+        } else {
+            container.classList.add('hidden');
+            amountInput.required = false;
+            amountInput.value = '';
+        }
+    }
+</script>
 
 {% endblock %}

@@ -5,21 +5,21 @@
 {% block content %}
 
 <!-- Header Banner -->
-<section class="bg-brand-800 text-white py-14 px-6 text-center relative overflow-hidden">
+<section class="bg-brand-800 text-white py-20 px-6 text-center relative overflow-hidden">
     <div class="max-w-4xl mx-auto relative z-10">
-        <div class="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+        <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
             <i class="fa-solid fa-heart"></i>
         </div>
         <h1 class="text-4xl md:text-5xl font-extrabold mb-2 tracking-tight">Make a Donation</h1>
         <p class="text-lg text-pink-100 max-w-xl mx-auto">
-            Support the Community
+            Support the Community through Monetary or Physical Contributions
         </p>
     </div>
 </section>
 
 <!-- Form Section -->
 <section class="py-12 px-4 bg-gray-50 min-h-screen">
-    <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200/80 p-6 md:p-10">
+    <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200/80 p-8 md:p-12">
 
         {% if submitted %}
         <!-- Success State -->
@@ -28,207 +28,259 @@
                 <i class="fa-solid fa-check"></i>
             </div>
             <h3 class="text-2xl font-bold text-emerald-900 mb-2">Thank You for Your Support!</h3>
-            <p class="text-emerald-700 text-sm">
-                Your donation request of <strong>R{{ amount }}</strong> has been received. Thank you for empowering our community.
+            <p class="text-emerald-700 text-base mb-4">
+                Your donation request has been recorded. Thank you for empowering our community.
             </p>
+            {% if donation_id and request_tax %}
+                <a href="/donate/tax-certificate/{{ donation_id }}" target="_blank" rel="noopener"
+                   class="inline-flex items-center space-x-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 px-5 rounded-xl text-sm transition">
+                    <i class="fa-solid fa-file-pdf"></i>
+                    <span>Download Section 18A Tax Receipt</span>
+                </a>
+            {% endif %}
         </div>
         {% endif %}
 
-        <!-- Info Box -->
-        <div class="bg-brand-50/60 border-l-4 border-brand-800 p-4 rounded-r-lg mb-8 text-sm text-gray-700">
-            Your contribution directly supports community programs. Every donation is tracked transparently, and you'll receive regular impact updates.
+        <!-- Mode Toggle Tabs -->
+        <div class="grid grid-cols-2 bg-gray-100 p-1.5 rounded-xl mb-8 border border-gray-200">
+            <button type="button" id="tab_monetary" onclick="switchDonationType('monetary')"
+                    class="py-3 px-4 rounded-lg font-bold text-sm transition text-brand-800 bg-white shadow-sm">
+                <i class="fa-solid fa-credit-card mr-2"></i>Monetary Donation
+            </button>
+            <button type="button" id="tab_inkind" onclick="switchDonationType('inkind')"
+                    class="py-3 px-4 rounded-lg font-bold text-sm transition text-gray-600 hover:text-gray-900">
+                <i class="fa-solid fa-box-open mr-2"></i>In-Kind Goods
+            </button>
         </div>
 
         <form action="/donate" method="POST" class="space-y-6">
+            <input type="hidden" id="donation_type" name="donation_type" value="monetary">
 
-            <!-- 1. Select Donation Amount -->
-            <div>
-                <h3 class="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Select Donation Amount</h3>
+            <!-- SECTION: MONETARY FIELDS -->
+            <div id="monetary_fields" class="space-y-6">
+                <h3 class="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Select Donation Amount</h3>
                 
-                <!-- Preset Amount Grid -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                    <button type="button" onmouseenter="selectPreset(50, this)"
-                            class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition duration-150 outline-none cursor-pointer">
-                        <div class="font-bold text-gray-800 text-base">R50</div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                    <button type="button" onclick="selectPreset(50, this)" class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition outline-none cursor-pointer hover:border-brand-800">
+                        <div class="font-bold text-gray-800 text-lg">R50</div>
                         <div class="text-xs text-gray-500">Basic</div>
                     </button>
-
-                    <button type="button" onmouseenter="selectPreset(200, this)"
-                            class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition duration-150 outline-none cursor-pointer">
-                        <div class="font-bold text-gray-800 text-base">R200</div>
+                    <button type="button" onclick="selectPreset(200, this)" class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition outline-none cursor-pointer hover:border-brand-800">
+                        <div class="font-bold text-gray-800 text-lg">R200</div>
                         <div class="text-xs text-gray-500">Standard</div>
                     </button>
-
-                    <button type="button" onmouseenter="selectPreset(500, this)"
-                            class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition duration-150 outline-none cursor-pointer">
-                        <div class="font-bold text-gray-800 text-base">R500</div>
+                    <button type="button" onclick="selectPreset(500, this)" class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition outline-none cursor-pointer hover:border-brand-800">
+                        <div class="font-bold text-gray-800 text-lg">R500</div>
                         <div class="text-xs text-gray-500">Supporter</div>
                     </button>
-
-                    <button type="button" onmouseenter="selectPreset(1000, this)"
-                            class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition duration-150 outline-none cursor-pointer">
-                        <div class="font-bold text-gray-800 text-base">R1000</div>
+                    <button type="button" onclick="selectPreset(1000, this)" class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition outline-none cursor-pointer hover:border-brand-800">
+                        <div class="font-bold text-gray-800 text-lg">R1000</div>
                         <div class="text-xs text-gray-500">Champion</div>
                     </button>
                 </div>
 
-                <!-- Custom Amount Input -->
-                <div class="mb-4">
-                    <label for="amount" class="block text-sm font-semibold text-gray-700 mb-1">Custom Amount (ZAR) <span class="text-red-500">*</span></label>
-                    <div class="relative rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-brand-800 focus-within:border-brand-800 overflow-hidden transition">
-                        <span class="absolute left-4 top-2.5 text-gray-500 text-sm font-semibold">R</span>
-                        <input id="amount" type="number" name="amount" min="10" step="1" required placeholder="0.00"
-                               class="w-full pl-9 pr-4 py-2.5 outline-none text-sm font-semibold text-gray-800">
+                <div class="mb-5">
+                    <label for="amount" class="block text-base font-semibold text-gray-800 mb-1.5">Custom Amount (ZAR) <span class="text-red-500">*</span></label>
+                    <div class="relative rounded-xl border border-gray-300 focus-within:ring-2 focus-within:ring-brand-800 overflow-hidden">
+                        <span class="absolute left-4 top-3 text-gray-500 font-semibold">R</span>
+                        <input id="amount" type="number" name="amount" min="10" step="1" placeholder="0.00" required class="w-full pl-10 pr-4 py-3 outline-none font-semibold text-gray-800">
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">Minimum donation: R10</p>
                 </div>
 
-                <!-- Cause / Need Allocation Dropdown -->
-                <div class="mb-4">
-                    <label for="need_id" class="block text-sm font-semibold text-gray-700 mb-1">What Will Your Donation Support? <span class="text-red-500">*</span></label>
-                        <select id="need_id" name="need_id" required aria-label="What Will Your Donation Support?"
-                            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm bg-white transition">
-                        <option value="" disabled selected>Select a cause...</option>
-                        
-                        <!-- Static Causes (will pass directly into cause_val) -->
+                <div class="mb-5">
+                    <label for="need_id" class="block text-base font-semibold text-gray-800 mb-1.5">What Will Your Donation Support?</label>
+                    <select id="need_id" name="need_id" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 outline-none text-base bg-white">
+                        <option value="" disabled {% if not selected_need_id %}selected{% endif %}>Select a cause...</option>
                         <option value="Food Parcels">Food Parcels</option>
                         <option value="Educational Programs">Educational Programs</option>
                         <option value="Healthcare Initiatives">Healthcare Initiatives</option>
-                        <option value="Skills Training">Skills Training</option>
                         <option value="Emergency Relief">Emergency Relief</option>
                         <option value="General Fund (Where Most Needed)">General Fund (Where Most Needed)</option>
-
-                        <!-- Dynamic Database Needs -->
                         {% if active_needs %}
                             <optgroup label="Direct Community Needs">
                                 {% for need in active_needs %}
-                                    <option value="{{ need.id }}">
-                                        Targeted: {{ need.anonymised_title }} (Target: R{{ "{:,.2f}".format(need.target_amount) if need.target_amount else "N/A" }})
+                                    <option value="{{ need.id }}" {% if selected_need_id == need.id %}selected{% endif %}>
+                                        Targeted: {{ need.anonymised_title }}
                                     </option>
                                 {% endfor %}
                             </optgroup>
                         {% endif %}
                     </select>
                 </div>
-            </div>
 
-            <!-- 2. Your Information -->
-            <div>
-                <h3 class="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Your Information</h3>
-
-                <!-- Anonymous Checkbox -->
-                <div class="flex items-center mb-4">
-                    <input id="is_anonymous" name="is_anonymous" type="checkbox" value="true" onchange="toggleAnonymous(this)"
-                           class="w-4 h-4 text-brand-800 border-gray-300 rounded focus:ring-brand-800">
-                    <label for="is_anonymous" class="ml-2 text-sm text-gray-700 font-medium">
-                        I prefer to donate anonymously
-                    </label>
-                </div>
-
-                <!-- Name Input -->
-                <div id="name_container" class="mb-4">
-                    <label for="donor_name" class="block text-sm font-semibold text-gray-700 mb-1">Your Name</label>
-                    <input id="donor_name" type="text" name="donor_name" placeholder="e.g. Jane Doe"
-                           class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm transition">
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <!-- Email -->
-                    <div>
-                        <label for="donor_email" class="block text-sm font-semibold text-gray-700 mb-1">Email Address <span class="text-red-500">*</span></label>
-                        <input id="donor_email" type="email" name="donor_email" required placeholder="For donation confirmation & impact updates"
-                               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm transition">
+                <!-- SECTION 18A TAX CERTIFICATE CHECKBOX -->
+                <div class="p-4 bg-brand-50/60 border border-brand-200 rounded-xl space-y-4">
+                    <div class="flex items-center">
+                        <input id="request_tax_certificate" name="request_tax_certificate" type="checkbox" value="true" onchange="toggleTaxFields(this)" class="w-5 h-5 text-brand-800 rounded focus:ring-brand-800">
+                        <label for="request_tax_certificate" class="ml-3 text-sm font-semibold text-brand-900 cursor-pointer">
+                            Issue a Section 18A Tax Deduction Certificate
+                        </label>
                     </div>
 
-                    <!-- Country Code + Phone Number Input -->
+                    <div id="tax_fields" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-brand-200">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1">SARS Tax Reference / ID Number</label>
+                            <input type="text" name="tax_id_number" placeholder="e.g. 9000123456" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1">Residential / Physical Address</label>
+                            <input type="text" name="tax_address" placeholder="e.g. 12 Main Rd, Cape Town" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: IN-KIND FIELDS -->
+            <div id="inkind_fields" class="hidden space-y-6">
+                <h3 class="text-xl font-bold text-gray-900 mb-4 border-b pb-2">In-Kind Contribution Details</h3>
+
+                <div>
+                    <label class="block text-base font-semibold text-gray-800 mb-1.5">Item Category <span class="text-red-500">*</span></label>
+                    <select id="item_category" name="item_category" aria-label="Item Category" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base bg-white">
+                        <option value="Non-Perishable Food / Canned Goods">Non-Perishable Food / Canned Goods</option>
+                        <option value="Clothing & Footwear">Clothing & Footwear</option>
+                        <option value="Blankets & Bedding">Blankets & Bedding</option>
+                        <option value="School Supplies & Books">School Supplies & Books</option>
+                        <option value="Other Physical Goods">Other Physical Goods</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-base font-semibold text-gray-800 mb-1.5">Item Description & Estimated Quantities <span class="text-red-500">*</span></label>
+                    <textarea name="item_description" rows="3" placeholder="e.g. 3 boxes of canned beans, 10 warm winter jackets" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-base font-semibold text-gray-800 mb-2">Fulfillment Method</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="p-4 border rounded-xl flex items-center space-x-3 cursor-pointer hover:border-brand-800">
+                            <input type="radio" name="logistics_type" value="dropoff" checked onchange="toggleLogistics('dropoff')" class="text-brand-800">
+                            <span class="text-sm font-bold text-gray-800">I will Drop Off</span>
+                        </label>
+                        <label class="p-4 border rounded-xl flex items-center space-x-3 cursor-pointer hover:border-brand-800">
+                            <input type="radio" name="logistics_type" value="pickup" onchange="toggleLogistics('pickup')" class="text-brand-800">
+                            <span class="text-sm font-bold text-gray-800">Request Collection</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="dropoff_info" class="p-4 bg-gray-100 rounded-xl text-xs text-gray-600">
+                    <p class="font-bold text-gray-800">Drop-off Location:</p>
+                    <p>Aurorah CAN Community Hub headquarters at 27 Lovebird Walk, Sunbird Walk, Kuils River, Western Cape, 7580.</p>
+                    <p class="mt-1 text-gray-500">Hours: Monday – Saturday, 08:30 – 16:00</p>
+                </div>
+
+                <div id="pickup_info" class="hidden">
+                    <label class="block text-base font-semibold text-gray-800 mb-1.5">Collection Address <span class="text-red-500">*</span></label>
+                    <input type="text" name="pickup_address" placeholder="Enter full address for driver pickup" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base">
+                </div>
+            </div>
+
+            <!-- SECTION: CONTACT INFO -->
+            <div>
+                <h3 class="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Your Information</h3>
+
+                <div class="flex items-center mb-5">
+                    <input id="is_anonymous" name="is_anonymous" type="checkbox" value="true" onchange="toggleAnonymous(this)" class="w-5 h-5 text-brand-800 border-gray-300 rounded focus:ring-brand-800">
+                    <label for="is_anonymous" class="ml-3 text-base text-gray-700 font-medium cursor-pointer">I prefer to donate anonymously</label>
+                </div>
+
+                <div id="name_container" class="mb-5">
+                    <label for="donor_name" class="block text-base font-semibold text-gray-800 mb-1.5">Your Name</label>
+                    <input id="donor_name" type="text" name="donor_name" placeholder="e.g. Jane Doe" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base">
+                </div>
+
+                <!-- Cleaned Grid Layout for Contact & Message Fields -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                     <div>
-                        <label for="phone" class="block text-sm font-semibold text-gray-700 mb-1">Phone Number (Optional)</label>
-                        <div class="flex rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-brand-800 focus-within:border-brand-800 overflow-hidden transition">
-                            <select id="country_code" name="country_code" aria-label="Country Dial Code" class="bg-gray-100 border-r border-gray-300 px-3 py-2.5 text-sm text-gray-700 outline-none cursor-pointer">
+                        <label for="donor_email" class="block text-base font-semibold text-gray-800 mb-1.5">Email Address (Optional)</label>
+                        <input type="email" name="donor_email" id="donor_email" placeholder="e.g. email@example.com" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base outline-none">
+                    </div>
+                    
+                    <div>
+                        <label for="phone" class="block text-base font-semibold text-gray-800 mb-1.5">Phone Number (Optional)</label>
+                        <div class="flex rounded-xl border border-gray-300 focus-within:ring-2 focus-within:ring-brand-800 overflow-hidden">
+                            <select id="country_code" name="country_code" aria-label="Country Dial Code" class="bg-gray-100 border-r border-gray-300 px-3.5 py-3 text-base text-gray-700 outline-none">
                                 <option value="+27" selected>🇿🇦 +27</option>
                                 <option value="+264">🇳🇦 +264</option>
                                 <option value="+267">🇧🇼 +267</option>
-                                <option value="+263">🇿🇼 +263</option>
-                                <option value="+258">🇲ℤ +258</option>
-                                <option value="+268">🇸ℤ +268</option>
-                                <option value="+266">🇱🇸 +266</option>
                             </select>
-                            <input id="phone" type="tel" name="phone" placeholder="82 123 4567"
-                                   class="w-full px-3 py-2.5 outline-none text-sm">
+                            <input id="phone" type="tel" name="phone" placeholder="82 123 4567" class="w-full px-4 py-3 outline-none text-base">
                         </div>
                     </div>
                 </div>
 
-                <!-- Message -->
-                <div class="mb-4">
-                    <label for="message" class="block text-sm font-semibold text-gray-700 mb-1">Message (Optional)</label>
-                    <textarea id="message" name="message" rows="3" placeholder="Leave a message to inspire others (will be displayed on our website)..."
-                              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm transition"></textarea>
-                    <p class="text-xs text-gray-500 mt-1">Leave empty if you don't want your message shared</p>
+                <div class="mb-5">
+                    <label for="message" class="block text-base font-semibold text-gray-800 mb-1.5">Message (Optional)</label>
+                    <textarea id="message" name="message" rows="3" placeholder="Leave a message to inspire others..." class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base outline-none"></textarea>
                 </div>
             </div>
 
-            <!-- 3. POPIA & Submit -->
+            <!-- SUBMIT & POPIA -->
             <div class="pt-2">
                 <div class="flex items-start mb-6">
-                    <input id="popia" name="popia" type="checkbox" value="true" required
-                           class="w-4 h-4 mt-1 text-brand-800 border-gray-300 rounded focus:ring-brand-800">
-                    <label for="popia" class="ml-3 text-xs text-gray-600 leading-relaxed">
-                        I agree to the Privacy Policy and POPIA Compliance.
-                    </label>
+                    <input id="popia" name="popia" type="checkbox" value="true" required class="w-5 h-5 mt-0.5 text-brand-800 border-gray-300 rounded focus:ring-brand-800">
+                    <label for="popia" class="ml-3 text-sm text-gray-600 cursor-pointer">I agree to the Privacy Policy and POPIA Compliance.</label>
                 </div>
 
-                <button type="submit" 
-                        class="w-full btn-bounce bg-brand-800 text-white font-bold py-3.5 rounded-lg shadow hover:bg-brand-900 transition flex items-center justify-center space-x-2">
+                <button type="submit" class="w-full bg-brand-800 text-white font-bold py-4 rounded-xl shadow hover:bg-brand-900 transition flex items-center justify-center space-x-2 text-base">
                     <i class="fa-solid fa-heart"></i>
-                    <span>Proceed to Payment</span>
+                    <span id="submit_btn_text">Proceed to Payment</span>
                 </button>
-                <p class="text-xs text-center text-gray-500 mt-2">Secure payment processing. You'll be redirected to our payment partner.</p>
             </div>
-
         </form>
     </div>
 </section>
 
 <script>
-function selectPreset(val, btnEl) {
-    document.getElementById('amount').value = val;
-    
-    document.querySelectorAll('.preset-btn').forEach(b => {
-        b.style.backgroundColor = '#ffffff';
-        b.style.borderColor = '#d1d5db';
-        b.style.color = '#1f2937';
-        b.style.boxShadow = 'none';
-    });
-    
-    btnEl.style.backgroundColor = '#e0f2fe';
-    btnEl.style.borderColor = '#0284c7';
-    btnEl.style.boxShadow = '0 0 0 2px #38bdf8';
+function switchDonationType(type) {
+    document.getElementById('donation_type').value = type;
+    const isMonetary = type === 'monetary';
+
+    document.getElementById('monetary_fields').classList.toggle('hidden', !isMonetary);
+    document.getElementById('inkind_fields').classList.toggle('hidden', isMonetary);
+
+    document.getElementById('tab_monetary').className = isMonetary 
+        ? 'py-3 px-4 rounded-lg font-bold text-sm transition text-brand-800 bg-white shadow-sm'
+        : 'py-3 px-4 rounded-lg font-bold text-sm transition text-gray-600 hover:text-gray-900';
+
+    document.getElementById('tab_inkind').className = !isMonetary 
+        ? 'py-3 px-4 rounded-lg font-bold text-sm transition text-brand-800 bg-white shadow-sm'
+        : 'py-3 px-4 rounded-lg font-bold text-sm transition text-gray-600 hover:text-gray-900';
+
+    document.getElementById('amount').required = isMonetary;
+    document.getElementById('submit_btn_text').innerText = isMonetary ? 'Proceed to Payment' : 'Submit In-Kind Offer';
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const amountInput = document.getElementById('amount');
-    if (amountInput) {
-        amountInput.addEventListener('input', () => {
-            document.querySelectorAll('.preset-btn').forEach(b => {
-                b.style.backgroundColor = '#ffffff';
-                b.style.borderColor = '#d1d5db';
-                b.style.boxShadow = 'none';
-            });
-        });
-    }
-});
+function toggleTaxFields(checkbox) {
+    document.getElementById('tax_fields').classList.toggle('hidden', !checkbox.checked);
+}
+
+function toggleLogistics(type) {
+    document.getElementById('dropoff_info').classList.toggle('hidden', type !== 'dropoff');
+    document.getElementById('pickup_info').classList.toggle('hidden', type !== 'pickup');
+}
+
+function selectPreset(val, btnEl) {
+    document.getElementById('amount').value = val;
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.classList.remove('border-brand-800', 'bg-brand-50', 'ring-2', 'ring-brand-800');
+        btn.classList.add('bg-white', 'border-gray-300');
+    });
+    btnEl.classList.remove('bg-white', 'border-gray-300');
+    btnEl.classList.add('border-brand-800', 'bg-brand-50', 'ring-2', 'ring-brand-800');
+}
 
 function toggleAnonymous(checkbox) {
     const nameInput = document.getElementById('donor_name');
     if (checkbox.checked) {
         nameInput.value = 'Anonymous Donor';
-        nameInput.disabled = true;
-        nameInput.classList.add('bg-gray-100');
+        nameInput.readOnly = true;
+        nameInput.classList.add('bg-gray-100', 'text-gray-500');
     } else {
         nameInput.value = '';
-        nameInput.disabled = false;
-        nameInput.classList.remove('bg-gray-100');
+        nameInput.readOnly = false;
+        nameInput.classList.remove('bg-gray-100', 'text-gray-500');
     }
 }
 </script>

@@ -5,7 +5,7 @@
 {% block content %}
 
 <!-- 1. Dynamic Hero Banner -->
-<section class="relative bg-brand-800 text-white py-24 px-6 text-center overflow-hidden">
+<section class="relative bg-brand-800 text-white pt-24 pb-20 px-6 text-center overflow-hidden">
     <!-- Overlay Background Image -->
     <div class="absolute inset-0 z-0 opacity-20">
         <img src="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=1600&auto=format&fit=crop" 
@@ -17,7 +17,7 @@
     <!-- Soft Ambient Glow -->
     <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-brand-500/30 rounded-full blur-3xl pointer-events-none"></div>
 
-    <div class="max-w-4xl mx-auto relative z-10">
+    <div class="max-w-4xl mx-auto relative z-10 pb-6">
         <h1 class="text-4xl md:text-6xl font-black mb-6 tracking-tight drop-shadow">About Aurorah CAN</h1>
         <p class="text-lg md:text-xl text-pink-100 max-w-2xl mx-auto leading-relaxed">
             Bridging gaps in our community through transparent aid, dedicated volunteerism, and localized action in Kuils River.
@@ -25,8 +25,56 @@
     </div>
 </section>
 
+<!-- 1.5 Quick-Contact Floating Cards Bar -->
+<section class="relative z-20 px-6 -mt-12 max-w-6xl mx-auto">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        
+        <!-- Address Card -->
+        <a href="https://maps.google.com/?q=27+Lovebird+Walk,+Sunbird+Park,+Kuils+River,+7580" 
+           target="_blank" 
+           rel="noopener" 
+           class="bg-white/95 backdrop-blur border border-gray-200/80 p-5 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex items-center space-x-4 group">
+            <div class="w-12 h-12 rounded-xl bg-brand-50 text-brand-800 flex items-center justify-center text-xl shrink-0 group-hover:bg-brand-800 group-hover:text-white transition-colors duration-300">
+                <i class="fa-solid fa-location-dot"></i>
+            </div>
+            <div class="overflow-hidden">
+                <span class="text-xs font-bold text-brand-500 uppercase tracking-wider block">Visit Us</span>
+                <p class="text-sm font-semibold text-gray-800 truncate">27 Lovebird Walk, Sunbird Park</p>
+                <p class="text-xs text-gray-500 truncate">Kuils River, Western Cape, 7580</p>
+            </div>
+        </a>
+
+        <!-- Phone Card -->
+        <a href="tel:0214830987" 
+           class="bg-white/95 backdrop-blur border border-gray-200/80 p-5 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex items-center space-x-4 group">
+            <div class="w-12 h-12 rounded-xl bg-brand-50 text-brand-800 flex items-center justify-center text-xl shrink-0 group-hover:bg-brand-800 group-hover:text-white transition-colors duration-300">
+                <i class="fa-solid fa-phone"></i>
+            </div>
+            <div>
+                <span class="text-xs font-bold text-brand-500 uppercase tracking-wider block">Call Line</span>
+                <p class="text-sm font-semibold text-gray-800">(021) 483 0987</p>
+                <p class="text-xs text-gray-500">Mon - Fri • 08:00 - 16:00</p>
+            </div>
+        </a>
+
+        <!-- Email Card -->
+        <a href="mailto:npo.helpdesk@westerncape.gov.za" 
+           class="bg-white/95 backdrop-blur border border-gray-200/80 p-5 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex items-center space-x-4 group">
+            <div class="w-12 h-12 rounded-xl bg-brand-50 text-brand-800 flex items-center justify-center text-xl shrink-0 group-hover:bg-brand-800 group-hover:text-white transition-colors duration-300">
+                <i class="fa-solid fa-envelope"></i>
+            </div>
+            <div class="overflow-hidden">
+                <span class="text-xs font-bold text-brand-500 uppercase tracking-wider block">Email Inquiries</span>
+                <p class="text-sm font-semibold text-gray-800 truncate">npo.helpdesk@westerncape.gov.za</p>
+                <p class="text-xs text-gray-500">Official Verification Desk</p>
+            </div>
+        </a>
+
+    </div>
+</section>
+
 <!-- 2. Core Story & Visual Media Grid -->
-<section class="py-20 px-6 bg-white">
+<section class="pt-16 pb-20 px-6 bg-white">
     <div class="max-w-6xl mx-auto">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             
@@ -108,7 +156,7 @@
                 </div>
                 <h3 class="text-xl font-bold text-gray-900 mb-3">Our Mission</h3>
                 <p class="text-gray-600 text-sm leading-relaxed">
-                    To empower the Kuils River community through structured volunteerism, transparent distribution of aid, and unified digital action[cite: 1].
+                    To empower the Kuils River community through structured volunteerism, transparent distribution of aid, and unified digital action.
                 </p>
             </div>
 
@@ -130,7 +178,7 @@
                 </div>
                 <h3 class="text-xl font-bold text-gray-900 mb-3">Our Core Values</h3>
                 <p class="text-gray-600 text-sm leading-relaxed">
-                    Complete financial transparency, protection of individual privacy (POPIA compliance)[cite: 1], community dignity, and rapid execution[cite: 1].
+                    Complete financial transparency, protection of individual privacy (POPIA compliance), community dignity, and rapid execution.
                 </p>
             </div>
         </div>
@@ -143,7 +191,7 @@
         <div class="text-center mb-16">
             <span class="text-brand-500 font-bold uppercase tracking-wider text-sm block mb-2">Modernising Assistance</span>
             <h2 class="text-3xl font-extrabold text-gray-900 mb-3">How the Digital Platform Connects Us</h2>
-            <p class="text-gray-600 max-w-xl mx-auto text-sm">Transitioning from physical logbooks to an efficient automated central hub[cite: 1].</p>
+            <p class="text-gray-600 max-w-xl mx-auto text-sm">Transitioning from physical logbooks to an efficient automated central hub.</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">

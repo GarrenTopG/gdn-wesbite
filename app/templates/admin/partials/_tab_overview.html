@@ -13,7 +13,9 @@
     <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm flex items-center justify-between">
       <div>
         <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Total Donations</p>
-        <p class="text-3xl font-extrabold text-gray-900 mt-1">R {{ "%.2f"|format(total_donation_amount) }}</p>
+       <p class="text-3xl font-extrabold text-gray-900 mt-1">
+  R {{ "%.2f"|format(total_donation_amount|float) }}
+</p>
       </div>
       <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl">
         <i class="fa-solid fa-coins"></i>

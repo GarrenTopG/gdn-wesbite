@@ -5,9 +5,9 @@
 {% block content %}
 
 <!-- Header Banner -->
-<section class="bg-brand-800 text-white py-14 px-6 text-center relative overflow-hidden">
+<section class="bg-brand-800 text-white py-20 px-6 text-center relative overflow-hidden">
     <div class="max-w-4xl mx-auto relative z-10">
-        <div class="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+        <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
             <i class="fa-solid fa-user-group"></i>
         </div>
         <h1 class="text-4xl md:text-5xl font-extrabold mb-2 tracking-tight">Become a Volunteer</h1>
@@ -19,7 +19,7 @@
 
 <!-- Form Section -->
 <section class="py-12 px-4 bg-gray-50 min-h-screen">
-    <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200/80 p-6 md:p-10">
+    <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200/80 p-8 md:p-12">
 
         {% if submitted %}
         <!-- Success State -->
@@ -28,14 +28,14 @@
                 <i class="fa-solid fa-check"></i>
             </div>
             <h3 class="text-2xl font-bold text-emerald-900 mb-2">Thank You, {{ full_name }}!</h3>
-            <p class="text-emerald-700 text-sm">
+            <p class="text-emerald-700 text-base">
                 Your volunteer details have been saved to our database. Our operations team will match you with upcoming community tasks.
             </p>
         </div>
         {% endif %}
 
         <!-- Info Box -->
-        <div class="bg-brand-50/60 border-l-4 border-brand-800 p-4 rounded-r-lg mb-8 text-sm text-gray-700">
+        <div class="bg-brand-50/60 border-l-4 border-brand-800 p-4 rounded-r-lg mb-8 text-base text-gray-700">
             Help us serve the Kuils River community. Fill in your details below and let us know how you can contribute.
         </div>
 
@@ -43,50 +43,50 @@
 
             <!-- 1. Personal Information -->
             <div>
-                <h3 class="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Personal Information</h3>
+                <h3 class="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Personal Information</h3>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                     <div>
-                        <label for="first_name" class="block text-sm font-semibold text-gray-700 mb-1">First Name <span class="text-red-500">*</span></label>
+                        <label for="first_name" class="block text-base font-semibold text-gray-800 mb-1.5">First Name <span class="text-red-500">*</span></label>
                         <input id="first_name" type="text" name="first_name" required placeholder="e.g. John"
-                               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm transition">
+                               class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base transition">
                     </div>
                     <div>
-                        <label for="last_name" class="block text-sm font-semibold text-gray-700 mb-1">Last Name <span class="text-red-500">*</span></label>
+                        <label for="last_name" class="block text-base font-semibold text-gray-800 mb-1.5">Last Name <span class="text-red-500">*</span></label>
                         <input id="last_name" type="text" name="last_name" required placeholder="e.g. Doe"
-                               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm transition">
+                               class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base transition">
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                     <div>
-                        <label for="email" class="block text-sm font-semibold text-gray-700 mb-1">Email Address <span class="text-red-500">*</span></label>
+                        <label for="email" class="block text-base font-semibold text-gray-800 mb-1.5">Email Address <span class="text-red-500">*</span></label>
                         <input id="email" type="email" name="email" required placeholder="name@example.com"
-                               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm transition">
+                               class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base transition">
                     </div>
 
                     <!-- Country Code + Phone Number Input -->
                     <div>
-                        <label for="phone" class="block text-sm font-semibold text-gray-700 mb-1">Phone Number <span class="text-red-500">*</span></label>
-                        <div class="flex rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-brand-800 focus-within:border-brand-800 overflow-hidden transition">
-                            <select id="country_code" name="country_code" aria-label="Country Dial Code" class="bg-gray-100 border-r border-gray-300 px-3 py-2.5 text-sm text-gray-700 outline-none cursor-pointer">
+                        <label for="phone" class="block text-base font-semibold text-gray-800 mb-1.5">Phone Number <span class="text-red-500">*</span></label>
+                        <div class="flex rounded-xl border border-gray-300 focus-within:ring-2 focus-within:ring-brand-800 focus-within:border-brand-800 overflow-hidden transition">
+                            <select id="country_code" name="country_code" aria-label="Country Dial Code" class="bg-gray-100 border-r border-gray-300 px-3.5 py-3 text-base text-gray-700 outline-none cursor-pointer">
                                 <option value="+27" selected>🇿🇦 +27</option>
                                 <option value="+264">🇳🇦 +264</option>
                                 <option value="+267">🇧🇼 +267</option>
                                 <option value="+263">🇿🇼 +263</option>
-                                <option value="+258">🇲🇿 +258</option>
+                                <option value="+258">🇲ℤ +258</option>
                                 <option value="+268">🇸🇿 +268</option>
                                 <option value="+266">🇱🇸 +266</option>
                             </select>
                             <input id="phone" type="tel" name="phone" required placeholder="82 123 4567"
-                                   class="w-full px-3 py-2.5 outline-none text-sm">
+                                   class="w-full px-4 py-3 outline-none text-base">
                         </div>
                     </div>
                 </div>
 
-                <div class="mb-4">
-                    <label for="location" class="block text-sm font-semibold text-gray-700 mb-1">Location / Area <span class="text-red-500">*</span></label>
-                    <select id="location" name="location" required aria-label="Location / Area" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm bg-white transition">
+                <div class="mb-5">
+                    <label for="location" class="block text-base font-semibold text-gray-800 mb-1.5">Location / Area <span class="text-red-500">*</span></label>
+                    <select id="location" name="location" required aria-label="Location / Area" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base bg-white transition">
                         <option value="" disabled selected>Select your area...</option>
                         <option value="Kuils River Central">Kuils River Central</option>
                         <option value="Highbury">Highbury</option>
@@ -100,39 +100,39 @@
 
             <!-- 2. Skills & Availability -->
             <div>
-                <h3 class="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Your Skills & Availability</h3>
+                <h3 class="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Your Skills & Availability</h3>
 
                 <div class="mb-5">
-                    <label for="skills" class="block text-sm font-semibold text-gray-700 mb-1">Your Skills & Experience <span class="text-red-500">*</span></label>
+                    <label for="skills" class="block text-base font-semibold text-gray-800 mb-1.5">Your Skills & Experience <span class="text-red-500">*</span></label>
                     <textarea id="skills" name="skills" rows="3" required placeholder="E.g., teaching, healthcare, carpentry, cooking, admin work, logistics, driver..."
-                              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm transition"></textarea>
+                              class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base transition"></textarea>
                 </div>
 
                 <!-- Multi-Day Selection -->
                 <div class="mb-5">
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <label class="block text-base font-semibold text-gray-800 mb-2">
                         Days Available <span class="text-red-500">*</span> 
-                        <span class="text-xs font-normal text-gray-500">(Select at least one)</span>
+                        <span class="text-sm font-normal text-gray-500">(Select at least one)</span>
                     </label>
                     
-                    <div id="days-container" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div id="days-container" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                         {% for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] %}
-                        <label class="flex items-center p-2.5 border border-gray-200 rounded-lg hover:bg-brand-50 cursor-pointer transition text-xs font-medium text-gray-700">
-                            <input type="checkbox" name="availability" value="{{ day }}" class="day-checkbox w-4 h-4 text-brand-800 rounded border-gray-300 focus:ring-brand-800 mr-2">
+                        <label class="flex items-center p-3 border border-gray-200 rounded-xl hover:bg-brand-50 cursor-pointer transition text-sm font-medium text-gray-800">
+                            <input type="checkbox" name="availability" value="{{ day }}" class="day-checkbox w-4 h-4 text-brand-800 rounded border-gray-300 focus:ring-brand-800 mr-2.5">
                             <span>{{ day }}</span>
                         </label>
                         {% endfor %}
                     </div>
                     <!-- Error message display -->
-                    <p id="availability-error" class="hidden text-xs text-red-500 mt-1 font-semibold">
+                    <p id="availability-error" class="hidden text-sm text-red-500 mt-2 font-semibold">
                         Please select at least one day you are available.
                     </p>
                 </div>
 
-                <div class="mb-4">
-                    <label for="community_experience" class="block text-sm font-semibold text-gray-700 mb-1">Community Experience</label>
+                <div class="mb-5">
+                    <label for="community_experience" class="block text-base font-semibold text-gray-800 mb-1.5">Community Experience</label>
                     <textarea id="community_experience" name="community_experience" rows="2" placeholder="Any past experience in community work or volunteering?"
-                              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-sm transition"></textarea>
+                              class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base transition"></textarea>
                 </div>
             </div>
 
@@ -140,14 +140,14 @@
             <div class="pt-2">
                 <div class="flex items-start mb-6">
                     <input id="popia" name="popia" type="checkbox" value="true" required
-                           class="w-4 h-4 mt-1 text-brand-800 border-gray-300 rounded focus:ring-brand-800">
-                    <label for="popia" class="ml-3 text-xs text-gray-600 leading-relaxed">
+                           class="w-5 h-5 mt-0.5 text-brand-800 border-gray-300 rounded focus:ring-brand-800">
+                    <label for="popia" class="ml-3 text-sm text-gray-600 leading-relaxed">
                         I agree to the Privacy Policy and POPIA Compliance and consent to be contacted regarding volunteer opportunities.
                     </label>
                 </div>
 
                 <button type="submit" 
-                        class="w-full btn-bounce bg-brand-800 text-white font-bold py-3.5 rounded-lg shadow hover:bg-brand-900 transition flex items-center justify-center space-x-2">
+                        class="w-full btn-bounce bg-brand-800 text-white font-bold py-4 rounded-xl shadow hover:bg-brand-900 transition flex items-center justify-center space-x-2 text-base">
                     <i class="fa-solid fa-circle-check"></i>
                     <span>Submit Application</span>
                 </button>
