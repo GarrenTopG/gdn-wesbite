@@ -1,31 +1,48 @@
-<!-- Navigation Tabs Bar -->
-<div class="bg-white rounded-2xl p-2 shadow-sm border border-gray-200/80 flex flex-wrap gap-1">
-  <button onclick="switchTab('overview')" id="tab-btn-overview" class="tab-btn px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm transition flex items-center space-x-2 text-brand-800 bg-brand-50 border-b-2 border-brand-800">
-    <i class="fa-solid fa-border-all"></i>
+<!-- Vertical Sidebar Navigation -->
+<nav class="flex flex-col space-y-1.5 w-full">
+  <div class="px-3 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
+    Menu
+  </div>
+
+  <button onclick="switchTab('overview')" id="tab-btn-overview" 
+          class="tab-btn w-full px-4 py-3 rounded-xl font-bold text-sm transition flex items-center space-x-3 border-l-4 border-transparent text-gray-500 hover:text-brand-800 hover:bg-gray-50">
+    <i class="fa-solid fa-border-all text-base w-5 text-center"></i>
     <span>Overview</span>
   </button>
-  <button onclick="switchTab('volunteers')" id="tab-btn-volunteers" class="tab-btn px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm transition flex items-center space-x-2 text-gray-500 hover:text-brand-800 hover:bg-gray-50">
-    <i class="fa-solid fa-users"></i>
+
+  <button onclick="switchTab('volunteers')" id="tab-btn-volunteers" 
+          class="tab-btn w-full px-4 py-3 rounded-xl font-bold text-sm transition flex items-center space-x-3 border-l-4 border-transparent text-gray-500 hover:text-brand-800 hover:bg-gray-50">
+    <i class="fa-solid fa-users text-base w-5 text-center"></i>
     <span>Volunteers</span>
   </button>
-  <button onclick="switchTab('donations')" id="tab-btn-donations" class="tab-btn px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm transition flex items-center space-x-2 text-gray-500 hover:text-brand-800 hover:bg-gray-50">
-    <i class="fa-solid fa-heart"></i>
+
+  <button onclick="switchTab('donations')" id="tab-btn-donations" 
+          class="tab-btn w-full px-4 py-3 rounded-xl font-bold text-sm transition flex items-center space-x-3 border-l-4 border-transparent text-gray-500 hover:text-brand-800 hover:bg-gray-50">
+    <i class="fa-solid fa-heart text-base w-5 text-center"></i>
     <span>Donations</span>
   </button>
-  <button onclick="switchTab('beneficiaries')" id="tab-btn-beneficiaries" class="tab-btn px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm transition flex items-center space-x-2 text-gray-500 hover:text-brand-800 hover:bg-gray-50">
-    <i class="fa-solid fa-hand-holding-heart"></i>
+
+  <button onclick="switchTab('beneficiaries')" id="tab-btn-beneficiaries" 
+          class="tab-btn w-full px-4 py-3 rounded-xl font-bold text-sm transition flex items-center space-x-3 border-l-4 border-transparent text-gray-500 hover:text-brand-800 hover:bg-gray-50">
+    <i class="fa-solid fa-hand-holding-heart text-base w-5 text-center"></i>
     <span>Beneficiaries</span>
   </button>
-  <button onclick="switchTab('needs')" id="tab-btn-needs" class="tab-btn px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm transition flex items-center space-x-2 text-gray-500 hover:text-brand-800 hover:bg-gray-50">
-    <i class="fa-solid fa-hand-holding-medical"></i>
+
+  <button onclick="switchTab('needs')" id="tab-btn-needs" 
+          class="tab-btn w-full px-4 py-3 rounded-xl font-bold text-sm transition flex items-center space-x-3 border-l-4 border-transparent text-gray-500 hover:text-brand-800 hover:bg-gray-50">
+    <i class="fa-solid fa-hand-holding-medical text-base w-5 text-center"></i>
     <span>Community Needs</span>
   </button>
-  <button onclick="switchTab('news')" id="tab-btn-news" class="tab-btn px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm transition flex items-center space-x-2 text-gray-500 hover:text-brand-800 hover:bg-gray-50">
-    <i class="fa-solid fa-newspaper"></i>
+
+  <button onclick="switchTab('news')" id="tab-btn-news" 
+          class="tab-btn w-full px-4 py-3 rounded-xl font-bold text-sm transition flex items-center space-x-3 border-l-4 border-transparent text-gray-500 hover:text-brand-800 hover:bg-gray-50">
+    <i class="fa-solid fa-newspaper text-base w-5 text-center"></i>
     <span>News & Announcements</span>
   </button>
-  <button onclick="switchTab('reports')" id="tab-btn-reports" class="tab-btn px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm transition flex items-center space-x-2 text-gray-500 hover:text-brand-800 hover:bg-gray-50">
-    <i class="fa-solid fa-chart-column"></i>
+
+  <button onclick="switchTab('reports')" id="tab-btn-reports" 
+          class="tab-btn w-full px-4 py-3 rounded-xl font-bold text-sm transition flex items-center space-x-3 border-l-4 border-transparent text-gray-500 hover:text-brand-800 hover:bg-gray-50">
+    <i class="fa-solid fa-chart-column text-base w-5 text-center"></i>
     <span>Reports</span>
   </button>
-</div>
+</nav>

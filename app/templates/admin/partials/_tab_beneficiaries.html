@@ -1,15 +1,145 @@
 <!-- TAB 4: BENEFICIARIES -->
 <div id="tab-beneficiaries" class="tab-content hidden space-y-6">
   <div class="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 gap-4">
+    
+    <!-- Tab Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-gray-100 gap-4">
       <div>
-        <h2 class="text-xl font-bold text-gray-900">Assistance Requests</h2>
-        <p class="text-xs text-gray-500 mt-1">342 total beneficiaries registered. Manage assistance requests here.</p>
+        <h2 class="text-xl font-bold text-gray-900">Beneficiary Assistance Requests</h2>
+        <p class="text-xs text-gray-500 mt-1">
+          {{ beneficiaries|length }} total public beneficiary requests registered. Manage and update aid progress.
+        </p>
       </div>
-      <a href="/admin/needs/export-pdf" target="_blank" class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center space-x-2">
+      <a href="/admin/beneficiaries/export-pdf" target="_blank" class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center space-x-2">
         <i class="fa-solid fa-file-pdf"></i>
-        <span>Export PDF</span>
+        <span>Export Needs PDF</span>
       </a>
     </div>
+
+    <!-- Beneficiary Requests Table -->
+    <div class="overflow-x-auto mt-6">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="bg-gray-50/80 border-b border-gray-200/80 text-[11px] uppercase tracking-wider text-gray-500 font-semibold">
+            <th class="px-4 py-3">ID</th>
+            <th class="px-4 py-3">Beneficiary Contact (POPIA)</th>
+            <th class="px-4 py-3">Public Request Title & Area</th>
+            <th class="px-4 py-3">Category</th>
+            <th class="px-4 py-3">Urgency</th>
+            <th class="px-4 py-3">Funding Progress</th>
+            <th class="px-4 py-3 text-center">Status Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 text-xs">
+          {% for need in beneficiaries %}
+          <tr class="hover:bg-gray-50/50 transition">
+            
+            <!-- Record ID -->
+            <td class="px-4 py-3 font-mono text-gray-400 font-medium">#{{ need.id }}</td>
+            
+            <!-- Beneficiary Contact Info -->
+            <td class="px-4 py-3">
+              <div class="font-bold text-gray-900">{{ need.contact_name }}</div>
+              <div class="text-gray-500 flex items-center space-x-1 mt-0.5">
+                <i class="fa-solid fa-phone text-[10px] text-brand-700"></i>
+                <span>{{ need.contact_phone }}</span>
+              </div>
+              <div class="text-gray-400 text-[11px] truncate max-w-xs mt-0.5" title="{{ need.full_address }}">
+                <i class="fa-solid fa-location-dot text-[10px]"></i> {{ need.full_address }}
+              </div>
+            </td>
+
+            <!-- Anonymised Title & Area -->
+            <td class="px-4 py-3">
+              <div class="font-semibold text-gray-800">{{ need.anonymised_title }}</div>
+              <div class="text-gray-500 text-[11px] mt-0.5">
+                <i class="fa-solid fa-map-pin text-gray-400"></i> {{ need.area }}
+              </div>
+            </td>
+
+            <!-- Category -->
+            <td class="px-4 py-3">
+              <span class="px-2 py-0.5 rounded-md bg-pink-50 text-brand-800 border border-pink-100 font-medium text-[11px]">
+                {{ need.category }}
+              </span>
+            </td>
+
+            <!-- Urgency Badge -->
+            <td class="px-4 py-3">
+              {% set urg_str = need.urgency.value if need.urgency.value is defined else need.urgency|string %}
+              {% if urg_str == 'Critical' or urg_str == 'CRITICAL' %}
+                <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-red-100 text-red-800 border border-red-200">Critical</span>
+              {% elif urg_str == 'High' or urg_str == 'HIGH' %}
+                <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-orange-100 text-orange-800 border border-orange-200">High</span>
+              {% elif urg_str == 'Medium' or urg_str == 'MEDIUM' %}
+                <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-100 text-amber-800 border border-amber-200">Medium</span>
+              {% else %}
+                <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">Low</span>
+              {% endif %}
+            </td>
+
+            <!-- Funding Progress Cell -->
+            <td class="px-4 py-3">
+              {% set prog = need_funding_progress.get(need.id) %}
+              {% if prog %}
+                <div class="flex justify-between text-[11px] font-semibold text-gray-700 mb-1">
+                  <span>R {{ "%.2f"|format(prog.raised) }}</span>
+                  <span class="text-gray-400">R {{ "%.2f"|format(prog.target) }}</span>
+                </div>
+                <div class="w-28 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                  <div class="bg-brand-800 h-1.5 rounded-full
+                    {% if prog.percentage <= 0 %}w-0
+                    {% elif prog.percentage < 10 %}w-[10%]
+                    {% elif prog.percentage < 20 %}w-[20%]
+                    {% elif prog.percentage < 30 %}w-[30%]
+                    {% elif prog.percentage < 40 %}w-[40%]
+                    {% elif prog.percentage < 50 %}w-1/2
+                    {% elif prog.percentage < 60 %}w-[60%]
+                    {% elif prog.percentage < 70 %}w-[70%]
+                    {% elif prog.percentage < 80 %}w-3/4
+                    {% elif prog.percentage < 90 %}w-[90%]
+                    {% else %}w-full{% endif %}"></div>
+                </div>
+              {% else %}
+                <span class="text-gray-400 text-[11px]">N/A</span>
+              {% endif %}
+            </td>
+
+            <!-- Status Dropdown -->
+            <td class="px-4 py-3 text-center">
+              {% set status_str = need.status.value if need.status.value is defined else need.status|string %}
+              <form action="/admin/needs/{{ need.id }}/update-status" method="POST" class="inline-block">
+                <select name="status" 
+                        title="Update assistance request status"
+                        aria-label="Update assistance request status"
+                        onchange="this.form.submit()" 
+                        class="text-xs font-semibold rounded-lg px-2.5 py-1.5 border shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer
+                  {% if status_str == 'Pending' or status_str == 'PENDING' %} bg-amber-50 text-amber-900 border-amber-200
+                  {% elif status_str == 'In Progress' or status_str == 'IN_PROGRESS' %} bg-blue-50 text-blue-900 border-blue-200
+                  {% elif status_str == 'Matched' or status_str == 'MATCHED' %} bg-purple-50 text-purple-900 border-purple-200
+                  {% elif status_str == 'Fulfilled' or status_str == 'FULFILLED' %} bg-emerald-50 text-emerald-900 border-emerald-200
+                  {% elif status_str == 'Rejected' or status_str == 'REJECTED' %} bg-red-50 text-red-900 border-red-200 {% endif %}">
+                  
+                  <option value="Pending" {% if status_str == 'Pending' or status_str == 'PENDING' %}selected{% endif %}>⏳ Pending</option>
+                  <option value="In Progress" {% if status_str == 'In Progress' or status_str == 'IN_PROGRESS' %}selected{% endif %}>🔄 In Progress</option>
+                  <option value="Matched" {% if status_str == 'Matched' or status_str == 'MATCHED' %}selected{% endif %}>🤝 Matched</option>
+                  <option value="Fulfilled" {% if status_str == 'Fulfilled' or status_str == 'FULFILLED' %}selected{% endif %}>✅ Fulfilled</option>
+                  <option value="Rejected" {% if status_str == 'Rejected' or status_str == 'REJECTED' %}selected{% endif %}>❌ Rejected</option>
+                </select>
+              </form>
+            </td>
+
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="7" class="text-center py-8 text-gray-400">
+              No beneficiary assistance requests found.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
   </div>
 </div>

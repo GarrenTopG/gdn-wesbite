@@ -2,15 +2,19 @@
 {% block title %}Admin Dashboard - Aurorah CAN{% endblock %}
 
 {% block content %}
-<!-- 1. Header Banner -->
-{% include "admin/partials/_header.html" %}
+<div class="min-h-screen bg-gray-50 flex flex-col md:flex-row">
+  
+  <!-- Left Sidebar Navigation -->
+  <aside class="w-full md:w-64 bg-white border-r border-gray-200 shrink-0">
+    <div class="p-4 md:sticky md:top-0 md:max-h-screen md:overflow-y-auto">
+      {% include "admin/partials/_tabs_nav.html" %}
+    </div>
+  </aside>
 
-<!-- 2. Main Dashboard Area -->
-<section class="py-8 px-4 md:px-8 bg-gray-50 min-h-screen">
-  <div class="max-w-7xl mx-auto space-y-6">
-    
-    <!-- Tab Navigation -->
-    {% include "admin/partials/_tabs_nav.html" %}
+  <!-- Main Content Area -->
+  <main class="flex-1 p-4 md:p-8 space-y-6 overflow-x-hidden">
+    <!-- Header Banner -->
+    {% include "admin/partials/_header.html" %}
 
     <!-- Tab Contents -->
     {% include "admin/partials/_tab_overview.html" %}
@@ -20,11 +24,11 @@
     {% include "admin/partials/_tab_needs.html" %}
     {% include "admin/partials/_tab_news.html" %}
     {% include "admin/partials/_tab_reports.html" %}
+  </main>
 
-  </div>
-</section>
+</div>
 
-<!-- 3. Modals -->
+<!-- Modals -->
 {% include "admin/partials/_modal_add_news.html" %}
 {% include "admin/partials/_modal_edit_news.html" %}
 {% include "admin/partials/_modal_add_need.html" %}
@@ -70,14 +74,14 @@
   </div>
 </div>
 
-<!-- 4. Dashboard Scripts -->
+<!-- Dashboard Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   function switchTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
     document.querySelectorAll('.tab-btn').forEach(el => {
-      el.classList.remove('text-brand-800', 'bg-brand-50', 'border-b-2', 'border-brand-800');
-      el.classList.add('text-gray-500');
+      el.classList.remove('text-brand-800', 'bg-brand-50', 'border-l-4', 'border-brand-800');
+      el.classList.add('text-gray-500', 'border-transparent');
     });
 
     const target = document.getElementById(`tab-${tabName}`);
@@ -85,8 +89,8 @@
 
     const activeBtn = document.getElementById(`tab-btn-${tabName}`);
     if (activeBtn) {
-      activeBtn.classList.remove('text-gray-500');
-      activeBtn.classList.add('text-brand-800', 'bg-brand-50', 'border-b-2', 'border-brand-800');
+      activeBtn.classList.remove('text-gray-500', 'border-transparent');
+      activeBtn.classList.add('text-brand-800', 'bg-brand-50', 'border-l-4', 'border-brand-800');
     }
   }
 
@@ -119,7 +123,8 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     const urlParams = new URLSearchParams(window.location.search);
-    const activeTab = urlParams.get('tab') || 'overview';
+    const hashTab = window.location.hash.replace('#', '');
+    const activeTab = urlParams.get('tab') || hashTab || 'overview';
     switchTab(activeTab);
 
     const brandColor = '#9f425c';

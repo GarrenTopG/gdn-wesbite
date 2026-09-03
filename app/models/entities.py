@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
-from sqlmodel import Field, SQLModel
+from typing import Optional, List
+from sqlmodel import Field, SQLModel, Column, JSON
 
 
 # --- ENUMS FOR CONSTRAINED VALUES ---
@@ -23,6 +23,7 @@ class NeedStatus(str, Enum):
     IN_PROGRESS = "In Progress"
     MATCHED = "Matched"
     FULFILLED = "Fulfilled"
+    REJECTED = "Rejected"
 
 
 class VolunteerStatus(str, Enum):
@@ -52,7 +53,12 @@ class Volunteer(SQLModel, table=True):
     email: str = Field(index=True)
     skills: str  # Comma-separated (e.g., "Food Dist, Logistics, Medical")
     location: str  # Suburb / Area
-    availability: str  # "Weekdays", "Weekends", "Anytime"
+    availability: str = Field(default="Anytime")  # e.g., "Weekdays", "Weekends", "Anytime"
+    
+    # Store specific days the volunteer indicated they are available for
+    available_days: List[str] = Field(default_factory=list, sa_column=Column(JSON))  # e.g., ["Monday", "Wednesday", "Saturday"]
+    assigned_day: Optional[str] = Field(default="Inactive")  # "Inactive" by default or chosen day
+    
     status: VolunteerStatus = Field(default=VolunteerStatus.ACTIVE)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
@@ -93,28 +99,26 @@ class Donation(SQLModel, table=True):
     # Monetary vs In-Kind Classification
     donation_type: str = Field(default="monetary", index=True)  # 'monetary' or 'inkind'
     amount: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
-    allocated_amount: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2) # Tracks total split allocations
-    cause: Optional[str] = Field(default="General Fund")
+    allocated_amount: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
 
     # In-Kind Physical Item Attributes
-    item_category: Optional[str] = None  # e.g., 'Canned Food', 'Clothing', 'Blankets'
+    item_category: Optional[str] = None
     item_description: Optional[str] = None
-    logistics_type: Optional[str] = None  # 'dropoff' or 'pickup'
+    logistics_type: Optional[str] = None
     pickup_address: Optional[str] = None
 
     # Section 18A Tax Certificate Attributes
     request_tax_certificate: bool = Field(default=False)
-    tax_id_number: Optional[str] = None  # SARS Tax Ref or ID Number
+    tax_id_number: Optional[str] = None
     tax_address: Optional[str] = None
 
     # Verification & Payment Tracking
-    payment_method: str = Field(default="Gateway")  # 'Gateway', 'EFT Upload', 'In-Kind Delivery'
+    payment_method: str = Field(default="Gateway")
     proof_of_payment_url: Optional[str] = None
     message: Optional[str] = None
     is_anonymous: bool = Field(default=False)
     is_verified: bool = Field(default=False, index=True)
 
-    # Foreign key link
     need_id: Optional[int] = Field(
         default=None, foreign_key="beneficiaryneed.id", index=True
     )

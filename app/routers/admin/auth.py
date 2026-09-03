@@ -1,15 +1,26 @@
 import re
 from decimal import Decimal
+import re
+from decimal import Decimal
 from typing import Dict
-from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from sqlmodel import Session, col, select
 
 from app.db.session import get_session
-from app.models.entities import BeneficiaryNeed, Donation, NewsArticle, Volunteer
+from app.models.entities import (
+    BeneficiaryNeed,
+    Donation,
+    NeedStatus,
+    NewsArticle,
+    Volunteer,
+    VolunteerStatus,
+)
 from app.templates_config import templates
+from app.utils.pdf_exports import generate_beneficiaries_pdf
 
-router = APIRouter()
+router = APIRouter(tags=["Admin"])
 
 
 def verify_admin_session(request: Request) -> bool:
@@ -68,16 +79,26 @@ async def get_admin_dashboard(
     donations = session.exec(
         select(Donation).order_by(col(Donation.id).desc())
     ).all()
-    needs = session.exec(select(BeneficiaryNeed)).all()
+    all_needs = session.exec(select(BeneficiaryNeed)).all()
     news_articles = session.exec(select(NewsArticle)).all()
+
+    # Separate public assistance applications (Beneficiaries) from admin-created requests (Community Needs)
+    beneficiaries = [
+        need for need in all_needs 
+        if need.contact_name != "Admin Internal" and need.full_address != "Admin Direct Entry"
+    ]
+    community_needs = [
+        need for need in all_needs 
+        if need.contact_name == "Admin Internal" or need.full_address == "Admin Direct Entry"
+    ]
 
     total_volunteers = len(volunteers)
     total_donation_amount = sum((d.amount for d in donations if d.amount), Decimal("0.00"))
-    total_requests = len(needs)
+    total_requests = len(all_needs)
     total_news = len(news_articles)
 
     need_funding_progress: Dict[int, Dict[str, Decimal]] = {}
-    for need in needs:
+    for need in all_needs:
         if need.id is not None:
             allocated_donations = [d for d in donations if d.need_id == need.id]
             raised = sum((d.allocated_amount or Decimal("0.00") for d in allocated_donations), Decimal("0.00"))
@@ -101,12 +122,78 @@ async def get_admin_dashboard(
             "active_page": "admin",
             "volunteers": volunteers,
             "donations": donations,
-            "needs": needs,
+            "needs": community_needs,          # Admin-created community needs tab
+            "beneficiaries": beneficiaries,    # Public assistance applications tab
             "news_articles": news_articles,
             "total_volunteers": total_volunteers,
             "total_donation_amount": f"{total_donation_amount:.2f}",
             "total_requests": total_requests,
             "total_news": total_news,
             "need_funding_progress": need_funding_progress,
+        },
+    )
+
+
+@router.post("/needs/{need_id}/update-status")
+async def update_need_status(
+    need_id: int,
+    request: Request,
+    status: NeedStatus = Form(...),
+    session: Session = Depends(get_session),
+):
+    if not verify_admin_session(request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    need = session.get(BeneficiaryNeed, need_id)
+    if not need:
+        raise HTTPException(status_code=404, detail="Need record not found")
+
+    need.status = status
+    session.add(need)
+    session.commit()
+
+    return RedirectResponse(url="/admin/dashboard#beneficiaries", status_code=303)
+
+
+@router.post("/volunteers/{volunteer_id}/assign-day")
+def assign_volunteer_day(
+    volunteer_id: int, 
+    request: Request,
+    assigned_day: str = Form(...), 
+    session: Session = Depends(get_session)
+):
+    if not verify_admin_session(request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    volunteer = session.get(Volunteer, volunteer_id)
+    if not volunteer:
+        raise HTTPException(status_code=404, detail="Volunteer not found")
+        
+    volunteer.assigned_day = assigned_day
+    if assigned_day != "Inactive":
+        volunteer.status = VolunteerStatus.ASSIGNED
+    else:
+        volunteer.status = VolunteerStatus.ACTIVE
+        
+    session.add(volunteer)
+    session.commit()
+    return RedirectResponse(url="/admin/dashboard#volunteers", status_code=status.HTTP_303_SEE_OTHER)
+
+@router.get("/beneficiaries/export-pdf")
+async def export_beneficiaries_pdf(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    if not verify_admin_session(request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    needs = session.exec(select(BeneficiaryNeed)).all()
+    pdf_buffer = generate_beneficiaries_pdf(list(needs))
+    
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="beneficiary_requests.pdf"'
         },
     )

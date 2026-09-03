@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session
 
 from app.db.session import get_session
@@ -36,14 +36,19 @@ async def submit_volunteer_form(
     formatted_phone = f"{country_code} {phone_number}" if phone_number else ""
     email = str(form_data.get("email", "")).strip()
 
-    # Form Multiselect / Array handling for availability
-    raw_days = form_data.getlist("availability")
+    # Multi-Key Form Array handling for available_days
+    raw_days = (
+        form_data.getlist("availability")
+        or form_data.getlist("availability[]")
+        or form_data.getlist("days")
+    )
     selected_days = [str(day).strip() for day in raw_days if str(day).strip()]
-    availability_str = ", ".join(selected_days) if selected_days else "Not specified"
+    availability_str = ", ".join(selected_days) if selected_days else "Flexible / Not Specified"
 
     skills = str(form_data.get("skills", "")).strip()
     location = str(form_data.get("location", "")).strip()
 
+    # Save selected_days directly into available_days list field
     new_volunteer = Volunteer(
         full_name=full_name,
         phone=formatted_phone,
@@ -51,6 +56,7 @@ async def submit_volunteer_form(
         skills=skills,
         location=location,
         availability=availability_str,
+        available_days=selected_days,  # <--- CRITICAL FIX: Populates volunteer.available_days list
         status=VolunteerStatus.ACTIVE,
     )
 

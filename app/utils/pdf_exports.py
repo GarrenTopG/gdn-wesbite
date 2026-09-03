@@ -190,3 +190,53 @@ def generate_needs_pdf(needs: List[BeneficiaryNeed]) -> io.BytesIO:
     doc.build(story)
     buffer.seek(0)
     return buffer
+
+def generate_beneficiaries_pdf(needs: List[BeneficiaryNeed]) -> io.BytesIO:
+    buffer = io.BytesIO()
+    doc, story, styles = _create_base_document(
+        buffer,
+        "Beneficiary Assistance Requests",
+        "Confidential POPIA-compliant beneficiary registry and fulfillment tracking.",
+    )
+
+    table_data = [[
+        Paragraph("ID", styles["header"]),
+        Paragraph("Beneficiary Contact (POPIA)", styles["header"]),
+        Paragraph("Public Title & Area", styles["header"]),
+        Paragraph("Category", styles["header"]),
+        Paragraph("Urgency", styles["header"]),
+        Paragraph("Funding (ZAR)", styles["header"]),
+        Paragraph("Status", styles["header"]),
+    ]]
+
+    for n in needs:
+        contact_info = f"<b>{n.contact_name or 'N/A'}</b><br/>{n.contact_phone or '-'}<br/>{n.full_address or '-'}"
+        title_area = f"<b>{n.anonymised_title or '-'}</b><br/>{n.area or '-'}"
+        funding_info = f"R{n.current_amount:.2f} / R{n.target_amount:.2f}"
+        urgency_str = n.urgency.value if hasattr(n.urgency, "value") else str(n.urgency)
+        status_str = n.status.value if hasattr(n.status, "value") else str(n.status)
+
+        table_data.append([
+            Paragraph(f"#{n.id or '-'}", styles["cell"]),
+            Paragraph(contact_info, styles["cell"]),
+            Paragraph(title_area, styles["cell"]),
+            Paragraph(n.category or "-", styles["cell"]),
+            Paragraph(urgency_str, styles["cell"]),
+            Paragraph(funding_info, styles["cell"]),
+            Paragraph(status_str, styles["cell"]),
+        ])
+
+    table = Table(table_data, colWidths=[30, 160, 160, 90, 70, 110, 80])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e3a8a")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e5e7eb")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f9fafb")]),
+    ]))
+
+    story.append(table)
+    doc.build(story)
+    buffer.seek(0)
+    return buffer

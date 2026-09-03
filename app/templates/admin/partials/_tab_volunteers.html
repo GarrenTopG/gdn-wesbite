@@ -4,36 +4,108 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-gray-100 gap-4">
       <div>
         <h2 class="text-xl font-bold text-gray-900">Recent Volunteer Registrations</h2>
-        <p class="text-xs text-gray-500 mt-0.5">Manage and review community volunteer sign-ups.</p>
+        <p class="text-xs text-gray-500 mt-0.5">Manage and review community volunteer sign-ups and shift allocations.</p>
       </div>
       <a href="/admin/volunteers/export-pdf" target="_blank" class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
         <i class="fa-solid fa-file-pdf"></i>
         <span>Export PDF</span>
       </a>
     </div>
+
     <div class="overflow-x-auto mt-4">
       <table class="w-full text-left border-collapse text-sm">
         <thead>
           <tr class="border-b border-gray-200 text-gray-400 font-semibold text-xs uppercase tracking-wider">
-            <th class="py-3 px-4">Name</th>
+            <th class="py-3 px-4">Name & Contact</th>
             <th class="py-3 px-4">Skills / Role</th>
-            <th class="py-3 px-4">Date</th>
+            <th class="py-3 px-4">Open Days</th>
+            <th class="py-3 px-4 text-center">Assigned Shift Day</th>
             <th class="py-3 px-4 text-right">Status</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
           {% for volunteer in volunteers %}
           <tr class="hover:bg-gray-50/80 transition">
-            <td class="py-4 px-4 font-bold text-gray-800">{{ volunteer.full_name }}</td>
-            <td class="py-4 px-4 text-gray-600">{{ volunteer.skills or 'General Support' }}</td>
-            <td class="py-4 px-4 text-gray-500 text-xs">{{ volunteer.created_at.strftime('%Y-%m-%d') if volunteer.created_at else '2026-05-10' }}</td>
-            <td class="py-4 px-4 text-right">
-              <span class="px-3 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800">Active</span>
+            
+            <!-- Volunteer Details -->
+            <td class="py-4 px-4">
+              <div class="font-bold text-gray-800">{{ volunteer.full_name }}</div>
+              <div class="text-xs text-gray-500 mt-0.5">{{ volunteer.email }} • {{ volunteer.phone }}</div>
             </td>
+
+            <!-- Skills -->
+            <td class="py-4 px-4 text-gray-600 font-medium">
+              {{ volunteer.skills or 'General Support' }}
+            </td>
+
+            <!-- Stated Availability -->
+            <td class="py-4 px-4 text-xs text-gray-500">
+              {% if volunteer.available_days %}
+                <div class="flex flex-wrap gap-1">
+                  {% for day in volunteer.available_days %}
+                    <span class="px-2 py-0.5 bg-gray-100 text-gray-700 font-medium rounded-md text-[11px]">{{ day }}</span>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <span class="text-gray-400">Flexible / Not Specified</span>
+              {% endif %}
+            </td>
+
+            <!-- Dynamic Day Assignment Dropdown -->
+            <td class="py-4 px-4 text-center">
+              <form action="/admin/volunteers/{{ volunteer.id }}/assign-day" method="POST" class="inline-block">
+                <select name="assigned_day"
+                        title="Select active duty day for volunteer"
+                        aria-label="Select active duty day for volunteer"
+                        onchange="this.form.submit()"
+                        class="text-xs font-semibold rounded-lg px-3 py-1.5 border shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer
+                          {% if not volunteer.assigned_day or volunteer.assigned_day == 'Inactive' %}
+                            bg-gray-100 text-gray-600 border-gray-300
+                          {% else %}
+                            bg-emerald-50 text-emerald-900 border-emerald-300
+                          {% endif %}">
+                  
+                  <!-- Default Option -->
+                  <option value="Inactive" {% if not volunteer.assigned_day or volunteer.assigned_day == 'Inactive' %}selected{% endif %}>
+                    ⚪ Inactive
+                  </option>
+
+                  <!-- Filtered options: Only open days specified by volunteer -->
+                  {% if volunteer.available_days %}
+                    {% for day in volunteer.available_days %}
+                      <option value="{{ day }}" {% if volunteer.assigned_day == day %}selected{% endif %}>
+                        🗓️ {{ day }}
+                      </option>
+                    {% endfor %}
+                  {% else %}
+                    <!-- Fallback if specific days list wasn't provided -->
+                    {% for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] %}
+                      <option value="{{ day }}" {% if volunteer.assigned_day == day %}selected{% endif %}>
+                        🗓️ {{ day }}
+                      </option>
+                    {% endfor %}
+                  {% endif %}
+                </select>
+              </form>
+            </td>
+
+            <!-- Overall Status Badge -->
+            <td class="py-4 px-4 text-right">
+              {% if volunteer.assigned_day and volunteer.assigned_day != 'Inactive' %}
+                <span class="px-3 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  Active ({{ volunteer.assigned_day }})
+                </span>
+              {% else %}
+                <span class="px-3 py-1 text-xs font-bold rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                  Inactive
+                </span>
+              {% endif %}
+            </td>
+
           </tr>
           {% else %}
           <tr>
-            <td colspan="4" class="py-8 text-center text-gray-400">No volunteer records registered yet.</td>
+            <td colspan="5" class="py-8 text-center text-gray-400">No volunteer records registered yet.</td>
           </tr>
           {% endfor %}
         </tbody>
