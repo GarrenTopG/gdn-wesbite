@@ -4,20 +4,20 @@ from sqlmodel import Session
 
 from app.db.session import get_session
 from app.models.entities import BeneficiaryNeed, NeedUrgency, NeedStatus
-from app.templates_config import templates
+from app.templatesconfig import templates
 
-router = APIRouter(prefix="/request-assistance", tags=["Assistance"])
+router = APIRouter(prefix="/requestassistance", tags=["Assistance"])
 
-
+# Assistance route to render the assistance request page
 @router.get("", response_class=HTMLResponse)
 async def get_assistance_page(request: Request):
     return templates.TemplateResponse(
         request=request,
-        name="request_assistance.html",
+        name="requestassistance.html",
         context={"active_page": "assistance"},
     )
 
-
+# Assistance route to handle assistance form submission
 @router.post("", response_class=HTMLResponse)
 async def submit_assistance_form(
     request: Request,
@@ -76,7 +76,7 @@ async def submit_assistance_form(
 
     return templates.TemplateResponse(
         request=request,
-        name="request_assistance.html",
+        name="requestassistance.html",
         context={
             "active_page": "assistance",
             "submitted": True,

@@ -5,19 +5,19 @@ from typing import Optional, List
 from sqlmodel import Field, SQLModel, Column, JSON
 
 
-# --- ENUMS FOR CONSTRAINED VALUES ---
+# ENUMS FOR CONSTRAINED VALUES
 class UserRole(str, Enum):
     ADMIN = "admin"
     USER = "user"
 
-
+# ENUMS FOR NEEDS AND VOLUNTEERS
 class NeedUrgency(str, Enum):
     LOW = "Low"
     MEDIUM = "Medium"
     HIGH = "High"
     CRITICAL = "Critical"
 
-
+# ENUMS FOR NEED STATUS AND VOLUNTEER STATUS
 class NeedStatus(str, Enum):
     PENDING = "Pending"
     IN_PROGRESS = "In Progress"
@@ -25,14 +25,14 @@ class NeedStatus(str, Enum):
     FULFILLED = "Fulfilled"
     REJECTED = "Rejected"
 
-
+# ENUMS FOR VOLUNTEER STATUS
 class VolunteerStatus(str, Enum):
     ACTIVE = "Active"
     INACTIVE = "Inactive"
     ASSIGNED = "Assigned"
 
 
-# --- USER & ADMIN AUTH ---
+# --- USER ENTITY ---
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     full_name: str
@@ -89,12 +89,14 @@ class BeneficiaryNeed(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc)
     )
 
-
+# --- DONATION ENTITY ---
 class Donation(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     donor_name: str
     donor_email: Optional[str] = Field(default=None, index=True)
     donor_phone: Optional[str] = None
+
+    cause: Optional[str] = Field(default="General Fund (Where Most Needed)")
 
     # Monetary vs In-Kind Classification
     donation_type: str = Field(default="monetary", index=True)  # 'monetary' or 'inkind'

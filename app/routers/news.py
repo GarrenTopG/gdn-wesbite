@@ -6,11 +6,11 @@ from sqlmodel import Session, desc, select
 
 from app.db.session import get_session
 from app.models.entities import NewsArticle
-from app.templates_config import templates
+from app.templatesconfig import templates
 
 router = APIRouter(prefix="/news", tags=["News"])
 
-
+# Admin route to seed demo news articles if the database is empty or outdated
 def seed_demo_news_if_empty(session: Session):
     """Utility to ensure the news table is synchronized with live stories."""
     real_stories = [
@@ -133,7 +133,7 @@ def seed_demo_news_if_empty(session: Session):
             session.add(article)
         session.commit()
 
-
+# Admin route to render the news feed with optional category filtering and pagination
 @router.get("", response_class=HTMLResponse)
 async def get_news_feed(
     request: Request,
@@ -178,7 +178,7 @@ async def get_news_feed(
         },
     )
 
-
+# Admin route to retrieve a specific NewsArticle by ID or slug
 @router.get("/{identifier}", response_class=HTMLResponse)
 async def get_news_article_detail(
     identifier: str,
@@ -198,7 +198,7 @@ async def get_news_article_detail(
 
     return templates.TemplateResponse(
         request=request,
-        name="news_detail.html",
+        name="newsdetail.html",
         context={
             "active_page": "news",
             "article": article,

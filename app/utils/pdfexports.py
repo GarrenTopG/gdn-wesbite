@@ -7,7 +7,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from app.models.entities import BeneficiaryNeed, Donation, Volunteer
 
-
+# Helper function to create a base PDF document with a title and subtitle
 def _create_base_document(buffer: io.BytesIO, title: str, subtitle: str) -> tuple[SimpleDocTemplate, list, dict]:
     doc = SimpleDocTemplate(
         buffer,
@@ -60,7 +60,7 @@ def _create_base_document(buffer: io.BytesIO, title: str, subtitle: str) -> tupl
 
     return doc, story, {"cell": cell_style, "header": header_cell_style}
 
-
+# Function to generate a PDF report of volunteers with their details and statuses
 def generate_volunteers_pdf(volunteers: List[Volunteer]) -> io.BytesIO:
     buffer = io.BytesIO()
     doc, story, styles = _create_base_document(
@@ -102,7 +102,7 @@ def generate_volunteers_pdf(volunteers: List[Volunteer]) -> io.BytesIO:
     buffer.seek(0)
     return buffer
 
-
+# Function to generate a PDF report of donations with their details
 def generate_donations_pdf(donations: List[Donation]) -> io.BytesIO:
     buffer = io.BytesIO()
     doc, story, styles = _create_base_document(
@@ -145,7 +145,7 @@ def generate_donations_pdf(donations: List[Donation]) -> io.BytesIO:
     buffer.seek(0)
     return buffer
 
-
+# Function to generate a PDF report of community needs
 def generate_needs_pdf(needs: List[BeneficiaryNeed]) -> io.BytesIO:
     buffer = io.BytesIO()
     doc, story, styles = _create_base_document(
@@ -191,6 +191,7 @@ def generate_needs_pdf(needs: List[BeneficiaryNeed]) -> io.BytesIO:
     buffer.seek(0)
     return buffer
 
+# Function to generate a PDF report of beneficiaries with their details and statuses
 def generate_beneficiaries_pdf(needs: List[BeneficiaryNeed]) -> io.BytesIO:
     buffer = io.BytesIO()
     doc, story, styles = _create_base_document(

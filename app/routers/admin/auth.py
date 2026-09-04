@@ -17,28 +17,28 @@ from app.models.entities import (
     Volunteer,
     VolunteerStatus,
 )
-from app.templates_config import templates
-from app.utils.pdf_exports import generate_beneficiaries_pdf
+from app.templatesconfig import templates
+from app.utils.pdfexports import generate_beneficiaries_pdf
 
 router = APIRouter(tags=["Admin"])
 
-
+# Helper function to verify if the admin session is active
 def verify_admin_session(request: Request) -> bool:
     """Helper to check active admin session cookie."""
     return request.cookies.get("admin_session") == "authenticated"
 
-
+# Admin route to render the admin login page
 @router.get("/login", response_class=HTMLResponse)
 async def get_admin_login(request: Request):
     if verify_admin_session(request):
         return RedirectResponse(url="/admin/dashboard", status_code=303)
     return templates.TemplateResponse(
         request=request,
-        name="admin_login.html",
+        name="adminlogin.html",
         context={"active_page": "admin"},
     )
 
-
+# Admin route to handle admin login form submission
 @router.post("/login", response_class=HTMLResponse)
 async def post_admin_login(
     request: Request,
@@ -52,21 +52,21 @@ async def post_admin_login(
 
     return templates.TemplateResponse(
         request=request,
-        name="admin_login.html",
+        name="adminlogin.html",
         context={
             "active_page": "admin",
             "error": "Invalid username or password credentials.",
         },
     )
 
-
+# Admin route to handle admin logout
 @router.get("/logout")
 async def admin_logout():
     response = RedirectResponse(url="/admin/login", status_code=303)
     response.delete_cookie(key="admin_session")
     return response
 
-
+# Admin route to render the admin dashboard with aggregated data
 @router.get("/dashboard", response_class=HTMLResponse)
 async def get_admin_dashboard(
     request: Request, 
@@ -117,7 +117,7 @@ async def get_admin_dashboard(
 
     return templates.TemplateResponse(
         request=request,
-        name="admin_dashboard.html",
+        name="admindashboard.html",
         context={
             "active_page": "admin",
             "volunteers": volunteers,
@@ -133,7 +133,7 @@ async def get_admin_dashboard(
         },
     )
 
-
+# Admin route to export BeneficiaryNeeds, Donations, and Volunteers as PDF reports
 @router.post("/needs/{need_id}/update-status")
 async def update_need_status(
     need_id: int,
@@ -154,7 +154,7 @@ async def update_need_status(
 
     return RedirectResponse(url="/admin/dashboard#beneficiaries", status_code=303)
 
-
+# Admin route to assign a volunteer to a BeneficiaryNeed from the admin dashboard
 @router.post("/volunteers/{volunteer_id}/assign-day")
 def assign_volunteer_day(
     volunteer_id: int, 
@@ -179,6 +179,7 @@ def assign_volunteer_day(
     session.commit()
     return RedirectResponse(url="/admin/dashboard#volunteers", status_code=status.HTTP_303_SEE_OTHER)
 
+# Admin route to export BeneficiaryNeeds, Donations, and Volunteers as PDF reports
 @router.get("/beneficiaries/export-pdf")
 async def export_beneficiaries_pdf(
     request: Request,

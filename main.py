@@ -5,9 +5,9 @@ from fastapi.staticfiles import StaticFiles
 
 from app.db.session import create_db_and_tables
 from app.routers import admin, assistance, donations, news, volunteers
-from app.templates_config import templates
+from app.templatesconfig import templates
 
-
+# FastAPI application instance with lifespan event for database initialization
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
@@ -34,7 +34,7 @@ def read_root(request: Request):
         request=request, name="index.html", context={"active_page": "home"}
     )
 
-
+# --- ADDITIONAL STATIC ROUTES ---
 @app.get("/about", response_class=HTMLResponse)
 def read_about(request: Request):
     return templates.TemplateResponse(

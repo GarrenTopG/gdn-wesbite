@@ -10,7 +10,7 @@ from app.routers.admin.auth import verify_admin_session
 
 router = APIRouter()
 
-
+# Admin route to create a new NewsArticle directly from the admin dashboard
 @router.post("/news/add")
 async def create_news_article(
     request: Request,
@@ -40,7 +40,7 @@ async def create_news_article(
     
     return RedirectResponse(url="/admin/dashboard?tab=news", status_code=303)
 
-
+# Admin route to delete a NewsArticle from the admin dashboard
 @router.post("/news/{article_id}/delete")
 async def delete_news_article(
     article_id: int, 
@@ -57,7 +57,7 @@ async def delete_news_article(
         
     return RedirectResponse(url="/admin/dashboard?tab=news", status_code=303)
 
-
+# Admin route to update a NewsArticle from the admin dashboard
 @router.post("/news/{article_id}/edit")
 async def update_news_article(
     article_id: int,

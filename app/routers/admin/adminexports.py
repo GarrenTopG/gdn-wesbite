@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 from app.db.session import get_session
 from app.models.entities import BeneficiaryNeed, Donation, Volunteer
 from app.routers.admin.auth import verify_admin_session
-from app.utils.pdf_exports import (
+from app.utils.pdfexports import (
     generate_donations_pdf,
     generate_needs_pdf,
     generate_volunteers_pdf,
@@ -13,7 +13,7 @@ from app.utils.pdf_exports import (
 
 router = APIRouter()
 
-
+# Admin route to export BeneficiaryNeeds, Donations, and Volunteers as PDF reports
 @router.get("/volunteers/export-pdf")
 async def export_volunteers_pdf(
     request: Request,
@@ -31,7 +31,7 @@ async def export_volunteers_pdf(
         headers={"Content-Disposition": "attachment; filename=volunteers_report.pdf"},
     )
 
-
+# Admin route to export BeneficiaryNeeds, Donations, and Volunteers as PDF reports
 @router.get("/donations/export-pdf")
 async def export_donations_pdf(
     request: Request,
@@ -49,7 +49,7 @@ async def export_donations_pdf(
         headers={"Content-Disposition": "attachment; filename=donations_ledger.pdf"},
     )
 
-
+# Admin route to export BeneficiaryNeeds as a PDF report
 @router.get("/needs/export-pdf")
 async def export_needs_pdf(
     request: Request,

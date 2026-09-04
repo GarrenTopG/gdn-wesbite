@@ -6,12 +6,12 @@ from sqlmodel import Session, select
 
 from app.db.session import get_session
 from app.models.entities import BeneficiaryNeed, Donation, NeedStatus
-from app.templates_config import templates
+from app.templatesconfig import templates
 from app.routers.admin.auth import verify_admin_session
 
 router = APIRouter()
 
-
+# Helper function to recalculate the status of a BeneficiaryNeed based on its donations
 def recalculate_need_status(session: Session, need_id: int) -> None:
     """
     Recalculates total allocated donations for a specific BeneficiaryNeed,
@@ -37,7 +37,7 @@ def recalculate_need_status(session: Session, need_id: int) -> None:
     session.add(need)
     session.commit()
 
-
+# Admin route to verify a donation
 @router.post("/donations/{donation_id}/verify")
 async def verify_donation(
     donation_id: int,
@@ -64,7 +64,7 @@ async def verify_donation(
 
     return RedirectResponse(url="/admin/dashboard?tab=donations", status_code=303)
 
-
+# Admin route to allocate a donation to a specific BeneficiaryNeed
 @router.post("/donations/{donation_id}/allocate")
 async def allocate_donation(
     donation_id: int,

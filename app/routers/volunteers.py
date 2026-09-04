@@ -4,11 +4,11 @@ from sqlmodel import Session
 
 from app.db.session import get_session
 from app.models.entities import Volunteer, VolunteerStatus
-from app.templates_config import templates
+from app.templatesconfig import templates
 
 router = APIRouter(prefix="/volunteer", tags=["Volunteers"])
 
-
+# Volunteer route to render the volunteer page
 @router.get("", response_class=HTMLResponse)
 async def get_volunteer_page(request: Request):
     return templates.TemplateResponse(
@@ -17,7 +17,7 @@ async def get_volunteer_page(request: Request):
         context={"active_page": "volunteer", "submitted": False},
     )
 
-
+# Volunteer route to handle volunteer form submission
 @router.post("", response_class=HTMLResponse)
 async def submit_volunteer_form(
     request: Request,

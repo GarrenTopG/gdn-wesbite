@@ -9,11 +9,11 @@ from sqlmodel import Session, select
 
 from app.db.session import get_session
 from app.models.entities import BeneficiaryNeed, Donation, NeedStatus
-from app.templates_config import templates
+from app.templatesconfig import templates
 
 router = APIRouter(prefix="/donate", tags=["Donations"])
 
-
+# Donation route to render the donation page
 @router.get("", response_class=HTMLResponse)
 async def get_donate_page(
     request: Request,
@@ -34,7 +34,7 @@ async def get_donate_page(
         },
     )
 
-
+# Donation route to handle donation form submission
 @router.post("", response_class=HTMLResponse)
 async def submit_donation_form(
     request: Request,
@@ -133,14 +133,18 @@ async def submit_donation_form(
         },
     )
 
-@router.get("/tax-certificate/{donation_id}")
+# Donation route to download a tax certificate for a specific donation
+@router.get("/tax-certificate/{donation_id}", name="download_tax_certificate")
 async def download_tax_certificate(
     donation_id: int,
     session: Session = Depends(get_session),
 ):
     donation = session.get(Donation, donation_id)
     if not donation or not donation.request_tax_certificate:
-        raise HTTPException(status_code=404, detail="Tax certificate not available for this record.")
+        raise HTTPException(
+            status_code=404, 
+            detail="Tax certificate not available for this record."
+        )
 
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=letter)
@@ -152,17 +156,21 @@ async def download_tax_certificate(
     p.drawString(100, 735, "Aurorah Community Action Network (PBO / NPO)")
     p.line(100, 725, 500, 725)
 
-    # Details Grid
+    # Details Grid - All dynamic parameters explicitly wrapped as str()
     p.setFont("Helvetica-Bold", 12)
-    p.drawString(100, 690, f"Receipt Number: CAN-18A-2026-{donation.id}")
+    p.drawString(100, 690, f"Receipt Number: CAN-18A-2026-{str(donation.id)}")
     
     p.setFont("Helvetica", 11)
-    p.drawString(100, 660, f"Donor Name: {donation.donor_name}")
-    p.drawString(100, 640, f"SARS Tax Ref / ID: {donation.tax_id_number or 'N/A'}")
-    p.drawString(100, 620, f"Address: {donation.tax_address or 'N/A'}")
-    p.drawString(100, 600, f"Date: {donation.id} (Recorded)")
+    p.drawString(100, 660, f"Donor Name: {str(donation.donor_name)}")
+    p.drawString(100, 640, f"SARS Tax Ref / ID: {str(donation.tax_id_number or 'N/A')}")
+    p.drawString(100, 620, f"Address: {str(donation.tax_address or 'N/A')}")
+    
+    # FIXED: Wrapped str(donation.id) instead of passing int directly
+    p.drawString(100, 600, f"Transaction Ref ID: #{str(donation.id)}") 
+    
+    p.setFont("Helvetica", 11)
     p.drawString(100, 580, f"Amount Received: R{donation.amount:.2f}")
-    p.drawString(100, 560, f"Cause / Allocated Need: {donation.cause or 'General Fund'}")
+    p.drawString(100, 560, f"Cause / Allocated Need: {str(donation.cause or 'General Fund')}")
 
     p.setFont("Helvetica-Oblique", 9)
     p.drawString(100, 500, "Issued in terms of Section 18A of the Income Tax Act No 58 of 1962.")

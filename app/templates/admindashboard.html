@@ -7,31 +7,31 @@
   <!-- Left Sidebar Navigation -->
   <aside class="w-full md:w-64 bg-white border-r border-gray-200 shrink-0">
     <div class="p-4 md:sticky md:top-0 md:max-h-screen md:overflow-y-auto">
-      {% include "admin/partials/_tabs_nav.html" %}
+      {% include "admin/partials/tabsnav.html" %}
     </div>
   </aside>
 
   <!-- Main Content Area -->
   <main class="flex-1 p-4 md:p-8 space-y-6 overflow-x-hidden">
     <!-- Header Banner -->
-    {% include "admin/partials/_header.html" %}
+    {% include "admin/partials/header.html" %}
 
     <!-- Tab Contents -->
-    {% include "admin/partials/_tab_overview.html" %}
-    {% include "admin/partials/_tab_volunteers.html" %}
-    {% include "admin/partials/_tab_donations.html" %}
-    {% include "admin/partials/_tab_beneficiaries.html" %}
-    {% include "admin/partials/_tab_needs.html" %}
-    {% include "admin/partials/_tab_news.html" %}
-    {% include "admin/partials/_tab_reports.html" %}
+    {% include "admin/partials/taboverview.html" %}
+    {% include "admin/partials/tabvolunteers.html" %}
+    {% include "admin/partials/tabdonations.html" %}
+    {% include "admin/partials/tabbeneficiaries.html" %}
+    {% include "admin/partials/tabneeds.html" %}
+    {% include "admin/partials/tabnews.html" %}
+    {% include "admin/partials/tabreports.html" %}
   </main>
 
 </div>
 
 <!-- Modals -->
-{% include "admin/partials/_modal_add_news.html" %}
-{% include "admin/partials/_modal_edit_news.html" %}
-{% include "admin/partials/_modal_add_need.html" %}
+{% include "admin/partials/modaladdnews.html" %}
+{% include "admin/partials/modaleditnews.html" %}
+{% include "admin/partials/modaladdneed.html" %}
 
 <!-- DONATION ALLOCATION MODAL -->
 <div id="allocateModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm hidden items-center justify-center z-50">

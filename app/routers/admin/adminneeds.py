@@ -16,7 +16,7 @@ from app.routers.admin.auth import verify_admin_session
 
 router = APIRouter()
 
-
+# Admin route to create a new BeneficiaryNeed directly from the admin dashboard
 @router.post("/needs/add")
 async def create_community_need(
     request: Request,
@@ -65,7 +65,7 @@ async def create_community_need(
 
     return RedirectResponse(url="/admin/dashboard?tab=needs", status_code=303)
 
-
+# Admin route to delete a BeneficiaryNeed from the admin dashboard
 @router.post("/needs/delete/{need_id}")
 async def delete_community_need(
     need_id: int,
@@ -82,7 +82,7 @@ async def delete_community_need(
         
     return RedirectResponse(url="/admin/dashboard?tab=needs", status_code=303)
 
-
+# Admin route to update the status of a BeneficiaryNeed from the admin dashboard
 @router.post("/needs/{need_id}/status")
 async def update_need_status(
     need_id: int,
@@ -110,7 +110,7 @@ async def update_need_status(
 
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
-
+# Admin route to assign a volunteer to a BeneficiaryNeed from the admin dashboard
 @router.post("/needs/{need_id}/assign-volunteer")
 async def assign_volunteer_to_need(
     need_id: int,
