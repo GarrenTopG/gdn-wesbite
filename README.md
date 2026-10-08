@@ -42,7 +42,7 @@ Optional but recommended:
 - A virtual environment manager such as `venv`
 - VS Code or another IDE for local development
 
-The app uses a local SQLite database. A secret key must be set before the server starts; no default administrator account or secret is included.
+The app uses a local SQLite database. No external cloud credentials are required for the default local setup, but a secret key must be set before the server starts; no default administrator account or secret is included.
 
 ## Getting Started
 
@@ -97,7 +97,6 @@ EOF
 
 The app loads `.env` automatically for local development. Keep this file private; it is excluded from Git.
 For production, set `APP_SECRET_KEY` and `COOKIE_SECURE=true` in the deployment environment instead.
-
 ```bash
 uvicorn main:app --reload
 ```
@@ -193,7 +192,6 @@ python -m app.retention --apply
 ```
 
 Schedule the reviewed `--apply` command monthly using the host's task scheduler. Check the organization's legal, tax, and records-management obligations before production use; apply an approved legal hold before running a purge if required. Beneficiary and donor record views, exports, and administrative updates require an active staff session.
-
 ## Usage Examples
 
 ### Submit a volunteer application
