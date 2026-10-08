@@ -6,9 +6,10 @@ from sqlmodel import Session
 
 from app.db.session import get_session
 from app.models.entities import NewsArticle
-from app.routers.admin.auth import verify_admin_session
+from app.routers.admin.auth import verify_staff_session
+from app.security import add_audit_event, permission_required
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(permission_required("news.write"))])
 
 # Admin route to create a new NewsArticle directly from the admin dashboard
 @router.post("/news/add")
@@ -21,7 +22,7 @@ async def create_news_article(
     image_url: Optional[str] = Form(None),
     session: Session = Depends(get_session),
 ):
-    if not verify_admin_session(request):
+    if not verify_staff_session(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     clean_slug = re.sub(r"[^\w\s-]", "", title).strip().lower()
@@ -36,6 +37,8 @@ async def create_news_article(
         image_url=image_url if image_url and image_url.strip() else None,
     )
     session.add(article)
+    session.flush()
+    add_audit_event(session, request, "news.created", "news_article", article.id)
     session.commit()
     
     return RedirectResponse(url="/admin/dashboard?tab=news", status_code=303)
@@ -47,11 +50,12 @@ async def delete_news_article(
     request: Request,
     session: Session = Depends(get_session)
 ):
-    if not verify_admin_session(request):
+    if not verify_staff_session(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     article = session.get(NewsArticle, article_id)
     if article:
+        add_audit_event(session, request, "news.deleted", "news_article", article_id)
         session.delete(article)
         session.commit()
         
@@ -69,7 +73,7 @@ async def update_news_article(
     image_url: Optional[str] = Form(None),
     session: Session = Depends(get_session)
 ):
-    if not verify_admin_session(request):
+    if not verify_staff_session(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     article = session.get(NewsArticle, article_id)
@@ -80,6 +84,7 @@ async def update_news_article(
         article.content = content
         article.image_url = image_url
         session.add(article)
+        add_audit_event(session, request, "news.updated", "news_article", article_id)
         session.commit()
 
     return RedirectResponse(url="/admin/dashboard?tab=news", status_code=303)

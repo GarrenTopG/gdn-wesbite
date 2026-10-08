@@ -9,6 +9,7 @@
     </div>
     
     <form action="/admin/needs/add" method="POST" onsubmit="toggleModal('addNeedModal')" class="space-y-4 text-xs">
+      {{ csrf_input(request) }}
       <div>
         <label for="need_title" class="block font-bold text-gray-700 mb-1">Need Title</label>
         <input type="text" id="need_title" name="anonymised_title" required placeholder="e.g., Food parcels required in Bethelsdorp" class="w-full p-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:outline-none">

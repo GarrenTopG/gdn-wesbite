@@ -1,48 +1,50 @@
 <!-- Vertical Sidebar Navigation -->
 <nav class="flex flex-col space-y-1.5 w-full">
-  <div class="px-3 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
-    Menu
-  </div>
+  <div class="admin-section-label">Operations</div>
 
-  <button onclick="switchTab('overview')" id="tab-btn-overview" 
-          class="tab-btn w-full px-4 py-3 rounded-xl font-bold text-sm transition flex items-center space-x-3 border-l-4 border-transparent text-gray-500 hover:text-brand-800 hover:bg-gray-50">
+  <button type="button" onclick="switchTab('overview')" id="tab-btn-overview"
+          class="tab-btn" title="Overview">
     <i class="fa-solid fa-border-all text-base w-5 text-center"></i>
     <span>Overview</span>
   </button>
 
-  <button onclick="switchTab('volunteers')" id="tab-btn-volunteers" 
-          class="tab-btn w-full px-4 py-3 rounded-xl font-bold text-sm transition flex items-center space-x-3 border-l-4 border-transparent text-gray-500 hover:text-brand-800 hover:bg-gray-50">
+  {% if can_view_volunteers %}<button type="button" onclick="switchTab('volunteers')" id="tab-btn-volunteers"
+          class="tab-btn" title="Volunteers">
     <i class="fa-solid fa-users text-base w-5 text-center"></i>
     <span>Volunteers</span>
-  </button>
+  </button>{% endif %}
 
-  <button onclick="switchTab('donations')" id="tab-btn-donations" 
-          class="tab-btn w-full px-4 py-3 rounded-xl font-bold text-sm transition flex items-center space-x-3 border-l-4 border-transparent text-gray-500 hover:text-brand-800 hover:bg-gray-50">
+  {% if can_view_donations %}<button type="button" onclick="switchTab('donations')" id="tab-btn-donations"
+          class="tab-btn" title="Donations">
     <i class="fa-solid fa-heart text-base w-5 text-center"></i>
     <span>Donations</span>
-  </button>
+    {% if pending_donations %}<span class="admin-nav-badge" aria-label="{{ pending_donations }} unverified donations">{{ pending_donations }}</span>{% endif %}
+  </button>{% endif %}
 
-  <button onclick="switchTab('beneficiaries')" id="tab-btn-beneficiaries" 
-          class="tab-btn w-full px-4 py-3 rounded-xl font-bold text-sm transition flex items-center space-x-3 border-l-4 border-transparent text-gray-500 hover:text-brand-800 hover:bg-gray-50">
+  {% if can_view_beneficiaries %}<button type="button" onclick="switchTab('beneficiaries')" id="tab-btn-beneficiaries"
+          class="tab-btn" title="Beneficiaries">
     <i class="fa-solid fa-hand-holding-heart text-base w-5 text-center"></i>
     <span>Beneficiaries</span>
-  </button>
+    {% if pending_beneficiaries %}<span class="admin-nav-badge" aria-label="{{ pending_beneficiaries }} pending beneficiary requests">{{ pending_beneficiaries }}</span>{% endif %}
+  </button>{% endif %}
 
-  <button onclick="switchTab('needs')" id="tab-btn-needs" 
-          class="tab-btn w-full px-4 py-3 rounded-xl font-bold text-sm transition flex items-center space-x-3 border-l-4 border-transparent text-gray-500 hover:text-brand-800 hover:bg-gray-50">
+  {% if can_view_needs %}<button type="button" onclick="switchTab('needs')" id="tab-btn-needs"
+          class="tab-btn" title="Community Needs">
     <i class="fa-solid fa-hand-holding-medical text-base w-5 text-center"></i>
     <span>Community Needs</span>
-  </button>
+    {% if pending_needs %}<span class="admin-nav-badge" aria-label="{{ pending_needs }} pending community needs">{{ pending_needs }}</span>{% endif %}
+  </button>{% endif %}
 
-  <button onclick="switchTab('news')" id="tab-btn-news" 
-          class="tab-btn w-full px-4 py-3 rounded-xl font-bold text-sm transition flex items-center space-x-3 border-l-4 border-transparent text-gray-500 hover:text-brand-800 hover:bg-gray-50">
+  {% if can_view_news %}<button type="button" onclick="switchTab('news')" id="tab-btn-news"
+          class="tab-btn" title="News and Announcements">
     <i class="fa-solid fa-newspaper text-base w-5 text-center"></i>
     <span>News & Announcements</span>
-  </button>
+  </button>{% endif %}
 
-  <button onclick="switchTab('reports')" id="tab-btn-reports" 
-          class="tab-btn w-full px-4 py-3 rounded-xl font-bold text-sm transition flex items-center space-x-3 border-l-4 border-transparent text-gray-500 hover:text-brand-800 hover:bg-gray-50">
+  {% if can_view_reports %}<button type="button" onclick="switchTab('reports')" id="tab-btn-reports"
+          class="tab-btn" title="Reports">
     <i class="fa-solid fa-chart-column text-base w-5 text-center"></i>
     <span>Reports</span>
-  </button>
+  </button>{% endif %}
+
 </nav>

@@ -4,9 +4,17 @@ from sqlmodel import Session
 
 from app.db.session import get_session
 from app.models.entities import BeneficiaryNeed, NeedUrgency, NeedStatus
+from app.security import enforce_public_form_rate_limit, require_csrf
 from app.templatesconfig import templates
 
-router = APIRouter(prefix="/requestassistance", tags=["Assistance"])
+router = APIRouter(
+    prefix="/requestassistance",
+    tags=["Assistance"],
+    dependencies=[
+        Depends(require_csrf),
+        Depends(enforce_public_form_rate_limit),
+    ],
+)
 
 # Assistance route to render the assistance request page
 @router.get("", response_class=HTMLResponse)
@@ -36,8 +44,8 @@ async def submit_assistance_form(
 
     area = str(form_data.get("location", "")).strip()
     category = str(form_data.get("need_type", "")).strip()
+    request_details = str(form_data.get("description", "")).strip()
     raw_urgency = str(form_data.get("urgency", "Medium")).strip().capitalize()
-    description = str(form_data.get("description", "")).strip()
 
     # Map raw string to Enum safely
     try:
@@ -45,12 +53,7 @@ async def submit_assistance_form(
     except ValueError:
         urgency_enum = NeedUrgency.MEDIUM
 
-    # Anonymised Title Generation
-    if description:
-        short_desc = description[:60] + "..." if len(description) > 60 else description
-        anonymised_title = f"{category}: {short_desc}"
-    else:
-        anonymised_title = f"{category} assistance required in {area}"
+    anonymised_title = f"{category} assistance request"
 
     new_need = BeneficiaryNeed(
         contact_name=contact_name,
@@ -59,6 +62,7 @@ async def submit_assistance_form(
         anonymised_title=anonymised_title,
         area=area,
         category=category,
+        request_details=request_details,
         urgency=urgency_enum,
         status=NeedStatus.PENDING,
     )

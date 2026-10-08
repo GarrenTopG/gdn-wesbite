@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Staff MFA - Aurorah CAN{% endblock %}
+
+{% block content %}
+<main class="min-h-[calc(100vh-80px)] bg-gray-50 flex items-center justify-center p-6">
+  <section class="w-full max-w-lg bg-white rounded-2xl border border-gray-200 shadow-sm p-8 space-y-6">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-wider text-brand-800">Staff security</p>
+      <h1 class="text-2xl font-extrabold text-gray-900 mt-2">Verify your identity</h1>
+      <p class="text-sm text-gray-600 mt-2">
+        Enter the current six-digit code from your authenticator app.
+      </p>
+    </div>
+
+    {% if setup_secret %}
+    <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+      <h2 class="font-bold text-amber-950">Set up your authenticator</h2>
+      <p class="text-sm text-amber-900 mt-1">
+        Add this key to your authenticator app. This key is shown only during enrollment.
+      </p>
+      <code class="block mt-3 break-all rounded-lg bg-white px-3 py-2 text-sm font-bold tracking-wider text-gray-900">{{ setup_secret }}</code>
+      <p class="text-xs text-amber-900 mt-2">Choose time-based one-time passwords (TOTP), then enter the generated code below.</p>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <p class="rounded-lg bg-rose-50 border border-rose-200 p-3 text-sm text-rose-800" role="alert">{{ error }}</p>
+    {% endif %}
+
+    <form action="/admin/mfa/verify" method="POST" class="space-y-4">
+      {{ csrf_input(request) }}
+      <label for="code" class="block text-sm font-semibold text-gray-700">Authenticator code</label>
+      <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code"
+             pattern="[0-9]{6}" minlength="6" maxlength="6" required autofocus
+             class="w-full rounded-xl border border-gray-300 px-4 py-3 text-lg tracking-[0.4em] text-center"
+             aria-describedby="code-hint">
+      <p id="code-hint" class="text-xs text-gray-500">Codes refresh every 30 seconds.</p>
+      <button type="submit" class="w-full rounded-xl bg-brand-800 px-4 py-3 font-bold text-white hover:bg-brand-900">
+        Verify and continue
+      </button>
+    </form>
+    <form action="/admin/mfa/cancel" method="POST">
+      {{ csrf_input(request) }}
+      <button type="submit" class="text-sm font-semibold text-gray-600 hover:text-gray-900">Cancel and sign out</button>
+    </form>
+  </section>
+</main>
+{% endblock %}

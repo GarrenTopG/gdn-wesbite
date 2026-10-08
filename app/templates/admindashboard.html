@@ -1,121 +1,171 @@
-{% extends "base.html" %}
-{% block title %}Admin Dashboard - Aurorah CAN{% endblock %}
+{% extends "adminbase.html" %}
+{% block title %}Admin Workspace - Aurorah CAN{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50 flex flex-col md:flex-row">
-  
-  <!-- Left Sidebar Navigation -->
-  <aside class="w-full md:w-64 bg-white border-r border-gray-200 shrink-0">
-    <div class="p-4 md:sticky md:top-0 md:max-h-screen md:overflow-y-auto">
+<div class="admin-workspace" id="admin-workspace">
+  <div class="admin-mobile-backdrop" data-close-sidebar></div>
+  <aside class="admin-sidebar" id="admin-sidebar" aria-label="Admin workspace sidebar">
+    <div class="admin-sidebar-brand">
+      <a href="/admin/dashboard" aria-label="Aurorah CAN admin workspace">
+        <span class="admin-brand-mark" aria-hidden="true"><i class="fa-solid fa-heart"></i></span>
+        <span class="admin-brand-name">Aurorah CAN <span class="admin-brand-role">/ Staff</span></span>
+      </a>
+      <button type="button" class="admin-sidebar-toggle" id="sidebar-collapse"
+              aria-label="Collapse sidebar" aria-pressed="false" title="Collapse sidebar">
+        <i class="fa-solid fa-angles-left" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="admin-sidebar-workspace">
+      <span class="admin-status-dot" aria-hidden="true"></span>
+      <span>Admin workspace</span>
+    </div>
+    <div class="admin-sidebar-body">
       {% include "admin/partials/tabsnav.html" %}
+    </div>
+    <div class="admin-sidebar-footer">
+      <div class="admin-protected-label">
+        <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+        <span>Protected workspace</span>
+      </div>
+      <span class="admin-sidebar-version">Aurorah CAN <span aria-hidden="true">·</span> Staff tools</span>
     </div>
   </aside>
 
-  <!-- Main Content Area -->
-  <main class="flex-1 p-4 md:p-8 space-y-6 overflow-x-hidden">
-    <!-- Header Banner -->
-    {% include "admin/partials/header.html" %}
+  <div class="admin-main">
+    <header class="admin-header">
+      <div class="admin-header-leading">
+        <button type="button" class="admin-mobile-toggle" id="mobile-sidebar-toggle"
+                aria-controls="admin-sidebar" aria-expanded="false" aria-label="Open workspace menu">
+          <i class="fa-solid fa-bars" aria-hidden="true"></i>
+        </button>
+        <div>
+          <p class="admin-breadcrumb">Workspace <span aria-hidden="true">/</span> <span id="breadcrumb-section">Overview</span></p>
+          <h1 class="admin-page-title" id="page-title">Overview</h1>
+        </div>
+      </div>
+      <div class="admin-header-actions">
+        {% if pending_work_count %}
+        <span class="admin-work-queue" role="status" aria-label="{{ pending_work_count }} outstanding work items"
+              title="Unverified donations and pending requests or needs">
+          <i class="fa-solid fa-inbox" aria-hidden="true"></i>
+          <span>{{ pending_work_count }} open</span>
+        </span>
+        {% endif %}
+        <form method="GET" action="/admin/dashboard" class="admin-date-filter" aria-label="Filter dashboard metrics by date">
+          <input type="hidden" name="tab" value="{{ request.query_params.get('tab', 'overview') }}" id="filter-tab">
+          <label>From <input type="date" name="from" value="{{ date_from }}" aria-label="Start date" required></label>
+          <label>To <input type="date" name="to" value="{{ date_to }}" aria-label="End date" required></label>
+          <button type="submit" class="admin-apply-filter" id="apply-date-filter">Apply</button>
+        </form>
+        <label class="sr-only" for="workspace-search">Filter visible rows</label>
+        <input class="admin-search" id="workspace-search" type="search" placeholder="Search records..." autocomplete="off">
+        <div class="admin-user">
+          <span class="admin-user-avatar" aria-hidden="true">{{ staff_user.full_name[:1]|upper }}</span>
+          <span class="admin-user-name">{{ staff_user.full_name }} · {{ staff_user.role.value|replace('_', ' ')|title }}</span>
+        </div>
+        {% if is_administrator %}
+        <a href="/admin/security" class="admin-signout" aria-label="Manage staff accounts and view audit log">
+          <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+          <span>Security</span>
+        </a>
+        {% endif %}
+        <form action="/admin/logout" method="POST" class="admin-signout-form">
+          {{ csrf_input(request) }}
+          <button type="submit" class="admin-signout">
+            <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+            <span>Sign out</span>
+          </button>
+        </form>
+      </div>
+    </header>
 
-    <!-- Tab Contents -->
-    {% include "admin/partials/taboverview.html" %}
-    {% include "admin/partials/tabvolunteers.html" %}
-    {% include "admin/partials/tabdonations.html" %}
-    {% include "admin/partials/tabbeneficiaries.html" %}
-    {% include "admin/partials/tabneeds.html" %}
-    {% include "admin/partials/tabnews.html" %}
-    {% include "admin/partials/tabreports.html" %}
-  </main>
-
+    <main class="admin-content" id="admin-main" tabindex="-1">
+      <p id="admin-loading" class="admin-loading-state" role="status" aria-live="polite" hidden>
+        <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Updating date-filtered metrics…
+      </p>
+      {% include "admin/partials/taboverview.html" %}
+      {% if can_view_volunteers %}{% include "admin/partials/tabvolunteers.html" %}{% endif %}
+      {% if can_view_donations %}{% include "admin/partials/tabdonations.html" %}{% endif %}
+      {% if can_view_beneficiaries %}{% include "admin/partials/tabbeneficiaries.html" %}{% endif %}
+      {% if can_view_needs %}{% include "admin/partials/tabneeds.html" %}{% endif %}
+      {% if can_view_news %}{% include "admin/partials/tabnews.html" %}{% endif %}
+      {% if can_view_reports %}{% include "admin/partials/tabreports.html" %}{% endif %}
+    </main>
+  </div>
 </div>
 
 <!-- Modals -->
-{% include "admin/partials/modaladdnews.html" %}
-{% include "admin/partials/modaleditnews.html" %}
-{% include "admin/partials/modaladdneed.html" %}
-
-<!-- DONATION ALLOCATION MODAL -->
-<div id="allocateModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm hidden items-center justify-center z-50">
-  <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-gray-100 space-y-4">
-    <div class="flex items-center justify-between pb-3 border-b border-gray-100">
-      <h3 class="text-lg font-bold text-gray-900">Allocate Donation Balance</h3>
-      <button type="button" onclick="toggleModal('allocateModal')" aria-label="Close modal" title="Close modal" class="text-gray-400 hover:text-gray-600">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </div>
-
-    <form id="allocateForm" method="POST" action="" class="space-y-4">
-      <div>
-        <label for="need_id_select" class="block text-xs font-bold text-gray-700 uppercase mb-1">Select Target Need</label>
-        <select id="need_id_select" name="need_id" title="Select Community Need" required 
-                class="w-full text-sm rounded-xl border border-gray-400 bg-white focus:ring-2 focus:ring-brand-800 focus:border-brand-800 p-2.5 shadow-sm text-gray-900">
-          <option value="" disabled selected>-- Choose Community Need --</option>
-          {% for need in needs %}
-            <option value="{{ need.id }}">{{ need.anonymised_title }} (Target: R {{ "%.2f"|format(need.target_amount or 0.0) }})</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div>
-        <label for="allocate_amount_input" class="block text-xs font-bold text-gray-700 uppercase mb-1">Amount to Allocate (ZAR)</label>
-        <input type="number" step="0.01" min="0.01" id="allocate_amount_input" name="allocate_amount" required 
-               class="w-full text-sm rounded-xl border border-gray-400 bg-white focus:ring-2 focus:ring-brand-800 focus:border-brand-800 p-2.5 shadow-sm text-gray-900 font-semibold" />
-        <p id="remaining_hint" class="text-[11px] text-gray-500 mt-1 font-medium"></p>
-      </div>
-
-      <div class="flex justify-end space-x-3 pt-2">
-        <button type="button" onclick="toggleModal('allocateModal')" class="px-4 py-2 bg-gray-100 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-200 transition">
-          Cancel
-        </button>
-        <button type="submit" class="px-4 py-2 bg-brand-800 text-white font-bold rounded-xl text-xs hover:bg-brand-900 shadow-sm transition">
-          Confirm Allocation
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
+{% if can_view_news %}
+  {% include "admin/partials/modaladdnews.html" %}
+  {% include "admin/partials/modaleditnews.html" %}
+{% endif %}
+{% if can_write_needs %}{% include "admin/partials/modaladdneed.html" %}{% endif %}
 
 <!-- Dashboard Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  function switchTab(tabName) {
+  const tabLabels = {
+    overview: 'Overview',
+    volunteers: 'Volunteers',
+    donations: 'Donations',
+    beneficiaries: 'Beneficiaries',
+    needs: 'Community Needs',
+    news: 'News & Announcements',
+    reports: 'Reports'
+  };
+
+  function switchTab(tabName, updateHistory = true) {
+    if (!Object.prototype.hasOwnProperty.call(tabLabels, tabName)) tabName = 'overview';
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
     document.querySelectorAll('.tab-btn').forEach(el => {
-      el.classList.remove('text-brand-800', 'bg-brand-50', 'border-l-4', 'border-brand-800');
-      el.classList.add('text-gray-500', 'border-transparent');
+      el.removeAttribute('aria-current');
     });
 
     const target = document.getElementById(`tab-${tabName}`);
     if (target) target.classList.remove('hidden');
 
     const activeBtn = document.getElementById(`tab-btn-${tabName}`);
-    if (activeBtn) {
-      activeBtn.classList.remove('text-gray-500', 'border-transparent');
-      activeBtn.classList.add('text-brand-800', 'bg-brand-50', 'border-l-4', 'border-brand-800');
+    if (activeBtn) activeBtn.setAttribute('aria-current', 'page');
+    document.getElementById('page-title').textContent = tabLabels[tabName];
+    document.getElementById('breadcrumb-section').textContent = tabLabels[tabName];
+    document.getElementById('filter-tab').value = tabName;
+
+    if (updateHistory) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tabName);
+      url.hash = '';
+      window.history.pushState({ tab: tabName }, '', url);
     }
+
+    document.getElementById('admin-workspace').classList.remove('mobile-menu-open');
+    const mobileToggle = document.getElementById('mobile-sidebar-toggle');
+    mobileToggle.setAttribute('aria-expanded', 'false');
+    mobileToggle.setAttribute('aria-label', 'Open workspace menu');
+    if (window.innerWidth <= 760) document.getElementById('admin-main').focus();
   }
 
   function toggleModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
-      modal.classList.toggle('hidden');
-      modal.classList.toggle('flex');
+      const opening = modal.classList.contains('hidden');
+      modal.classList.toggle('hidden', !opening);
+      modal.classList.toggle('flex', opening);
     }
   }
 
-  function openAllocateModal(donationId, totalAmount, allocatedAmount) {
+  function openAllocateModal(donationId, remainingAmount) {
+    switchTab('donations');
     const form = document.getElementById('allocateForm');
-    const input = document.getElementById('allocate_amount_input');
-    const hint = document.getElementById('remaining_hint');
+    const input = document.getElementById('allocateAmountInput');
+    const hint = document.getElementById('maxAmountHelp');
     
     if (form && input && hint) {
-      const total = parseFloat(totalAmount) || 0;
-      const allocated = parseFloat(allocatedAmount) || 0;
-      const remaining = Math.max(0, total - allocated);
+      const remaining = Math.max(0, parseFloat(remainingAmount) || 0);
 
       form.action = `/admin/donations/${donationId}/allocate`;
       input.max = remaining.toFixed(2);
       input.value = remaining.toFixed(2);
-      hint.innerText = `Available unallocated balance: R ${remaining.toFixed(2)}`;
+      hint.innerText = `Max available balance: R ${remaining.toFixed(2)}`;
       
       toggleModal('allocateModal');
     }
@@ -123,48 +173,127 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     const urlParams = new URLSearchParams(window.location.search);
-    const hashTab = window.location.hash.replace('#', '');
-    const activeTab = urlParams.get('tab') || hashTab || 'overview';
-    switchTab(activeTab);
+    const activeTab = urlParams.get('tab') || window.location.hash.replace('#', '') || 'overview';
+    switchTab(activeTab, false);
 
-    const brandColor = '#9f425c';
+    window.addEventListener('popstate', () => {
+      switchTab(new URLSearchParams(window.location.search).get('tab') || 'overview', false);
+    });
+
+    const workspace = document.getElementById('admin-workspace');
+    const mobileToggle = document.getElementById('mobile-sidebar-toggle');
+    mobileToggle.addEventListener('click', () => {
+      const open = workspace.classList.toggle('mobile-menu-open');
+      mobileToggle.setAttribute('aria-expanded', String(open));
+      mobileToggle.setAttribute('aria-label', open ? 'Close workspace menu' : 'Open workspace menu');
+    });
+    document.querySelector('[data-close-sidebar]').addEventListener('click', () => {
+      workspace.classList.remove('mobile-menu-open');
+      mobileToggle.setAttribute('aria-expanded', 'false');
+      mobileToggle.setAttribute('aria-label', 'Open workspace menu');
+      mobileToggle.focus();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && workspace.classList.contains('mobile-menu-open')) {
+        workspace.classList.remove('mobile-menu-open');
+        mobileToggle.setAttribute('aria-expanded', 'false');
+        mobileToggle.setAttribute('aria-label', 'Open workspace menu');
+        mobileToggle.focus();
+      }
+    });
+
+    const collapseButton = document.getElementById('sidebar-collapse');
+    collapseButton.addEventListener('click', () => {
+      const collapsed = workspace.classList.toggle('sidebar-collapsed');
+      collapseButton.setAttribute('aria-pressed', String(collapsed));
+      collapseButton.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+      collapseButton.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+      collapseButton.querySelector('i').className = collapsed
+        ? 'fa-solid fa-angles-right'
+        : 'fa-solid fa-angles-left';
+      localStorage.setItem('admin-sidebar-collapsed', String(collapsed));
+    });
+    if (localStorage.getItem('admin-sidebar-collapsed') === 'true') collapseButton.click();
+
+    const search = document.getElementById('workspace-search');
+    search.addEventListener('input', () => {
+      const query = search.value.trim().toLocaleLowerCase();
+      document.querySelectorAll('.tab-content:not(.hidden) tbody tr').forEach(row => {
+        row.classList.toggle('hidden', query !== '' && !row.textContent.toLocaleLowerCase().includes(query));
+      });
+    });
+
+    document.querySelector('.admin-date-filter').addEventListener('submit', () => {
+      document.getElementById('admin-loading').hidden = false;
+      document.getElementById('apply-date-filter').disabled = true;
+    });
+
+    const brandColor = '#67d9ae';
+    const chartText = '#9aaca5';
+    const chartGrid = '#263b35';
 
     // Volunteer Growth Chart
     const growthCtx = document.getElementById('growthChart');
-    if (growthCtx) {
+    if (typeof Chart !== 'undefined' && growthCtx && {{ 'true' if has_volunteer_activity else 'false' }}) {
       new Chart(growthCtx, {
         type: 'line',
         data: {
-          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+          labels: {{ chart_month_labels | tojson }},
           datasets: [{
-            label: 'Volunteer Count',
-            data: [42, 68, 85, 98, 120],
+            label: 'New Volunteer Registrations',
+            data: {{ monthly_volunteer_counts | tojson }},
             borderColor: brandColor,
-            backgroundColor: 'rgba(159, 66, 92, 0.1)',
+            backgroundColor: 'rgba(103, 217, 174, 0.12)',
             fill: true,
             tension: 0.3,
             pointBackgroundColor: brandColor
           }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: chartText }, grid: { color: chartGrid } },
+            y: { beginAtZero: true, ticks: { color: chartText, precision: 0 }, grid: { color: chartGrid } }
+          }
+        }
       });
     }
 
     // Donation Trend Chart
     const donationCtx = document.getElementById('donationChart');
-    if (donationCtx) {
+    if (typeof Chart !== 'undefined' && donationCtx && {{ 'true' if has_verified_donation_activity else 'false' }}) {
       new Chart(donationCtx, {
         type: 'bar',
         data: {
-          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+          labels: {{ chart_month_labels | tojson }},
           datasets: [{
             label: 'Amount (ZAR)',
-            data: [12500, 18200, 25000, 31800, 45000],
+            data: {{ monthly_verified_donations | tojson }},
             backgroundColor: brandColor,
             borderRadius: 6
           }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: chartText }, grid: { display: false } },
+            y: { beginAtZero: true, ticks: { color: chartText }, grid: { color: chartGrid } }
+          }
+        }
+      });
+    }
+
+    if (typeof Chart === 'undefined') {
+      document.querySelectorAll('#growthChart, #donationChart').forEach(canvas => {
+        const state = document.createElement('p');
+        state.className = 'admin-chart-state';
+        state.setAttribute('role', 'alert');
+        state.textContent = 'Chart data could not be displayed. Refresh the workspace to try again.';
+        canvas.replaceWith(state);
       });
     }
   });

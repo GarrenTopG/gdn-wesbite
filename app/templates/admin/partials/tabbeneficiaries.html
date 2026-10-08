@@ -47,6 +47,12 @@
               <div class="text-gray-400 text-[11px] truncate max-w-xs mt-0.5" title="{{ need.full_address }}">
                 <i class="fa-solid fa-location-dot text-[10px]"></i> {{ need.full_address }}
               </div>
+              {% if need.request_details %}
+              <details class="mt-2 max-w-xs">
+                <summary class="cursor-pointer text-[11px] font-semibold text-brand-800">View request details</summary>
+                <p class="mt-1 whitespace-pre-wrap text-[11px] leading-relaxed text-gray-700">{{ need.request_details }}</p>
+              </details>
+              {% endif %}
             </td>
 
             <!-- Anonymised Title & Area -->
@@ -109,6 +115,7 @@
             <td class="px-4 py-3 text-center">
               {% set status_str = need.status.value if need.status.value is defined else need.status|string %}
               <form action="/admin/needs/{{ need.id }}/update-status" method="POST" class="inline-block">
+                {{ csrf_input(request) }}
                 <select name="status" 
                         title="Update assistance request status"
                         aria-label="Update assistance request status"

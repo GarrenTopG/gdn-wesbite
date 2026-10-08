@@ -34,7 +34,7 @@
             <td class="py-4 px-4 font-extrabold text-gray-900">R {{ "%.2f"|format(total) }}</td>
             <td class="py-4 px-4 font-medium text-emerald-700">R {{ "%.2f"|format(allocated) }}</td>
             <td class="py-4 px-4 text-gray-600">{{ donation.category or donation.donation_type or 'General Fund' }}</td>
-            <td class="py-4 px-4 text-gray-500 text-xs">{{ donation.created_at.strftime('%Y-%m-%d') if donation.created_at else '2026-05-12' }}</td>
+            <td class="py-4 px-4 text-gray-500 text-xs">{{ donation.created_at.strftime('%Y-%m-%d') }}</td>
             <td class="py-4 px-4 text-right">
               {% if remaining <= 0 %}
                 <span class="inline-flex items-center px-2.5 py-1 text-xs font-bold text-emerald-800 bg-emerald-100 rounded-md">
@@ -42,7 +42,7 @@
                 </span>
               {% else %}
                 <button type="button" 
-                        onclick="openAllocateModal('{{ donation.id }}', '{{ total }}', '{{ remaining }}')" 
+                        onclick="openAllocateModal('{{ donation.id }}', '{{ remaining }}')"
                         class="px-3 py-1.5 bg-brand-800 hover:bg-brand-900 text-white font-bold text-xs rounded-xl shadow-sm transition">
                   Allocate Need (R {{ "%.2f"|format(remaining) }} left)
                 </button>
@@ -50,19 +50,8 @@
             </td>
           </tr>
           {% else %}
-          <tr class="hover:bg-gray-50/80 transition">
-            <td class="py-4 px-4 font-semibold text-gray-800">John Doe</td>
-            <td class="py-4 px-4 font-extrabold text-gray-900">R 500.00</td>
-            <td class="py-4 px-4 font-medium text-emerald-700">R 0.00</td>
-            <td class="py-4 px-4 text-gray-600">Food Parcels</td>
-            <td class="py-4 px-4 text-gray-500 text-xs">2026-05-12</td>
-            <td class="py-4 px-4 text-right">
-              <button type="button" 
-                      onclick="openAllocateModal(1, 500.00, 500.00)" 
-                      class="px-3 py-1.5 bg-brand-800 hover:bg-brand-900 text-white font-bold text-xs rounded-xl shadow-sm transition">
-                Allocate Need (R 500.00 left)
-              </button>
-            </td>
+          <tr>
+            <td colspan="6" class="py-8 text-center text-gray-400">No donation records have been submitted yet.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -89,6 +78,7 @@
     </div>
 
     <form id="allocateForm" method="POST" action="" class="space-y-4 mt-4">
+      {{ csrf_input(request) }}
       <div>
         <!-- Linked label via 'for' attribute -->
         <label for="need_id" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
@@ -140,19 +130,6 @@
 </div>
 
 <script>
-function openAllocateModal(donationId, totalAmount, remainingAmount) {
-  const form = document.getElementById('allocateForm');
-  const input = document.getElementById('allocateAmountInput');
-  const helpText = document.getElementById('maxAmountHelp');
-  
-  form.action = '/admin/donations/' + donationId + '/allocate';
-  input.max = parseFloat(remainingAmount).toFixed(2);
-  input.value = parseFloat(remainingAmount).toFixed(2);
-  helpText.innerText = 'Max available balance: R ' + parseFloat(remainingAmount).toFixed(2);
-  
-  document.getElementById('allocateModal').classList.remove('hidden');
-}
-
 function closeAllocateModal() {
   document.getElementById('allocateModal').classList.add('hidden');
 }

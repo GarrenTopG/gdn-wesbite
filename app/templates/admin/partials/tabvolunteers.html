@@ -54,6 +54,7 @@
             <!-- Dynamic Day Assignment Dropdown -->
             <td class="py-4 px-4 text-center">
               <form action="/admin/volunteers/{{ volunteer.id }}/assign-day" method="POST" class="inline-block">
+                {{ csrf_input(request) }}
                 <select name="assigned_day"
                         title="Select active duty day for volunteer"
                         aria-label="Select active duty day for volunteer"

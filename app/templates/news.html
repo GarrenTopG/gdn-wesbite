@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 
 {% block title %}News & Updates - Aurorah CAN{% endblock %}
+{% block meta_description %}Read dated community updates, project milestones and announcements from Aurorah CAN in Kuils River.{% endblock %}
+{% block og_title %}Community News & Updates | Aurorah CAN{% endblock %}
+{% block og_description %}News and documented milestones from Aurorah CAN's work in Kuils River and nearby communities.{% endblock %}
 
 {% block content %}
 
@@ -12,7 +15,7 @@
         </span>
         <h1 class="text-4xl md:text-5xl font-extrabold mb-3 tracking-tight">News & Stories</h1>
         <p class="text-lg text-pink-100 max-w-2xl mx-auto">
-            Stay up to date with community progress, emergency alerts, and recent project milestones across Kuils River.
+            Dated updates and milestones from community work in Kuils River and nearby areas.
         </p>
     </div>
 </section>
@@ -20,6 +23,9 @@
 <!-- Main Gallery Section -->
 <section class="py-12 px-4 md:px-8 bg-gray-50 min-h-screen">
     <div class="max-w-7xl mx-auto">
+        <p class="mx-auto mb-8 max-w-3xl border-l-4 border-brand-700 bg-white p-4 text-sm leading-relaxed text-gray-700">
+            Updates describe specific activities and milestones. Identifiable community members, especially children, should only appear in photos when appropriate written media consent is in place. Generic imagery is labelled as illustrative.
+        </p>
 
         <!-- Category Filter Pills -->
         <div class="flex flex-wrap items-center justify-center gap-2 mb-10">
@@ -37,7 +43,7 @@
             </a>
         </div>
 
-        {% set fallback_img = "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=80&w=800" %}
+        {% set fallback_img = "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=75&w=720" %}
 
         {% if featured_article %}
         <!-- COLLAGE HERO: TOP/BIG STORY -->
@@ -48,7 +54,11 @@
                     <img src="{{ featured_article.image_url if featured_article.image_url else fallback_img }}" 
                          alt="{{ featured_article.title }}" 
                          onerror="this.onerror=null; this.src='{{ fallback_img }}';"
+                         loading="eager" fetchpriority="high" decoding="async"
                          class="w-full h-full object-cover opacity-90 hover:scale-105 transition duration-500">
+                    {% if not featured_article.image_url %}
+                    <span class="absolute bottom-3 right-3 bg-gray-950/80 px-3 py-1.5 text-xs font-semibold text-white">Illustrative image — not actual project beneficiaries</span>
+                    {% endif %}
                     <span class="absolute top-4 left-4 bg-brand-800 text-white text-xs font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow">
                         Top Story ★
                     </span>
@@ -60,7 +70,7 @@
                         <div class="flex items-center text-xs font-semibold text-gray-500 gap-3 mb-3">
                             <span class="text-brand-800 font-bold uppercase tracking-wide">{{ featured_article.category }}</span>
                             <span>•</span>
-                            <time>{{ featured_article.created_at.strftime('%d %b %Y') if featured_article.created_at else '' }}</time>
+                            <time datetime="{{ featured_article.created_at.isoformat() }}">{{ featured_article.created_at.strftime('%d %b %Y') }}</time>
                         </div>
 
                         <h2 class="text-2xl lg:text-3xl font-extrabold text-gray-900 leading-tight mb-4 hover:text-brand-800 transition">
@@ -90,12 +100,16 @@
                 {% if not featured_article or article.id != featured_article.id %}
                 <article class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row overflow-hidden hover:shadow-md transition duration-200 group">
                     <!-- Left Image Side -->
-                    <div class="sm:w-1/3 lg:w-[260px] h-48 sm:h-auto bg-gray-100 flex-shrink-0 overflow-hidden">
+                    <div class="relative sm:w-1/3 lg:w-[260px] h-48 sm:h-auto bg-gray-100 flex-shrink-0 overflow-hidden">
                         <a href="/news/{{ article.slug or article.id }}" class="block w-full h-full">
                             <img src="{{ article.image_url if article.image_url else fallback_img }}" 
                                  alt="{{ article.title }}" 
                                  onerror="this.onerror=null; this.src='{{ fallback_img }}';"
+                                 loading="lazy" decoding="async"
                                  class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                            {% if not article.image_url %}
+                            <span class="absolute bottom-2 left-2 bg-gray-950/80 px-2 py-1 text-[10px] font-semibold text-white">Illustrative image</span>
+                            {% endif %}
                         </a>
                     </div>
 
@@ -104,7 +118,7 @@
                         <div>
                             <!-- Date | Category -->
                             <div class="flex items-center text-xs text-gray-500 font-medium mb-2">
-                                <span>{{ article.created_at.strftime('%d %b %Y') if article.created_at else '' }}</span>
+                                <time datetime="{{ article.created_at.isoformat() }}">{{ article.created_at.strftime('%d %b %Y') }}</time>
                                 <span class="mx-2">|</span>
                                 <span class="text-brand-800 font-bold uppercase tracking-wide">{{ article.category }}</span>
                             </div>
@@ -129,10 +143,20 @@
                 </article>
                 {% endif %}
             {% else %}
-                <div class="col-span-full text-center py-12 text-gray-500">
-                    <i class="fa-regular fa-newspaper text-4xl mb-3 text-gray-300"></i>
-                    <p class="text-base font-semibold">No news articles published yet.</p>
+                {% if not featured_article %}
+                <div class="border border-gray-200 bg-white px-6 py-12 text-center text-gray-700">
+                    <i class="fa-regular fa-newspaper mb-3 text-4xl text-gray-300" aria-hidden="true"></i>
+                    <h2 class="mb-2 text-lg font-bold text-gray-900">
+                        {% if active_category %}No active updates in this category.{% else %}No community updates have been published yet.{% endif %}
+                    </h2>
+                    <p class="mx-auto mb-6 max-w-xl text-sm leading-relaxed">Explore our community milestones when they are published, or find another way to connect with Aurorah CAN.</p>
+                    <div class="flex flex-col justify-center gap-3 sm:flex-row">
+                        <a href="/requestassistance" class="inline-flex min-h-11 items-center justify-center bg-brand-800 px-5 py-2 font-bold text-white hover:bg-brand-900">Get Help</a>
+                        <a href="/donate" class="inline-flex min-h-11 items-center justify-center border border-brand-800 px-5 py-2 font-bold text-brand-800 hover:bg-brand-50">Make a Pledge</a>
+                        <a href="/volunteer" class="inline-flex min-h-11 items-center justify-center border border-gray-300 px-5 py-2 font-bold text-gray-800 hover:bg-gray-50">Volunteer</a>
+                    </div>
                 </div>
+                {% endif %}
             {% endfor %}
 
             <!-- Dynamic Pagination UI -->

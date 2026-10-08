@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Donate - Aurorah CAN{% endblock %}
+{% block title %}Donation Pledge | Aurorah CAN{% endblock %}
+{% block meta_description %}Submit a monetary or in-kind donation pledge to support local work by Aurorah CAN in Kuils River. This project does not process payments online.{% endblock %}
+{% block og_title %}Make a Donation Pledge | Aurorah CAN{% endblock %}
+{% block og_description %}Record a monetary pledge or offer goods to support community work in Kuils River and nearby communities.{% endblock %}
 
 {% block content %}
 
@@ -10,9 +13,9 @@
         <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
             <i class="fa-solid fa-heart"></i>
         </div>
-        <h1 class="text-4xl md:text-5xl font-extrabold mb-2 tracking-tight">Make a Donation</h1>
+        <h1 class="text-4xl md:text-5xl font-extrabold mb-2 tracking-tight">Make a Donation Pledge</h1>
         <p class="text-lg text-pink-100 max-w-xl mx-auto">
-            Support the Community through Monetary or Physical Contributions
+            Record an intended monetary contribution or offer goods for local community work
         </p>
     </div>
 </section>
@@ -23,59 +26,57 @@
 
         {% if submitted %}
         <!-- Success State -->
-        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center mb-8">
+        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center mb-8" role="status" aria-live="polite" aria-atomic="true">
             <div class="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
                 <i class="fa-solid fa-check"></i>
             </div>
-            <h3 class="text-2xl font-bold text-emerald-900 mb-2">Thank You for Your Support!</h3>
+            <h2 class="text-2xl font-bold text-emerald-900 mb-2">Your pledge has been recorded</h2>
             <p class="text-emerald-700 text-base mb-4">
-                Your donation request has been recorded. Thank you for empowering our community.
+                No payment was taken. This confirmation records your pledge or offer only; it is not a payment confirmation or a tax receipt.
             </p>
-            {% if donation_id and request_tax %}
-                <a href="/donate/tax-certificate/{{ donation_id }}" target="_blank" rel="noopener"
-                   class="inline-flex items-center space-x-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 px-5 rounded-xl text-sm transition">
-                    <i class="fa-solid fa-file-pdf"></i>
-                    <span>Download Section 18A Tax Receipt</span>
-                </a>
-            {% endif %}
         </div>
         {% endif %}
 
+        <div class="mb-8 border border-amber-300 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950" role="note">
+            <strong>Demo pledge form:</strong> This page records an expression of intent only. It does not process a payment, provide banking details or issue a Section 18A tax receipt. Do not enter card, bank or other payment credentials.
+        </div>
+
         <!-- Mode Toggle Tabs -->
-        <div class="grid grid-cols-2 bg-gray-100 p-1.5 rounded-xl mb-8 border border-gray-200">
-            <button type="button" id="tab_monetary" onclick="switchDonationType('monetary')"
+        <div class="grid grid-cols-2 bg-gray-100 p-1.5 rounded-xl mb-8 border border-gray-200" role="tablist" aria-label="Donation type">
+            <button type="button" id="tab_monetary" role="tab" aria-selected="true" aria-controls="monetary_fields" tabindex="0" onclick="switchDonationType('monetary')"
                     class="py-3 px-4 rounded-lg font-bold text-sm transition text-brand-800 bg-white shadow-sm">
                 <i class="fa-solid fa-credit-card mr-2"></i>Monetary Donation
             </button>
-            <button type="button" id="tab_inkind" onclick="switchDonationType('inkind')"
+            <button type="button" id="tab_inkind" role="tab" aria-selected="false" aria-controls="inkind_fields" tabindex="-1" onclick="switchDonationType('inkind')"
                     class="py-3 px-4 rounded-lg font-bold text-sm transition text-gray-600 hover:text-gray-900">
                 <i class="fa-solid fa-box-open mr-2"></i>In-Kind Goods
             </button>
         </div>
 
         <form action="/donate" method="POST" class="space-y-6">
+            {{ csrf_input(request) }}
             <input type="hidden" id="donation_type" name="donation_type" value="monetary">
 
             <!-- SECTION: MONETARY FIELDS -->
-            <div id="monetary_fields" class="space-y-6">
-                <h3 class="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Select Donation Amount</h3>
+            <div id="monetary_fields" class="space-y-6" role="tabpanel" aria-labelledby="tab_monetary" tabindex="0">
+                <h3 class="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Monetary pledge amount</h3>
                 
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-                    <button type="button" onclick="selectPreset(50, this)" class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition outline-none cursor-pointer hover:border-brand-800">
+                    <button type="button" aria-label="Set donation amount to 50 rand" aria-pressed="false" onclick="selectPreset(50, this)" class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition outline-none cursor-pointer hover:border-brand-800">
                         <div class="font-bold text-gray-800 text-lg">R50</div>
-                        <div class="text-xs text-gray-500">Basic</div>
+                        <div class="text-xs text-gray-500">Pledge</div>
                     </button>
-                    <button type="button" onclick="selectPreset(200, this)" class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition outline-none cursor-pointer hover:border-brand-800">
+                    <button type="button" aria-label="Set donation amount to 200 rand" aria-pressed="false" onclick="selectPreset(200, this)" class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition outline-none cursor-pointer hover:border-brand-800">
                         <div class="font-bold text-gray-800 text-lg">R200</div>
-                        <div class="text-xs text-gray-500">Standard</div>
+                        <div class="text-xs text-gray-500">Pledge</div>
                     </button>
-                    <button type="button" onclick="selectPreset(500, this)" class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition outline-none cursor-pointer hover:border-brand-800">
+                    <button type="button" aria-label="Set donation amount to 500 rand" aria-pressed="false" onclick="selectPreset(500, this)" class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition outline-none cursor-pointer hover:border-brand-800">
                         <div class="font-bold text-gray-800 text-lg">R500</div>
-                        <div class="text-xs text-gray-500">Supporter</div>
+                        <div class="text-xs text-gray-500">Pledge</div>
                     </button>
-                    <button type="button" onclick="selectPreset(1000, this)" class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition outline-none cursor-pointer hover:border-brand-800">
+                    <button type="button" aria-label="Set donation amount to 1000 rand" aria-pressed="false" onclick="selectPreset(1000, this)" class="preset-btn py-3 px-4 bg-white border border-gray-300 rounded-xl text-center transition outline-none cursor-pointer hover:border-brand-800">
                         <div class="font-bold text-gray-800 text-lg">R1000</div>
-                        <div class="text-xs text-gray-500">Champion</div>
+                        <div class="text-xs text-gray-500">Pledge</div>
                     </button>
                 </div>
 
@@ -90,17 +91,12 @@
                 <div class="mb-5">
                     <label for="need_id" class="block text-base font-semibold text-gray-800 mb-1.5">What Will Your Donation Support?</label>
                     <select id="need_id" name="need_id" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 outline-none text-base bg-white">
-                        <option value="" disabled {% if not selected_need_id %}selected{% endif %}>Select a cause...</option>
-                        <option value="Food Parcels">Food Parcels</option>
-                        <option value="Educational Programs">Educational Programs</option>
-                        <option value="Healthcare Initiatives">Healthcare Initiatives</option>
-                        <option value="Emergency Relief">Emergency Relief</option>
-                        <option value="General Fund (Where Most Needed)">General Fund (Where Most Needed)</option>
+                        <option value="" {% if not selected_need_id %}selected{% endif %}>General fund — where most needed</option>
                         {% if active_needs %}
                             <optgroup label="Direct Community Needs">
                                 {% for need in active_needs %}
                                     <option value="{{ need.id }}" {% if selected_need_id == need.id %}selected{% endif %}>
-                                        Targeted: {{ need.anonymised_title }}
+                                        Targeted pledge: {{ need.anonymised_title }} ({{ need.area }})
                                     </option>
                                 {% endfor %}
                             </optgroup>
@@ -108,35 +104,15 @@
                     </select>
                 </div>
 
-                <!-- SECTION 18A TAX CERTIFICATE CHECKBOX -->
-                <div class="p-4 bg-brand-50/60 border border-brand-200 rounded-xl space-y-4">
-                    <div class="flex items-center">
-                        <input id="request_tax_certificate" name="request_tax_certificate" type="checkbox" value="true" onchange="toggleTaxFields(this)" class="w-5 h-5 text-brand-800 rounded focus:ring-brand-800">
-                        <label for="request_tax_certificate" class="ml-3 text-sm font-semibold text-brand-900 cursor-pointer">
-                            Issue a Section 18A Tax Deduction Certificate
-                        </label>
-                    </div>
-
-                    <div id="tax_fields" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-brand-200">
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-700 mb-1">SARS Tax Reference / ID Number</label>
-                            <input type="text" name="tax_id_number" placeholder="e.g. 9000123456" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-700 mb-1">Residential / Physical Address</label>
-                            <input type="text" name="tax_address" placeholder="e.g. 12 Main Rd, Cape Town" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white">
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- SECTION: IN-KIND FIELDS -->
-            <div id="inkind_fields" class="hidden space-y-6">
+            <div id="inkind_fields" class="hidden space-y-6" role="tabpanel" aria-labelledby="tab_inkind" tabindex="0" hidden>
                 <h3 class="text-xl font-bold text-gray-900 mb-4 border-b pb-2">In-Kind Contribution Details</h3>
 
                 <div>
-                    <label class="block text-base font-semibold text-gray-800 mb-1.5">Item Category <span class="text-red-500">*</span></label>
-                    <select id="item_category" name="item_category" aria-label="Item Category" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base bg-white">
+                    <label for="item_category" class="block text-base font-semibold text-gray-800 mb-1.5">Item Category <span class="text-red-500">*</span></label>
+                    <select id="item_category" name="item_category" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base bg-white">
                         <option value="Non-Perishable Food / Canned Goods">Non-Perishable Food / Canned Goods</option>
                         <option value="Clothing & Footwear">Clothing & Footwear</option>
                         <option value="Blankets & Bedding">Blankets & Bedding</option>
@@ -146,8 +122,8 @@
                 </div>
 
                 <div>
-                    <label class="block text-base font-semibold text-gray-800 mb-1.5">Item Description & Estimated Quantities <span class="text-red-500">*</span></label>
-                    <textarea name="item_description" rows="3" placeholder="e.g. 3 boxes of canned beans, 10 warm winter jackets" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base"></textarea>
+                    <label for="item_description" class="block text-base font-semibold text-gray-800 mb-1.5">Item Description &amp; Estimated Quantities <span class="text-red-500">*</span></label>
+                    <textarea id="item_description" name="item_description" rows="3" required placeholder="e.g. 3 boxes of canned beans, 10 warm winter jackets" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base"></textarea>
                 </div>
 
                 <div>
@@ -155,24 +131,24 @@
                     <div class="grid grid-cols-2 gap-4">
                         <label class="p-4 border rounded-xl flex items-center space-x-3 cursor-pointer hover:border-brand-800">
                             <input type="radio" name="logistics_type" value="dropoff" checked onchange="toggleLogistics('dropoff')" class="text-brand-800">
-                            <span class="text-sm font-bold text-gray-800">I will Drop Off</span>
+                            <span class="text-sm font-bold text-gray-800">I will drop off</span>
                         </label>
                         <label class="p-4 border rounded-xl flex items-center space-x-3 cursor-pointer hover:border-brand-800">
                             <input type="radio" name="logistics_type" value="pickup" onchange="toggleLogistics('pickup')" class="text-brand-800">
-                            <span class="text-sm font-bold text-gray-800">Request Collection</span>
+                            <span class="text-sm font-bold text-gray-800">Request collection</span>
                         </label>
                     </div>
                 </div>
 
                 <div id="dropoff_info" class="p-4 bg-gray-100 rounded-xl text-xs text-gray-600">
                     <p class="font-bold text-gray-800">Drop-off Location:</p>
-                    <p>Aurorah CAN Community Hub headquarters at 27 Lovebird Walk, Sunbird Walk, Kuils River, Western Cape, 7580.</p>
-                    <p class="mt-1 text-gray-500">Hours: Monday – Saturday, 08:30 – 16:00</p>
+                    <p>Aurorah NPC, 27 Lovebird Walk, Sunbird Park, Cape Town, 7580.</p>
+                    <p class="mt-1 text-gray-500">Hours: Monday–Friday, 08:00–17:00; Saturday, 09:00–14:00. Closed Sunday.</p>
                 </div>
 
                 <div id="pickup_info" class="hidden">
-                    <label class="block text-base font-semibold text-gray-800 mb-1.5">Collection Address <span class="text-red-500">*</span></label>
-                    <input type="text" name="pickup_address" placeholder="Enter full address for driver pickup" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base">
+                    <label for="pickup_address" class="block text-base font-semibold text-gray-800 mb-1.5">Collection Address <span class="text-red-500">*</span></label>
+                    <input id="pickup_address" type="text" name="pickup_address" placeholder="Enter full address for driver pickup" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base">
                 </div>
             </div>
 
@@ -218,14 +194,18 @@
 
             <!-- SUBMIT & POPIA -->
             <div class="pt-2">
+                <p class="mb-4 text-sm leading-relaxed text-gray-600">
+                    We use the details you provide to record and review this pledge or goods offer. Name and contact details are optional; if you provide them, authorised staff may use them to follow up. See the
+                    <a href="#privacy-notice" class="font-semibold text-brand-800 underline underline-offset-2">Privacy &amp; POPIA notice</a>.
+                </p>
                 <div class="flex items-start mb-6">
                     <input id="popia" name="popia" type="checkbox" value="true" required class="w-5 h-5 mt-0.5 text-brand-800 border-gray-300 rounded focus:ring-brand-800">
-                    <label for="popia" class="ml-3 text-sm text-gray-600 cursor-pointer">I agree to the Privacy Policy and POPIA Compliance.</label>
+                    <label for="popia" class="ml-3 text-sm text-gray-600 cursor-pointer">I have read the privacy information and agree that Aurorah NPC may use the details I provide to record and review this pledge or offer.</label>
                 </div>
 
                 <button type="submit" class="w-full bg-brand-800 text-white font-bold py-4 rounded-xl shadow hover:bg-brand-900 transition flex items-center justify-center space-x-2 text-base">
                     <i class="fa-solid fa-heart"></i>
-                    <span id="submit_btn_text">Proceed to Payment</span>
+                    <span id="submit_btn_text">Submit Donation Pledge</span>
                 </button>
             </div>
         </form>
@@ -237,33 +217,46 @@ function switchDonationType(type) {
     document.getElementById('donation_type').value = type;
     const isMonetary = type === 'monetary';
 
-    document.getElementById('monetary_fields').classList.toggle('hidden', !isMonetary);
-    document.getElementById('inkind_fields').classList.toggle('hidden', isMonetary);
+    const monetaryFields = document.getElementById('monetary_fields');
+    const inkindFields = document.getElementById('inkind_fields');
+    monetaryFields.classList.toggle('hidden', !isMonetary);
+    inkindFields.classList.toggle('hidden', isMonetary);
+    inkindFields.hidden = isMonetary;
+    monetaryFields.querySelectorAll('input, select, textarea').forEach(field => field.disabled = !isMonetary);
+    inkindFields.querySelectorAll('input, select, textarea').forEach(field => field.disabled = isMonetary);
 
-    document.getElementById('tab_monetary').className = isMonetary 
+    document.getElementById('tab_monetary').className = isMonetary
         ? 'py-3 px-4 rounded-lg font-bold text-sm transition text-brand-800 bg-white shadow-sm'
         : 'py-3 px-4 rounded-lg font-bold text-sm transition text-gray-600 hover:text-gray-900';
 
-    document.getElementById('tab_inkind').className = !isMonetary 
+    document.getElementById('tab_inkind').className = !isMonetary
         ? 'py-3 px-4 rounded-lg font-bold text-sm transition text-brand-800 bg-white shadow-sm'
         : 'py-3 px-4 rounded-lg font-bold text-sm transition text-gray-600 hover:text-gray-900';
 
+    document.getElementById('tab_monetary').setAttribute('aria-selected', String(isMonetary));
+    document.getElementById('tab_monetary').tabIndex = isMonetary ? 0 : -1;
+    document.getElementById('tab_inkind').setAttribute('aria-selected', String(!isMonetary));
+    document.getElementById('tab_inkind').tabIndex = isMonetary ? -1 : 0;
     document.getElementById('amount').required = isMonetary;
-    document.getElementById('submit_btn_text').innerText = isMonetary ? 'Proceed to Payment' : 'Submit In-Kind Offer';
-}
-
-function toggleTaxFields(checkbox) {
-    document.getElementById('tax_fields').classList.toggle('hidden', !checkbox.checked);
+    document.getElementById('submit_btn_text').innerText = isMonetary ? 'Submit Donation Pledge' : 'Submit In-Kind Offer';
+    document.getElementById('item_category').required = !isMonetary;
+    document.getElementById('item_description').required = !isMonetary;
+    const selectedLogistics = document.querySelector('input[name="logistics_type"]:checked');
+    toggleLogistics(selectedLogistics ? selectedLogistics.value : 'dropoff');
 }
 
 function toggleLogistics(type) {
     document.getElementById('dropoff_info').classList.toggle('hidden', type !== 'dropoff');
     document.getElementById('pickup_info').classList.toggle('hidden', type !== 'pickup');
+    const pickupAddress = document.getElementById('pickup_address');
+    pickupAddress.required = type === 'pickup';
+    pickupAddress.disabled = type !== 'pickup' || document.getElementById('donation_type').value !== 'inkind';
 }
 
 function selectPreset(val, btnEl) {
     document.getElementById('amount').value = val;
     document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.setAttribute('aria-pressed', String(btn === btnEl));
         btn.classList.remove('border-brand-800', 'bg-brand-50', 'ring-2', 'ring-brand-800');
         btn.classList.add('bg-white', 'border-gray-300');
     });
@@ -283,6 +276,23 @@ function toggleAnonymous(checkbox) {
         nameInput.classList.remove('bg-gray-100', 'text-gray-500');
     }
 }
+
+document.getElementById('tab_monetary').addEventListener('keydown', function(event) {
+    if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        document.getElementById('tab_inkind').focus();
+        switchDonationType('inkind');
+    }
+});
+document.getElementById('tab_inkind').addEventListener('keydown', function(event) {
+    if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        document.getElementById('tab_monetary').focus();
+        switchDonationType('monetary');
+    }
+});
+
+switchDonationType('monetary');
 </script>
 
 {% endblock %}

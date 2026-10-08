@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 
 {% block title %}Get Help - Aurorah CAN{% endblock %}
+{% block meta_description %}Request local assistance from Aurorah CAN in Kuils River and nearby Cape Flats communities. Learn what to expect and how your information is used.{% endblock %}
+{% block og_title %}Request Assistance | Aurorah CAN{% endblock %}
+{% block og_description %}Find out about Aurorah CAN's local support area and submit a request for review.{% endblock %}
 
 {% block content %}
 
@@ -12,7 +15,7 @@
         </div>
         <h1 class="text-4xl md:text-5xl font-extrabold mb-2 tracking-tight">Request Assistance</h1>
         <p class="text-lg text-pink-100 max-w-xl mx-auto">
-            We're Here to Help
+            Local support requests for Kuils River and nearby communities
         </p>
     </div>
 </section>
@@ -23,23 +26,32 @@
 
         {% if submitted %}
         <!-- Success State -->
-        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center mb-8">
+        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center mb-8" role="status" aria-live="polite" aria-atomic="true">
             <div class="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
                 <i class="fa-solid fa-check"></i>
             </div>
-            <h3 class="text-2xl font-bold text-emerald-900 mb-2">Request Submitted</h3>
+            <h2 class="text-2xl font-bold text-emerald-900 mb-2">Request Submitted</h2>
             <p class="text-emerald-700 text-base">
-                Thank you, {{ full_name }}. Your request has been logged and our support team will get in touch with you shortly.
+                Thank you, {{ full_name }}. Your request has been received for review. Submitting a request does not guarantee assistance; support depends on the circumstances and resources available.
             </p>
         </div>
         {% endif %}
 
-        <!-- Info Box -->
-        <div class="bg-brand-50/60 border-l-4 border-brand-800 p-4 rounded-r-lg mb-8 text-base text-gray-700">
-            If you or someone you know needs assistance, we want to help. Please fill in the form below and we'll get back to you as soon as possible. Your information is kept confidential and protected by POPIA regulations.
+        <div class="mb-8 space-y-4">
+            <div class="border-l-4 border-brand-800 bg-brand-50/60 p-4 text-base text-gray-700">
+                Aurorah CAN considers requests from Kuils River, Sunbird Park and nearby Cape Flats communities. Support may include community care, food support or referral to another service. Requests are reviewed individually and assistance depends on eligibility and available resources.
+            </div>
+            <div class="border border-amber-300 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950" role="note">
+                <strong>Not an emergency service:</strong> If you are in immediate danger or need urgent medical help, call 112 from a mobile phone. For a police emergency, call 10111.
+            </div>
+            <p class="text-sm leading-relaxed text-gray-600">
+                We ask for your name, area, phone number, the type of support and a short description so authorised staff can review the request and contact you. Do not include information that is not needed. Read the
+                <a href="#privacy-notice" class="font-semibold text-brand-800 underline underline-offset-2">Privacy &amp; POPIA notice</a>.
+            </p>
         </div>
 
         <form action="/requestassistance" method="POST" class="space-y-6">
+            {{ csrf_input(request) }}
 
             <!-- 1. Personal Information -->
             <div>
@@ -58,14 +70,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-                    <div>
-                        <label for="email" class="block text-base font-semibold text-gray-800 mb-1.5">Email Address <span class="text-red-500">*</span></label>
-                        <input id="email" type="email" name="email" required placeholder="name@example.com"
-                               class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base transition">
-                    </div>
-
-                    <!-- Country Code + Phone Number Input -->
+                <div class="grid grid-cols-1 gap-5 mb-5">
                     <div>
                         <label for="phone" class="block text-base font-semibold text-gray-800 mb-1.5">Phone Number <span class="text-red-500">*</span></label>
                         <div class="flex rounded-xl border border-gray-300 focus-within:ring-2 focus-within:ring-brand-800 focus-within:border-brand-800 overflow-hidden transition">
@@ -85,15 +90,9 @@
                 </div>
 
                 <div class="mb-5">
-                    <label for="location" class="block text-base font-semibold text-gray-800 mb-1.5">Location / Area <span class="text-red-500">*</span></label>
-                    <select id="location" name="location" required aria-label="Location / Area" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base bg-white transition">
-                        <option value="" disabled selected>Select your area...</option>
-                        <option value="Kuils River">Kuils River</option>
-                        <option value="Blue Downs">Blue Downs</option>
-                        <option value="Blackheath">Blackheath</option>
-                        <option value="Mfuleni">Mfuleni</option>
-                        <option value="Other">Other</option>
-                    </select>
+                    <label for="location" class="block text-base font-semibold text-gray-800 mb-1.5">Suburb or area <span class="text-red-500">*</span></label>
+                    <input id="location" type="text" name="location" required autocomplete="address-level2" placeholder="e.g. Sunbird Park, Kuils River"
+                           class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base transition">
                 </div>
             </div>
 
@@ -103,26 +102,16 @@
 
                 <div class="mb-5">
                     <label for="need_type" class="block text-base font-semibold text-gray-800 mb-1.5">Type of Assistance Needed <span class="text-red-500">*</span></label>
-                    <select id="need_type" name="need_type" required aria-label="Type of Assistance Needed" onchange="toggleFinancialAidField(this.value)" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base bg-white transition">
+                    <select id="need_type" name="need_type" required aria-label="Type of Assistance Needed" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base bg-white transition">
                         <option value="" disabled selected>Select type of need...</option>
                         <option value="Food Parcel">Food Parcel</option>
-                        <option value="Financial Aid">Financial Aid</option>
-                        <option value="Medical Assistance">Medical Assistance</option>
-                        <option value="Educational Support">Educational Support</option>
-                        <option value="Employment Help">Employment Help</option>
-                        <option value="Housing">Housing</option>
+                        <option value="Financial Aid">Financial or practical support</option>
+                        <option value="Medical Assistance">Health-related support or referral</option>
+                        <option value="Educational Support">Education and youth support</option>
+                        <option value="Employment Help">Community support referral</option>
+                        <option value="Housing">Housing-related support or referral</option>
                         <option value="Other">Other</option>
                     </select>
-                </div>
-
-                <!-- Dynamic Requested Amount Container -->
-                <div id="financial_aid_container" class="hidden mb-5">
-                    <label for="target_amount" class="block text-base font-semibold text-gray-800 mb-1.5">Requested Financial Amount (ZAR) <span class="text-red-500">*</span></label>
-                    <div class="relative rounded-xl border border-gray-300 focus-within:ring-2 focus-within:ring-brand-800 focus-within:border-brand-800 overflow-hidden transition">
-                        <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 font-bold">R</span>
-                        <input id="target_amount" type="number" step="0.01" min="1" name="target_amount" placeholder="e.g. 500.00"
-                               class="w-full pl-9 pr-4 py-3 outline-none text-base">
-                    </div>
                 </div>
 
                 <div class="mb-5">
@@ -134,20 +123,23 @@
                 <div class="mb-5">
                     <label for="urgency" class="block text-base font-semibold text-gray-800 mb-1.5">How Urgent Is Your Need?</label>
                     <select id="urgency" name="urgency" aria-label="How Urgent Is Your Need?" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base bg-white transition">
-                        <option value="Normal" selected>Normal</option>
-                        <option value="Urgent">Urgent</option>
-                        <option value="Critical - Immediate">Critical - Immediate</option>
+                        <option value="Medium" selected>Standard</option>
+                        <option value="High">High</option>
+                        <option value="Critical">Critical</option>
                     </select>
                 </div>
             </div>
 
             <!-- 3. POPIA Agreement & Submit -->
             <div class="pt-2">
+                <p class="mb-4 text-sm leading-relaxed text-gray-600">
+                    Your name, suburb, phone number, support category and description are required for review and contact. If you do not provide them, Aurorah CAN may be unable to assess or respond to your request. Your details are used by authorised staff and, where needed, relevant community partners; they are not published as a public story.
+                </p>
                 <div class="flex items-start mb-6">
                     <input id="popia" name="popia" type="checkbox" value="true" required
                            class="w-5 h-5 mt-0.5 text-brand-800 border-gray-300 rounded focus:ring-brand-800">
                     <label for="popia" class="ml-3 text-sm text-gray-600 leading-relaxed">
-                        I agree to the Privacy Policy and POPIA Compliance and consent to be contacted regarding this request.
+                        I have read the privacy information and agree that Aurorah NPC may use these details to assess this assistance request and contact me about it.
                     </label>
                 </div>
 
@@ -161,21 +153,5 @@
         </form>
     </div>
 </section>
-
-<script>
-    function toggleFinancialAidField(category) {
-        const container = document.getElementById('financial_aid_container');
-        const amountInput = document.getElementById('target_amount');
-        
-        if (category === 'Financial Aid') {
-            container.classList.remove('hidden');
-            amountInput.required = true;
-        } else {
-            container.classList.add('hidden');
-            amountInput.required = false;
-            amountInput.value = '';
-        }
-    }
-</script>
 
 {% endblock %}

@@ -1,18 +1,18 @@
 <!-- TAB 1: OVERVIEW -->
 <div id="tab-overview" class="tab-content space-y-6">
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm flex items-center justify-between">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    {% if can_view_volunteers or is_read_only %}<div class="admin-metric-card flex items-center justify-between">
       <div>
-        <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Total Volunteers</p>
+        <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Volunteer sign-ups</p>
         <p class="text-3xl font-extrabold text-gray-900 mt-1">{{ total_volunteers }}</p>
       </div>
       <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl">
         <i class="fa-solid fa-users"></i>
       </div>
-    </div>
-    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm flex items-center justify-between">
+    </div>{% endif %}
+    {% if can_view_donations or is_read_only %}<div class="admin-metric-card flex items-center justify-between">
       <div>
-        <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Total Donations</p>
+        <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Verified donations</p>
        <p class="text-3xl font-extrabold text-gray-900 mt-1">
   R {{ "%.2f"|format(total_donation_amount|float) }}
 </p>
@@ -20,17 +20,17 @@
       <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl">
         <i class="fa-solid fa-coins"></i>
       </div>
-    </div>
-    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm flex items-center justify-between">
+    </div>{% endif %}
+    {% if can_view_beneficiaries or is_read_only %}<div class="admin-metric-card flex items-center justify-between">
       <div>
-        <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Intake Requests</p>
+        <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Beneficiary requests</p>
         <p class="text-3xl font-extrabold text-gray-900 mt-1">{{ total_requests }}</p>
       </div>
       <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl">
         <i class="fa-solid fa-hand-holding-hand"></i>
       </div>
-    </div>
-    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm flex items-center justify-between">
+    </div>{% endif %}
+    {% if can_view_news or is_read_only %}<div class="admin-metric-card flex items-center justify-between">
       <div>
         <p class="text-xs font-bold uppercase tracking-wider text-gray-400">News Published</p>
         <p class="text-3xl font-extrabold text-gray-900 mt-1">{{ total_news }}</p>
@@ -38,21 +38,35 @@
       <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-xl">
         <i class="fa-solid fa-newspaper"></i>
       </div>
-    </div>
+    </div>{% endif %}
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
-      <h3 class="text-base font-bold text-gray-900 mb-4">Volunteer Growth Trend</h3>
-      <div class="h-64">
-        <canvas id="growthChart"></canvas>
-      </div>
+  <p class="text-xs text-gray-500">Metrics and charts cover {{ date_from }} through {{ date_to }}.{% if not is_read_only %} Pending work counts include records permitted for your role.{% endif %}</p>
+
+  {% if is_read_only %}
+  <p class="text-sm text-gray-600">Summary counts only. Personal records, case details, and individual financial entries are not available to your role.</p>
+  {% else %}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    {% if can_view_volunteers %}
+    {% if has_volunteer_activity %}
+    <div class="bg-white p-5 rounded-xl border border-gray-200/80 shadow-sm">
+      <h3 class="text-sm font-bold text-gray-900 mb-4">Volunteer registrations</h3>
+      <div class="h-64"><canvas id="growthChart" role="img" aria-label="Volunteer registrations per month"></canvas></div>
     </div>
-    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
-      <h3 class="text-base font-bold text-gray-900 mb-4">Monthly Donation Value (ZAR)</h3>
-      <div class="h-64">
-        <canvas id="donationChart"></canvas>
-      </div>
+    {% else %}
+    <div class="admin-chart-state" role="status">No volunteer activity in the selected date range. No chart is shown.</div>
+    {% endif %}
+    {% endif %}
+    {% if can_view_donations %}
+    {% if has_verified_donation_activity %}
+    <div class="bg-white p-5 rounded-xl border border-gray-200/80 shadow-sm">
+      <h3 class="text-sm font-bold text-gray-900 mb-4">Verified monetary donations (ZAR)</h3>
+      <div class="h-64"><canvas id="donationChart" role="img" aria-label="Verified monetary donation totals per month"></canvas></div>
     </div>
+    {% else %}
+    <div class="admin-chart-state" role="status">No verified monetary donations in the selected date range. No chart is shown.</div>
+    {% endif %}
+    {% endif %}
   </div>
+  {% endif %}
 </div>

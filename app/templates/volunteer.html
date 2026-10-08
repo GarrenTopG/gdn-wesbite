@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 
 {% block title %}Get Involved - Aurorah CAN{% endblock %}
+{% block meta_description %}Explore volunteer opportunities with Aurorah CAN in Kuils River, from community-library support to food distribution and local events.{% endblock %}
+{% block og_title %}Volunteer with Aurorah CAN{% endblock %}
+{% block og_description %}See local volunteer roles, onboarding expectations and submit an application to Aurorah CAN.{% endblock %}
 
 {% block content %}
 
@@ -12,7 +15,7 @@
         </div>
         <h1 class="text-4xl md:text-5xl font-extrabold mb-2 tracking-tight">Become a Volunteer</h1>
         <p class="text-lg text-pink-100 max-w-xl mx-auto">
-            Share Your Skills, Transform Lives
+            Contribute time and skills to local community work
         </p>
     </div>
 </section>
@@ -23,23 +26,49 @@
 
         {% if submitted %}
         <!-- Success State -->
-        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center mb-8">
+        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center mb-8" role="status" aria-live="polite" aria-atomic="true">
             <div class="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
                 <i class="fa-solid fa-check"></i>
             </div>
-            <h3 class="text-2xl font-bold text-emerald-900 mb-2">Thank You, {{ full_name }}!</h3>
+            <h2 class="text-2xl font-bold text-emerald-900 mb-2">Thank You, {{ full_name }}!</h2>
             <p class="text-emerald-700 text-base">
-                Your volunteer details have been saved to our database. Our operations team will match you with upcoming community tasks.
+                Your application has been received. Applying does not guarantee placement; opportunities depend on suitability, an interview and any role-specific screening.
             </p>
         </div>
         {% endif %}
 
-        <!-- Info Box -->
-        <div class="bg-brand-50/60 border-l-4 border-brand-800 p-4 rounded-r-lg mb-8 text-base text-gray-700">
-            Help us serve the Kuils River community. Fill in your details below and let us know how you can contribute.
+        <div class="mb-8 space-y-6">
+            <div class="border-l-4 border-brand-800 bg-brand-50/60 p-4 text-base leading-relaxed text-gray-700">
+                Volunteer with Aurorah CAN in Kuils River and nearby communities. These are examples of the kinds of local roles currently described by the organisation; availability may vary.
+            </div>
+            <div class="grid gap-4 md:grid-cols-3">
+                <article class="border border-gray-200 p-5">
+                    <i class="fa-solid fa-book-open mb-3 text-xl text-brand-800" aria-hidden="true"></i>
+                    <h2 class="mb-2 font-bold text-gray-900">Community library assistant</h2>
+                    <p class="text-sm leading-relaxed text-gray-700">Support the Sunbird Park mini-library, with an example commitment of around four hours a week.</p>
+                </article>
+                <article class="border border-gray-200 p-5">
+                    <i class="fa-solid fa-box-open mb-3 text-xl text-brand-800" aria-hidden="true"></i>
+                    <h2 class="mb-2 font-bold text-gray-900">Food distribution and logistics</h2>
+                    <p class="text-sm leading-relaxed text-gray-700">Help sort and pack community food parcels, with weekend shifts as an example.</p>
+                </article>
+                <article class="border border-gray-200 p-5">
+                    <i class="fa-solid fa-calendar-check mb-3 text-xl text-brand-800" aria-hidden="true"></i>
+                    <h2 class="mb-2 font-bold text-gray-900">Events and fundraising</h2>
+                    <p class="text-sm leading-relaxed text-gray-700">Contribute to planning and logistics for local community engagement activities.</p>
+                </article>
+            </div>
+            <div class="border border-amber-300 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">
+                <strong>Onboarding and safeguarding:</strong> Applications are reviewed before placement. Candidates may be invited to an interview and orientation. Roles involving direct contact with children require the applicable child-protection checks, including Child Protection Register vetting under the Children’s Act. Additional background checks may apply to a role.
+            </div>
+            <p class="text-sm leading-relaxed text-gray-600">
+                We use your name, area, phone number, skills and availability to review your application and contact you. Email is optional. See the
+                <a href="#privacy-notice" class="font-semibold text-brand-800 underline underline-offset-2">Privacy &amp; POPIA notice</a>.
+            </p>
         </div>
 
         <form id="volunteer-form" action="/volunteer" method="POST" class="space-y-6">
+            {{ csrf_input(request) }}
 
             <!-- 1. Personal Information -->
             <div>
@@ -60,8 +89,8 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                     <div>
-                        <label for="email" class="block text-base font-semibold text-gray-800 mb-1.5">Email Address <span class="text-red-500">*</span></label>
-                        <input id="email" type="email" name="email" required placeholder="name@example.com"
+                        <label for="email" class="block text-base font-semibold text-gray-800 mb-1.5">Email Address (Optional)</label>
+                        <input id="email" type="email" name="email" autocomplete="email" placeholder="name@example.com"
                                class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base transition">
                     </div>
 
@@ -74,7 +103,7 @@
                                 <option value="+264">🇳🇦 +264</option>
                                 <option value="+267">🇧🇼 +267</option>
                                 <option value="+263">🇿🇼 +263</option>
-                                <option value="+258">🇲ℤ +258</option>
+                                <option value="+258">🇲🇿 +258</option>
                                 <option value="+268">🇸🇿 +268</option>
                                 <option value="+266">🇱🇸 +266</option>
                             </select>
@@ -85,16 +114,10 @@
                 </div>
 
                 <div class="mb-5">
-                    <label for="location" class="block text-base font-semibold text-gray-800 mb-1.5">Location / Area <span class="text-red-500">*</span></label>
-                    <select id="location" name="location" required aria-label="Location / Area" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base bg-white transition">
-                        <option value="" disabled selected>Select your area...</option>
-                        <option value="Kuils River Central">Kuils River Central</option>
-                        <option value="Highbury">Highbury</option>
-                        <option value="Sarepta">Sarepta</option>
-                        <option value="Jagtershof">Jagtershof</option>
-                        <option value="Mabille Park">Mabille Park</option>
-                        <option value="Other Area">Other Area</option>
-                    </select>
+                    <label for="location" class="block text-base font-semibold text-gray-800 mb-1.5">Suburb or area <span class="text-red-500">*</span></label>
+                    <input id="location" type="text" name="location" required autocomplete="address-level2" placeholder="e.g. Sunbird Park, Kuils River"
+                           class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base transition">
+                    <p class="mt-1 text-sm text-gray-500">Volunteer roles are based in Kuils River and nearby communities.</p>
                 </div>
             </div>
 
@@ -115,7 +138,7 @@
                         <span class="text-sm font-normal text-gray-500">(Select at least one)</span>
                     </label>
                     
-                    <div id="days-container" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div id="days-container" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" tabindex="-1" aria-describedby="availability-error">
                         {% for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] %}
                         <label class="flex items-center p-3 border border-gray-200 rounded-xl hover:bg-brand-50 cursor-pointer transition text-sm font-medium text-gray-800">
                             <input type="checkbox" name="availability" value="{{ day }}" class="day-checkbox w-4 h-4 text-brand-800 rounded border-gray-300 focus:ring-brand-800 mr-2.5">
@@ -124,25 +147,23 @@
                         {% endfor %}
                     </div>
                     <!-- Error message display -->
-                    <p id="availability-error" class="hidden text-sm text-red-500 mt-2 font-semibold">
+                    <p id="availability-error" class="hidden text-sm text-red-700 mt-2 font-semibold" role="alert" aria-live="assertive">
                         Please select at least one day you are available.
                     </p>
                 </div>
 
-                <div class="mb-5">
-                    <label for="community_experience" class="block text-base font-semibold text-gray-800 mb-1.5">Community Experience</label>
-                    <textarea id="community_experience" name="community_experience" rows="2" placeholder="Any past experience in community work or volunteering?"
-                              class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 focus:border-brand-800 outline-none text-base transition"></textarea>
-                </div>
             </div>
 
             <!-- 3. POPIA Agreement & Submit -->
             <div class="pt-2">
+                <p class="mb-4 text-sm leading-relaxed text-gray-600">
+                    Your name, area, phone number, skills and availability are required to assess and follow up on your application. Email is optional. If required information is missing, we may be unable to review your application.
+                </p>
                 <div class="flex items-start mb-6">
                     <input id="popia" name="popia" type="checkbox" value="true" required
                            class="w-5 h-5 mt-0.5 text-brand-800 border-gray-300 rounded focus:ring-brand-800">
                     <label for="popia" class="ml-3 text-sm text-gray-600 leading-relaxed">
-                        I agree to the Privacy Policy and POPIA Compliance and consent to be contacted regarding volunteer opportunities.
+                        I have read the privacy information and agree that Aurorah NPC may use these details to review my volunteer application and contact me about it.
                     </label>
                 </div>
 
@@ -166,10 +187,21 @@
         if (!isChecked) {
             event.preventDefault();
             errorMsg.classList.remove('hidden');
-            document.getElementById('days-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            checkboxes.forEach(checkbox => checkbox.setAttribute('aria-invalid', 'true'));
+            document.getElementById('days-container').focus();
         } else {
             errorMsg.classList.add('hidden');
+            checkboxes.forEach(checkbox => checkbox.removeAttribute('aria-invalid'));
         }
+    });
+    document.querySelectorAll('.day-checkbox').forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            const isChecked = Array.from(document.querySelectorAll('.day-checkbox')).some(day => day.checked);
+            if (isChecked) {
+                document.getElementById('availability-error').classList.add('hidden');
+                document.querySelectorAll('.day-checkbox').forEach(day => day.removeAttribute('aria-invalid'));
+            }
+        });
     });
 </script>
 

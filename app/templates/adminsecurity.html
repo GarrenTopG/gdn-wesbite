@@ -1,0 +1,92 @@
+{% extends "adminbase.html" %}
+{% block title %}Staff Security & Audit - Aurorah CAN{% endblock %}
+{% block content %}
+<main class="min-h-screen bg-slate-50 px-4 py-8 sm:px-8">
+  <div class="mx-auto max-w-7xl space-y-8">
+    <header class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-wider text-brand-800">Administrator controls</p>
+        <h1 class="mt-1 text-3xl font-extrabold text-gray-900">Staff security &amp; audit</h1>
+        <p class="mt-2 text-sm text-gray-600">Manage roles and sessions. New staff accounts are created by an authorized operator using the staff CLI.</p>
+      </div>
+      <a href="/admin/dashboard" class="rounded-xl bg-brand-800 px-4 py-2 text-sm font-bold text-white hover:bg-brand-900">Back to dashboard</a>
+    </header>
+
+    <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div class="border-b border-gray-100 p-5">
+        <h2 class="text-lg font-bold text-gray-900">Staff accounts</h2>
+        <p class="mt-1 text-sm text-gray-500">All staff roles require MFA. Role changes revoke the account's active sessions.</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
+            <tr><th class="px-5 py-3">Staff member</th><th class="px-5 py-3">Role</th><th class="px-5 py-3">MFA</th><th class="px-5 py-3">Status</th><th class="px-5 py-3">Actions</th></tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for member in staff_accounts %}
+            <tr>
+              <td class="px-5 py-4"><div class="font-semibold text-gray-900">{{ member.full_name }}</div><div class="text-xs text-gray-500">{{ member.email }}</div></td>
+              <td class="px-5 py-4">
+                <form action="/admin/staff/{{ member.id }}/role" method="POST" class="flex items-center gap-2">
+                  {{ csrf_input(request) }}
+                  <label class="sr-only" for="role-{{ member.id }}">Role for {{ member.full_name }}</label>
+                  <select id="role-{{ member.id }}" name="role" class="rounded-lg border border-gray-300 px-2 py-1.5">
+                    {% for role in roles %}<option value="{{ role.value }}" {% if member.role == role %}selected{% endif %}>{{ role.value|replace('_', ' ')|title }}</option>{% endfor %}
+                  </select>
+                  <button type="submit" class="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-800 hover:bg-gray-200">Update</button>
+                </form>
+              </td>
+              <td class="px-5 py-4">{% if member.mfa_secret %}<span class="text-emerald-700">Enabled</span>{% else %}<span class="text-rose-700">Enrollment required</span>{% endif %}</td>
+              <td class="px-5 py-4">{% if member.is_active %}<span class="text-emerald-700">Active</span>{% else %}<span class="text-gray-500">Disabled</span>{% endif %}</td>
+              <td class="px-5 py-4">
+                <div class="flex flex-wrap gap-2">
+                  <form action="/admin/staff/{{ member.id }}/revoke-sessions" method="POST">
+                    {{ csrf_input(request) }}
+                    <button type="submit" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold hover:bg-gray-50">Revoke sessions</button>
+                  </form>
+                  {% if member.is_active %}
+                  <form action="/admin/staff/{{ member.id }}/deactivate" method="POST" onsubmit="return confirm('Disable this staff account and revoke its sessions?')">
+                    {{ csrf_input(request) }}
+                    <button type="submit" class="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50">Deactivate</button>
+                  </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="px-5 py-8 text-center text-gray-500">No staff accounts found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div class="border-b border-gray-100 p-5">
+        <h2 class="text-lg font-bold text-gray-900">Immutable audit trail</h2>
+        <p class="mt-1 text-sm text-gray-500">Most recent 100 events, newest first. Each event records the actor, action, time, and target.</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
+            <tr><th class="px-5 py-3">When (UTC)</th><th class="px-5 py-3">Who</th><th class="px-5 py-3">What</th><th class="px-5 py-3">Target record</th><th class="px-5 py-3">Details</th></tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for entry in audit_entries %}
+            <tr>
+              <td class="whitespace-nowrap px-5 py-3 text-xs text-gray-600">{{ entry.occurred_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+              <td class="px-5 py-3">{{ entry.actor_identity }}</td>
+              <td class="px-5 py-3 font-semibold">{{ entry.action }}</td>
+              <td class="px-5 py-3">{{ entry.target_type }}{% if entry.target_id %} #{{ entry.target_id }}{% endif %}</td>
+              <td class="max-w-sm break-all px-5 py-3 text-xs text-gray-500">{{ entry.details or '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="px-5 py-8 text-center text-gray-500">No audit events recorded yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</main>
+{% endblock %}

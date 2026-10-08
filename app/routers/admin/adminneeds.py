@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlmodel import Session
@@ -11,10 +11,12 @@ from app.models.entities import (
     Volunteer,
     VolunteerMatch,
     VolunteerStatus,
+    set_need_status,
 )
-from app.routers.admin.auth import verify_admin_session
+from app.routers.admin.auth import verify_staff_session
+from app.security import add_audit_event, permission_required
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(permission_required("needs.write"))])
 
 # Admin route to create a new BeneficiaryNeed directly from the admin dashboard
 @router.post("/needs/add")
@@ -24,30 +26,26 @@ async def create_community_need(
     area: str = Form(...),
     category: str = Form(...),
     urgency: str = Form("Medium"),
-    contact_name: str = Form("Admin Internal"),
-    contact_phone: str = Form("+27 00 000 0000"),
-    full_address: str = Form("Admin Direct Entry"),
+    contact_name: str = Form(""),
+    contact_phone: str = Form(""),
+    full_address: str = Form(""),
     target_amount: str = Form("0.00"),
     session: Session = Depends(get_session),
 ):
-    if not verify_admin_session(request):
+    if not verify_staff_session(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     try:
         parsed_target = Decimal(target_amount)
-    except Exception:
-        parsed_target = Decimal("0.00")
+    except (InvalidOperation, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid target amount.")
+    if not parsed_target.is_finite() or parsed_target < Decimal("0.00"):
+        raise HTTPException(status_code=400, detail="Target amount must be zero or greater.")
 
     try:
         urgency_enum = NeedUrgency(urgency)
     except ValueError:
-        try:
-            urgency_enum = NeedUrgency(urgency.lower())
-        except ValueError:
-            try:
-                urgency_enum = NeedUrgency(urgency.upper())
-            except ValueError:
-                urgency_enum = NeedUrgency.MEDIUM
+        raise HTTPException(status_code=400, detail="Invalid urgency value.")
 
     new_need = BeneficiaryNeed(
         contact_name=contact_name,
@@ -59,8 +57,11 @@ async def create_community_need(
         urgency=urgency_enum,
         target_amount=parsed_target,
         status=NeedStatus.PENDING,
+        is_community_need=True,
     )
     session.add(new_need)
+    session.flush()
+    add_audit_event(session, request, "need.created", "beneficiary_need", new_need.id)
     session.commit()
 
     return RedirectResponse(url="/admin/dashboard?tab=needs", status_code=303)
@@ -72,13 +73,15 @@ async def delete_community_need(
     request: Request,
     session: Session = Depends(get_session)
 ):
-    if not verify_admin_session(request):
+    if not verify_staff_session(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
         
     need = session.get(BeneficiaryNeed, need_id)
-    if need:
-        session.delete(need)
-        session.commit()
+    if not need or not need.is_community_need:
+        raise HTTPException(status_code=404, detail="Community need not found")
+    add_audit_event(session, request, "need.deleted", "beneficiary_need", need_id)
+    session.delete(need)
+    session.commit()
         
     return RedirectResponse(url="/admin/dashboard?tab=needs", status_code=303)
 
@@ -90,7 +93,7 @@ async def update_need_status(
     status: str = Form(...),
     session: Session = Depends(get_session),
 ):
-    if not verify_admin_session(request):
+    if not verify_staff_session(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     need = session.get(BeneficiaryNeed, need_id)
@@ -98,11 +101,20 @@ async def update_need_status(
         raise HTTPException(status_code=404, detail="Need record not found")
 
     try:
-        need.status = NeedStatus(status)
+        new_status = NeedStatus(status)
     except ValueError:
-        need.status = NeedStatus.PENDING
+        raise HTTPException(status_code=400, detail="Invalid need status.")
+    set_need_status(need, new_status)
 
     session.add(need)
+    add_audit_event(
+        session,
+        request,
+        "need.status_changed",
+        "beneficiary_need",
+        need_id,
+        {"status": new_status.value},
+    )
     session.commit()
     
     if request.headers.get("HX-Request"):
@@ -118,7 +130,7 @@ async def assign_volunteer_to_need(
     volunteer_id: int = Form(...),
     session: Session = Depends(get_session),
 ):
-    if not verify_admin_session(request):
+    if not verify_staff_session(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     need = session.get(BeneficiaryNeed, need_id)
@@ -135,12 +147,20 @@ async def assign_volunteer_to_need(
         volunteer_id=volunteer.id,
         matched_by_admin="Admin Direct Match",
     )
-    need.status = NeedStatus.IN_PROGRESS
+    set_need_status(need, NeedStatus.IN_PROGRESS)
     volunteer.status = VolunteerStatus.ASSIGNED
 
     session.add(match)
     session.add(need)
     session.add(volunteer)
+    add_audit_event(
+        session,
+        request,
+        "need.volunteer_assigned",
+        "beneficiary_need",
+        need_id,
+        {"volunteer_id": volunteer_id},
+    )
     session.commit()
 
     if request.headers.get("HX-Request"):

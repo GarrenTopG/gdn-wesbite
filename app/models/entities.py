@@ -7,7 +7,11 @@ from sqlmodel import Field, SQLModel, Column, JSON
 
 # ENUMS FOR CONSTRAINED VALUES
 class UserRole(str, Enum):
-    ADMIN = "admin"
+    ADMINISTRATOR = "administrator"
+    CASE_WORKER = "case_worker"
+    FINANCE = "finance"
+    CONTENT_EDITOR = "content_editor"
+    READ_ONLY = "read_only"
     USER = "user"
 
 # ENUMS FOR NEEDS AND VOLUNTEERS
@@ -40,9 +44,48 @@ class User(SQLModel, table=True):
     hashed_password: str
     role: UserRole = Field(default=UserRole.USER)
     is_active: bool = Field(default=True)
+    mfa_secret: Optional[str] = Field(default=None)
+    mfa_last_counter: Optional[int] = Field(default=None)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
+
+
+class AuthSession(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    token_hash: str = Field(unique=True, index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    expires_at: datetime = Field(index=True)
+    mfa_verified: bool = Field(default=False, index=True)
+    mfa_setup_secret: Optional[str] = Field(default=None)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class AuditLog(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    actor_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    actor_identity: str = Field(index=True)
+    action: str = Field(index=True)
+    target_type: str = Field(index=True)
+    target_id: Optional[str] = Field(default=None, index=True)
+    occurred_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), index=True
+    )
+    details: Optional[str] = None
+
+
+class ReceiptAccess(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    donation_id: int = Field(foreign_key="donation.id", index=True)
+    token_hash: str = Field(unique=True, index=True)
+    expires_at: datetime = Field(index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class RateLimitHit(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    bucket_key: str = Field(index=True)
+    occurred_at: int = Field(index=True)
 
 
 # --- VOLUNTEER ENTITY ---
@@ -68,6 +111,7 @@ class Volunteer(SQLModel, table=True):
 # --- BENEFICIARY & NEED ENTITY (POPIA Compliant) ---
 class BeneficiaryNeed(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    is_community_need: bool = Field(default=False, index=True)
 
     # Restricted POPIA Personal Data (Admin/Internal Route Access Only)
     contact_name: str
@@ -78,6 +122,7 @@ class BeneficiaryNeed(SQLModel, table=True):
     anonymised_title: str
     area: str
     category: str  # 'Food', 'Clothing', 'Shelter', 'Other'
+    request_details: Optional[str] = None
     urgency: NeedUrgency = Field(default=NeedUrgency.MEDIUM)
     status: NeedStatus = Field(default=NeedStatus.PENDING, index=True)
 
@@ -88,6 +133,16 @@ class BeneficiaryNeed(SQLModel, table=True):
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
+    closed_at: Optional[datetime] = Field(default=None, index=True)
+
+
+def set_need_status(need: BeneficiaryNeed, status: NeedStatus) -> None:
+    terminal_statuses = {NeedStatus.FULFILLED, NeedStatus.REJECTED}
+    if status in terminal_statuses and need.status not in terminal_statuses:
+        need.closed_at = datetime.now(timezone.utc)
+    elif status not in terminal_statuses:
+        need.closed_at = None
+    need.status = status
 
 # --- DONATION ENTITY ---
 class Donation(SQLModel, table=True):

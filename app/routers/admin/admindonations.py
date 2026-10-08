@@ -5,11 +5,18 @@ from fastapi.responses import RedirectResponse
 from sqlmodel import Session, select
 
 from app.db.session import get_session
-from app.models.entities import BeneficiaryNeed, Donation, NeedStatus
+from app.models.entities import (
+    BeneficiaryNeed,
+    Donation,
+    NeedStatus,
+    UserRole,
+    set_need_status,
+)
 from app.templatesconfig import templates
-from app.routers.admin.auth import verify_admin_session
+from app.routers.admin.auth import verify_staff_session
+from app.security import add_audit_event, permission_required
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(permission_required("donations.write"))])
 
 # Helper function to recalculate the status of a BeneficiaryNeed based on its donations
 def recalculate_need_status(session: Session, need_id: int) -> None:
@@ -30,9 +37,9 @@ def recalculate_need_status(session: Session, need_id: int) -> None:
 
     if need.target_amount and need.target_amount > Decimal("0.00"):
         if need.current_amount >= need.target_amount:
-            need.status = NeedStatus.FULFILLED
+            set_need_status(need, NeedStatus.FULFILLED)
         elif need.current_amount > Decimal("0.00") and need.status == NeedStatus.PENDING:
-            need.status = NeedStatus.IN_PROGRESS
+            set_need_status(need, NeedStatus.IN_PROGRESS)
 
     session.add(need)
     session.commit()
@@ -44,7 +51,7 @@ async def verify_donation(
     request: Request,
     session: Session = Depends(get_session),
 ):
-    if not verify_admin_session(request):
+    if not verify_staff_session(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     donation = session.get(Donation, donation_id)
@@ -53,6 +60,7 @@ async def verify_donation(
 
     donation.is_verified = True
     session.add(donation)
+    add_audit_event(session, request, "donation.verified", "donation", donation_id)
     session.commit()
 
     if request.headers.get("HX-Request"):
@@ -74,7 +82,7 @@ async def allocate_donation(
     amount: Optional[str] = Form(None),
     session: Session = Depends(get_session),
 ):
-    if not verify_admin_session(request):
+    if not verify_staff_session(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     donation = session.get(Donation, donation_id)
@@ -83,6 +91,11 @@ async def allocate_donation(
 
     need = session.get(BeneficiaryNeed, need_id)
     if not need:
+        raise HTTPException(status_code=404, detail="Community need not found")
+    if (
+        request.state.staff_user.role == UserRole.FINANCE
+        and not need.is_community_need
+    ):
         raise HTTPException(status_code=404, detail="Community need not found")
 
     raw_amount = allocate_amount or amount
@@ -109,6 +122,14 @@ async def allocate_donation(
     donation.need_id = need_id
 
     session.add(donation)
+    add_audit_event(
+        session,
+        request,
+        "donation.allocated",
+        "donation",
+        donation_id,
+        {"need_id": need_id, "amount": str(alloc_decimal)},
+    )
     session.commit()
 
     recalculate_need_status(session, need_id)

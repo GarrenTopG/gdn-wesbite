@@ -4,9 +4,17 @@ from sqlmodel import Session
 
 from app.db.session import get_session
 from app.models.entities import Volunteer, VolunteerStatus
+from app.security import enforce_public_form_rate_limit, require_csrf
 from app.templatesconfig import templates
 
-router = APIRouter(prefix="/volunteer", tags=["Volunteers"])
+router = APIRouter(
+    prefix="/volunteer",
+    tags=["Volunteers"],
+    dependencies=[
+        Depends(require_csrf),
+        Depends(enforce_public_form_rate_limit),
+    ],
+)
 
 # Volunteer route to render the volunteer page
 @router.get("", response_class=HTMLResponse)

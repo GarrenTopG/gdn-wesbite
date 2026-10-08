@@ -1,17 +1,41 @@
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, StreamingResponse
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from sqlmodel import Session, select
+from datetime import timedelta, timezone
+import hashlib
+import secrets
 
 from app.db.session import get_session
-from app.models.entities import BeneficiaryNeed, Donation, NeedStatus
+from app.models.entities import BeneficiaryNeed, Donation, NeedStatus, ReceiptAccess
+from app.security import (
+    enforce_receipt_rate_limit,
+    enforce_public_form_rate_limit,
+    now_utc,
+    require_csrf,
+)
 from app.templatesconfig import templates
 
-router = APIRouter(prefix="/donate", tags=["Donations"])
+router = APIRouter(
+    prefix="/donate",
+    tags=["Donations"],
+    dependencies=[
+        Depends(require_csrf),
+        Depends(enforce_public_form_rate_limit),
+    ],
+)
+receipt_router = APIRouter(
+    prefix="/donate",
+    tags=["Donations"],
+    dependencies=[
+        Depends(require_csrf),
+        Depends(enforce_receipt_rate_limit),
+    ],
+)
 
 # Donation route to render the donation page
 @router.get("", response_class=HTMLResponse)
@@ -21,7 +45,10 @@ async def get_donate_page(
     session: Session = Depends(get_session),
 ):
     active_needs = session.exec(
-        select(BeneficiaryNeed).where(BeneficiaryNeed.status != NeedStatus.FULFILLED)
+        select(BeneficiaryNeed).where(
+            BeneficiaryNeed.is_community_need.is_(True),
+            BeneficiaryNeed.status != NeedStatus.FULFILLED,
+        )
     ).all()
 
     return templates.TemplateResponse(
@@ -43,6 +70,8 @@ async def submit_donation_form(
     form_data = await request.form()
 
     donation_type = str(form_data.get("donation_type", "monetary")).strip()
+    if donation_type not in {"monetary", "inkind"}:
+        raise HTTPException(status_code=400, detail="Invalid donation type.")
     is_anon = form_data.get("is_anonymous") == "true"
     donor_name_raw = str(form_data.get("donor_name", "")).strip()
     donor_name = "Anonymous Donor" if (is_anon or not donor_name_raw) else donor_name_raw
@@ -57,7 +86,13 @@ async def submit_donation_form(
 
     message_val = str(form_data.get("message", "")).strip() or None
 
-    req_tax = form_data.get("request_tax_certificate") == "true"
+    if form_data.get("request_tax_certificate") == "true":
+        raise HTTPException(
+            status_code=400,
+            detail="Section 18A receipts are not available through this site.",
+        )
+
+    req_tax = False
     tax_id = str(form_data.get("tax_id_number", "")).strip() if req_tax else None
     tax_addr = str(form_data.get("tax_address", "")).strip() if req_tax else None
 
@@ -70,7 +105,9 @@ async def submit_donation_form(
         try:
             amount_val = Decimal(str(raw_amount))
         except (ValueError, InvalidOperation):
-            amount_val = Decimal("0.00")
+            raise HTTPException(status_code=400, detail="Invalid donation amount.")
+        if not amount_val.is_finite() or amount_val <= Decimal("0.00"):
+            raise HTTPException(status_code=400, detail="Donation amount must be positive.")
 
         raw_need_id = form_data.get("need_id")
         cause_val = "General Fund (Where Most Needed)"
@@ -80,10 +117,13 @@ async def submit_donation_form(
             if cleaned_need_id.isdigit():
                 target_need_id = int(cleaned_need_id)
                 linked_need = session.get(BeneficiaryNeed, target_need_id)
-                if linked_need:
-                    cause_val = f"Targeted: {linked_need.anonymised_title}"
-            elif cleaned_need_id:
-                cause_val = cleaned_need_id
+                if (
+                    not linked_need
+                    or not linked_need.is_community_need
+                    or linked_need.status == NeedStatus.FULFILLED
+                ):
+                    raise HTTPException(status_code=400, detail="Selected community need is unavailable.")
+                cause_val = f"Targeted: {linked_need.anonymised_title}"
 
     # In-Kind Attributes
     item_category = str(form_data.get("item_category", "")).strip() if donation_type == "inkind" else None
@@ -106,7 +146,11 @@ async def submit_donation_form(
         request_tax_certificate=req_tax,
         tax_id_number=tax_id,
         tax_address=tax_addr,
-        payment_method="Gateway" if donation_type == "monetary" else "In-Kind Delivery",
+        payment_method=(
+            "Pledge - No Online Payment"
+            if donation_type == "monetary"
+            else "In-Kind Delivery"
+        ),
         message=message_val,
         is_anonymous=is_anon,
         is_verified=False,
@@ -116,8 +160,23 @@ async def submit_donation_form(
     session.commit()
     session.refresh(new_donation)
 
+    receipt_token = None
+    if req_tax and new_donation.id is not None:
+        receipt_token = secrets.token_urlsafe(32)
+        session.add(
+            ReceiptAccess(
+                donation_id=new_donation.id,
+                token_hash=hashlib.sha256(receipt_token.encode("utf-8")).hexdigest(),
+                expires_at=now_utc() + timedelta(days=30),
+            )
+        )
+        session.commit()
+
     active_needs = session.exec(
-        select(BeneficiaryNeed).where(BeneficiaryNeed.status != NeedStatus.FULFILLED)
+        select(BeneficiaryNeed).where(
+            BeneficiaryNeed.is_community_need.is_(True),
+            BeneficiaryNeed.status != NeedStatus.FULFILLED,
+        )
     ).all()
 
     return templates.TemplateResponse(
@@ -126,7 +185,7 @@ async def submit_donation_form(
         context={
             "active_page": "donate",
             "submitted": True,
-            "donation_id": new_donation.id,
+            "receipt_token": receipt_token,
             "request_tax": req_tax,
             "amount": f"{amount_val:.2f}",
             "active_needs": active_needs,
@@ -134,15 +193,38 @@ async def submit_donation_form(
     )
 
 # Donation route to download a tax certificate for a specific donation
-@router.get("/tax-certificate/{donation_id}", name="download_tax_certificate")
+@receipt_router.post("/tax-certificate", name="download_tax_certificate")
 async def download_tax_certificate(
-    donation_id: int,
+    request: Request,
     session: Session = Depends(get_session),
 ):
-    donation = session.get(Donation, donation_id)
-    if not donation or not donation.request_tax_certificate:
+    form = await request.form()
+    token = str(form.get("receipt_token", ""))
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    access = session.exec(
+        select(ReceiptAccess).where(ReceiptAccess.token_hash == token_hash)
+    ).first()
+    if not access:
         raise HTTPException(
-            status_code=404, 
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tax certificate not available for this record.",
+        )
+    expires_at = access.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at <= now_utc():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tax certificate not available for this record.",
+        )
+    donation = session.get(Donation, access.donation_id)
+    if (
+        not donation
+        or not donation.request_tax_certificate
+        or not donation.is_verified
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Tax certificate not available for this record."
         )
 
@@ -158,7 +240,8 @@ async def download_tax_certificate(
 
     # Details Grid - All dynamic parameters explicitly wrapped as str()
     p.setFont("Helvetica-Bold", 12)
-    p.drawString(100, 690, f"Receipt Number: CAN-18A-2026-{str(donation.id)}")
+    issued_year = donation.created_at.year
+    p.drawString(100, 690, f"Receipt Number: CAN-18A-{issued_year}-{str(donation.id)}")
     
     p.setFont("Helvetica", 11)
     p.drawString(100, 660, f"Donor Name: {str(donation.donor_name)}")
@@ -166,7 +249,7 @@ async def download_tax_certificate(
     p.drawString(100, 620, f"Address: {str(donation.tax_address or 'N/A')}")
     
     # FIXED: Wrapped str(donation.id) instead of passing int directly
-    p.drawString(100, 600, f"Transaction Ref ID: #{str(donation.id)}") 
+    p.drawString(100, 600, f"Transaction Ref ID: #{str(donation.id)}")
     
     p.setFont("Helvetica", 11)
     p.drawString(100, 580, f"Amount Received: R{donation.amount:.2f}")
@@ -183,5 +266,9 @@ async def download_tax_certificate(
     return StreamingResponse(
         buffer,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=Section18A_Receipt_{donation.id}.pdf"},
+        headers={
+            "Content-Disposition": f'attachment; filename="Section18A_Receipt_{donation.id}.pdf"',
+            "Cache-Control": "no-store",
+            "Referrer-Policy": "no-referrer",
+        },
     )
