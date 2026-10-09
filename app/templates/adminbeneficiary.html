@@ -1,0 +1,81 @@
+{% extends "adminbase.html" %}
+{% block title %}Assistance Request #{{ need.id }} | Aurorah CAN{% endblock %}
+{% block content %}
+<main class="max-w-5xl mx-auto px-5 py-8 space-y-6">
+  <a href="/admin/dashboard?tab=beneficiaries" class="text-sm font-semibold text-brand-800">Back to assistance queue</a>
+  <section class="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p class="text-xs uppercase tracking-wide text-gray-500">Restricted case detail - #{{ need.id }}</p>
+        <h1 class="text-2xl font-bold text-gray-900">{{ need.anonymised_title }}</h1>
+        <p class="text-sm text-gray-600">{{ need.area }} / {{ need.category }} / {{ need.urgency.value }}</p>
+      </div>
+      <span class="rounded-full bg-amber-100 px-3 py-1 text-sm font-bold">{{ need.status.value }}</span>
+    </div>
+    <dl class="grid gap-4 sm:grid-cols-2 text-sm">
+      <div><dt class="font-semibold text-gray-500">Contact</dt><dd>{{ need.contact_name }}</dd></div>
+      <div><dt class="font-semibold text-gray-500">Phone</dt><dd>{{ need.contact_phone }}</dd></div>
+      <div><dt class="font-semibold text-gray-500">Address / region</dt><dd>{{ need.full_address }}</dd></div>
+      <div><dt class="font-semibold text-gray-500">Submitted</dt><dd>{{ need.created_at.strftime('%Y-%m-%d %H:%M') }}</dd></div>
+      <div class="sm:col-span-2"><dt class="font-semibold text-gray-500">Request details</dt><dd class="whitespace-pre-wrap">{{ need.request_details or 'No additional details.' }}</dd></div>
+    </dl>
+  </section>
+
+  {% if staff_user.role.value in ['administrator', 'case_worker'] %}
+  <section class="grid gap-6 lg:grid-cols-2">
+    <form action="/admin/beneficiaries/{{ need.id }}/assign" method="post" class="rounded-2xl border border-gray-200 bg-white p-5 space-y-3">
+      {{ csrf_input(request) }}
+      <h2 class="font-bold">Assigned staff</h2>
+      <label class="block text-sm" for="staff_id">Case owner</label>
+      <select id="staff_id" name="staff_id" class="w-full rounded-lg border p-2">
+        <option value="">Unassigned</option>
+        {% for staff in staff_accounts %}
+        <option value="{{ staff.id }}" {% if assigned_staff and assigned_staff.id == staff.id %}selected{% endif %}>{{ staff.full_name }}</option>
+        {% endfor %}
+      </select>
+      <button class="rounded-lg bg-brand-800 px-4 py-2 text-sm font-bold text-white">Save assignment</button>
+    </form>
+    <form action="/admin/beneficiaries/{{ need.id }}/follow-up" method="post" class="rounded-2xl border border-gray-200 bg-white p-5 space-y-3">
+      {{ csrf_input(request) }}
+      <h2 class="font-bold">Follow-up</h2>
+      <label class="block text-sm" for="follow_up_at">Schedule or clear follow-up</label>
+      <input id="follow_up_at" name="follow_up_at" type="datetime-local" value="{{ need.follow_up_at.strftime('%Y-%m-%dT%H:%M') if need.follow_up_at else '' }}" class="w-full rounded-lg border p-2">
+      <button class="rounded-lg bg-brand-800 px-4 py-2 text-sm font-bold text-white">Save follow-up</button>
+    </form>
+    <form action="/admin/needs/{{ need.id }}/update-status" method="post" class="rounded-2xl border border-gray-200 bg-white p-5 space-y-3">
+      {{ csrf_input(request) }}
+      <h2 class="font-bold">Update status</h2>
+      <label class="block text-sm" for="case_status">Status</label>
+      <select id="case_status" name="status" class="w-full rounded-lg border p-2">
+        {% for case_status in need_statuses %}
+        <option value="{{ case_status.value }}" {% if need.status == case_status %}selected{% endif %}>{{ case_status.value }}</option>
+        {% endfor %}
+      </select>
+      <label class="block text-sm" for="reason">Reason (required for closure or rejection)</label>
+      <textarea id="reason" name="reason" rows="3" class="w-full rounded-lg border p-2"></textarea>
+      <button class="rounded-lg bg-brand-800 px-4 py-2 text-sm font-bold text-white">Save status</button>
+    </form>
+    <form action="/admin/beneficiaries/{{ need.id }}/notes" method="post" class="rounded-2xl border border-gray-200 bg-white p-5 space-y-3">
+      {{ csrf_input(request) }}
+      <h2 class="font-bold">Internal case notes</h2>
+      <textarea name="internal_notes" rows="5" maxlength="4000" required class="w-full rounded-lg border p-2" aria-label="Internal case notes">{{ need.internal_notes or '' }}</textarea>
+      <button class="rounded-lg bg-brand-800 px-4 py-2 text-sm font-bold text-white">Save notes</button>
+    </form>
+  </section>
+  {% endif %}
+
+  <section class="rounded-2xl border border-gray-200 bg-white p-6">
+    <h2 class="mb-4 text-lg font-bold">Case history</h2>
+    <ol class="space-y-3">
+      {% for event in history %}
+      <li class="border-l-2 border-brand-800 pl-4 text-sm">
+        <p class="font-semibold">{{ event.action|replace('_', ' ')|title }}</p>
+        <p class="text-gray-500">{{ event.occurred_at.strftime('%Y-%m-%d %H:%M UTC') }} / {{ event.details or '' }}</p>
+      </li>
+      {% else %}
+      <li class="text-sm text-gray-500">No workflow history has been recorded.</li>
+      {% endfor %}
+    </ol>
+  </section>
+</main>
+{% endblock %}

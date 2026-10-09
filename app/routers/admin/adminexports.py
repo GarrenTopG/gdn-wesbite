@@ -1,3 +1,6 @@
+import csv
+from datetime import date
+from io import StringIO
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -5,7 +8,13 @@ from fastapi.responses import StreamingResponse
 from sqlmodel import Session, select
 
 from app.db.session import get_session
-from app.models.entities import BeneficiaryNeed, Donation, UserRole, Volunteer
+from app.models.entities import (
+    BeneficiaryNeed,
+    Donation,
+    DonationAllocation,
+    UserRole,
+    Volunteer,
+)
 from app.routers.admin.auth import verify_staff_session
 from app.utils.pdfexports import (
     generate_donations_pdf,
@@ -61,6 +70,118 @@ async def export_donations_pdf(
         pdf_buffer,
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=donations_ledger.pdf"},
+    )
+
+
+@router.get(
+    "/donations/reconciliation.csv",
+    dependencies=[Depends(permission_required("exports.donations"))],
+)
+async def export_donation_reconciliation_csv(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    def parse_date(key: str) -> date | None:
+        raw = request.query_params.get(key)
+        if not raw:
+            return None
+        try:
+            parsed = date.fromisoformat(raw)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{key} must use YYYY-MM-DD.",
+            ) from exc
+        if parsed.isoformat() != raw:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{key} must use YYYY-MM-DD.",
+            )
+        return parsed
+
+    start = parse_date("from")
+    end = parse_date("to")
+    if start and end and start > end:
+        raise HTTPException(status_code=422, detail="Start date must precede end date.")
+    donations = session.exec(
+        select(Donation)
+        .order_by(Donation.created_at, Donation.id)
+    ).all()
+    filtered = [
+        donation
+        for donation in donations
+        if (start is None or donation.created_at.date() >= start)
+        and (end is None or donation.created_at.date() <= end)
+    ]
+    buffer = StringIO(newline="")
+    writer = csv.writer(buffer)
+    writer.writerow(
+        [
+            "donation_id",
+            "submitted_at",
+            "status",
+            "donation_type",
+            "amount_zar",
+            "allocated_zar",
+            "remaining_zar",
+            "verified",
+            "target_need_id",
+            "allocated_need_ids",
+        ]
+    )
+    donation_ids = [
+        donation.id for donation in filtered if donation.id is not None
+    ]
+    allocated_need_ids: dict[int, set[int]] = {}
+    if donation_ids:
+        allocations = session.exec(
+            select(DonationAllocation).where(
+                DonationAllocation.donation_id.in_(donation_ids)
+            )
+        ).all()
+        for allocation in allocations:
+            allocated_need_ids.setdefault(allocation.donation_id, set()).add(
+                allocation.need_id
+            )
+    for donation in filtered:
+        amount = donation.amount or 0
+        allocated = donation.allocated_amount or 0
+        writer.writerow(
+            [
+                donation.id,
+                donation.created_at.isoformat(),
+                donation.status,
+                donation.donation_type,
+                f"{amount:.2f}",
+                f"{allocated:.2f}",
+                f"{amount - allocated:.2f}",
+                "yes" if donation.is_verified else "no",
+                donation.need_id or "",
+                ";".join(
+                    str(need_id)
+                    for need_id in sorted(allocated_need_ids.get(donation.id, set()))
+                ),
+            ]
+        )
+    add_audit_event(
+        session,
+        request,
+        "export.donation_reconciliation",
+        "donation",
+        details={
+            "from": start.isoformat() if start else None,
+            "to": end.isoformat() if end else None,
+            "records": len(filtered),
+        },
+    )
+    session.commit()
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="donation_reconciliation.csv"',
+            "Cache-Control": "no-store",
+        },
     )
 
 # Admin route to export BeneficiaryNeeds as a PDF report

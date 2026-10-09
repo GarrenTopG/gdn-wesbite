@@ -179,6 +179,16 @@ The role permissions are enforced on the server for dashboard data, mutations, a
 
 The Read-Only dashboard uses aggregate database queries and does not return beneficiary contact details or individual donation/volunteer records. The audit trail records staff authentication attempts, account changes, sensitive dashboard access, mutations, and exports with actor, action, timestamp, and target record. It is append-only in the application and enforced against update/delete statements by SQLite triggers. Protect the database file and its backups as described above, since host-level database administrators can bypass application controls.
 
+### Daily operational workflows
+
+- The dashboard priority queue links urgent assistance cases, donations awaiting verification, volunteer assignments due within seven days, and overdue case follow-ups to the underlying records.
+- Assistance lists support status, urgency, category, region, and date-range filters. Contact details are masked in the list and visible only on the permission-checked case detail page. Assignment, internal notes, follow-up dates, status changes, and their reasons are recorded in case history. A reason is required to fulfil/close or reject a request.
+- Donation states are `Submitted` → `Payment Pending` → `Received/Verified` → `Allocated`, with `Refunded` available from pending, verified, or allocated states. Allocation checks both the remaining donation balance and the target need's remaining funding server-side. The finance workspace provides an access-logged CSV reconciliation export.
+- Tax receipts are not available from an unverified pledge. A donor who requests one receives a private download link that remains unusable until staff verify payment; successful verification creates the time-limited receipt access record.
+- Volunteer lists can be filtered by skills, location, availability, and onboarding status. Assignments can include a date/time and appear in the upcoming-work queue.
+- Community need targets and deadlines can be updated with funding progress history. News content follows `Draft` → `Preview` → `Published` → `Archive`; only published articles appear publicly.
+- Operational records are archived rather than permanently deleted, preserving history and audit context. Include archived records from the dashboard's assistance filter when reviewing historical work.
+
 ## Personal-data retention
 
 - Beneficiary contact name, phone, precise address, public title, and area are redacted 24 months after case closure; cases never closed are measured from submission.

@@ -3,43 +3,107 @@
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
     {% if can_view_volunteers or is_read_only %}<div class="admin-metric-card flex items-center justify-between">
       <div>
-        <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Volunteer sign-ups</p>
-        <p class="text-3xl font-extrabold text-gray-900 mt-1">{{ total_volunteers }}</p>
+        <p class="text-xs font-bold uppercase tracking-wider">Volunteer sign-ups</p>
+        <p class="text-3xl font-extrabold mt-1">{{ total_volunteers }}</p>
       </div>
-      <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl">
+      <div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style="background: rgba(255, 46, 147, 0.12); color: #FF2E93;">
         <i class="fa-solid fa-users"></i>
       </div>
     </div>{% endif %}
     {% if can_view_donations or is_read_only %}<div class="admin-metric-card flex items-center justify-between">
       <div>
-        <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Verified donations</p>
-       <p class="text-3xl font-extrabold text-gray-900 mt-1">
-  R {{ "%.2f"|format(total_donation_amount|float) }}
-</p>
+        <p class="text-xs font-bold uppercase tracking-wider">Verified donations</p>
+        <p class="text-3xl font-extrabold mt-1">R {{ "%.2f"|format(total_donation_amount|float) }}</p>
       </div>
-      <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl">
+      <div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style="background: rgba(255, 46, 147, 0.12); color: #FF2E93;">
         <i class="fa-solid fa-coins"></i>
       </div>
     </div>{% endif %}
     {% if can_view_beneficiaries or is_read_only %}<div class="admin-metric-card flex items-center justify-between">
       <div>
-        <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Beneficiary requests</p>
-        <p class="text-3xl font-extrabold text-gray-900 mt-1">{{ total_requests }}</p>
+        <p class="text-xs font-bold uppercase tracking-wider">Beneficiary requests</p>
+        <p class="text-3xl font-extrabold mt-1">{{ total_requests }}</p>
       </div>
-      <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl">
+      <div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style="background: rgba(255, 46, 147, 0.12); color: #FF2E93;">
         <i class="fa-solid fa-hand-holding-hand"></i>
       </div>
     </div>{% endif %}
     {% if can_view_news or is_read_only %}<div class="admin-metric-card flex items-center justify-between">
       <div>
-        <p class="text-xs font-bold uppercase tracking-wider text-gray-400">News Published</p>
-        <p class="text-3xl font-extrabold text-gray-900 mt-1">{{ total_news }}</p>
+        <p class="text-xs font-bold uppercase tracking-wider">News Published</p>
+        <p class="text-3xl font-extrabold mt-1">{{ total_news }}</p>
       </div>
-      <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-xl">
+      <div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style="background: rgba(255, 46, 147, 0.12); color: #FF2E93;">
         <i class="fa-solid fa-newspaper"></i>
       </div>
     </div>{% endif %}
   </div>
+
+  <form method="GET" action="/admin/dashboard" class="admin-date-filter admin-content-filter" aria-label="Filter dashboard metrics by date">
+    <input type="hidden" name="tab" value="overview">
+    <strong class="admin-filter-heading">Dashboard date range</strong>
+    <label class="admin-date-input">
+      <span>From</span>
+      <input type="date" name="from" value="{{ date_from }}" aria-label="Start date" required>
+    </label>
+    <label class="admin-date-input">
+      <span>To</span>
+      <input type="date" name="to" value="{{ date_to }}" aria-label="End date" required>
+    </label>
+    <button type="submit" class="admin-apply-filter">Apply dates</button>
+  </form>
+
+  <section class="rounded-2xl border border-white/5 bg-[#121215] p-5 shadow-sm">
+    <div class="mb-4 flex items-center justify-between">
+      <div>
+        <h2 class="text-lg font-bold text-white">Priority work queue</h2>
+        <p class="text-xs text-zinc-400">Time-sensitive work with links to the underlying record.</p>
+      </div>
+      <span class="rounded-full border border-pink-500/25 bg-pink-500/10 px-3 py-1 text-xs font-bold text-pink-200">{{ pending_work_count }} items</span>
+    </div>
+    <div class="grid gap-4 lg:grid-cols-2">
+      {% if can_view_beneficiaries %}
+      <section class="admin-work-queue-card urgent">
+        <h3>Urgent assistance · {{ urgent_assistance|length }}</h3>
+        <ul>
+          {% for need in urgent_assistance %}
+          <li><a href="/admin/beneficiaries/{{ need.id }}">{{ need.urgency.value }} · {{ need.anonymised_title }} — {{ need.area }}</a></li>
+          {% else %}<li>No urgent assistance requests.</li>{% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+      {% if can_view_donations %}
+      <section class="admin-work-queue-card pending">
+        <h3>Donations awaiting verification · {{ unverified_donations|length }}</h3>
+        <ul>
+          {% for donation in unverified_donations %}
+          <li><a href="/admin/dashboard?tab=donations&amp;focus=donation-{{ donation.id }}#donation-{{ donation.id }}">Donation #{{ donation.id }} - {{ donation.status }}</a></li>
+          {% else %}<li>No donations awaiting verification.</li>{% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+      {% if can_view_volunteers %}
+      <section class="admin-work-queue-card volunteer">
+        <h3>Upcoming volunteer assignments · {{ upcoming_volunteers|length }}</h3>
+        <ul>
+          {% for volunteer in upcoming_volunteers %}
+          <li><a href="/admin/dashboard?tab=volunteers&amp;focus=volunteer-{{ volunteer.id }}#volunteer-{{ volunteer.id }}">{{ volunteer.full_name }} - {{ volunteer.next_assignment_at.strftime('%Y-%m-%d %H:%M') }}</a></li>
+          {% else %}<li>No assignments in the next seven days.</li>{% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+      {% if can_view_beneficiaries %}
+      <section class="admin-work-queue-card followup">
+        <h3>Overdue follow-ups · {{ overdue_followups|length }}</h3>
+        <ul>
+          {% for need in overdue_followups %}
+          <li><a href="/admin/beneficiaries/{{ need.id }}">{{ need.anonymised_title }} · due {{ need.follow_up_at.strftime('%Y-%m-%d') }}</a></li>
+          {% else %}<li>No overdue follow-ups.</li>{% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+    </div>
+  </section>
 
   <p class="text-xs text-gray-500">Metrics and charts cover {{ date_from }} through {{ date_to }}.{% if not is_read_only %} Pending work counts include records permitted for your role.{% endif %}</p>
 

@@ -1,73 +1,76 @@
 <!-- TAB 7: REPORTS -->
 <div id="tab-reports" class="tab-content hidden space-y-6">
   {% if is_read_only %}
-  <section class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
-    <h2 class="text-lg font-bold text-gray-900">Operational summaries</h2>
-    <p class="text-sm text-gray-500 mt-1">Aggregated activity for {{ date_from }} through {{ date_to }}. Individual records and identifying details are not included.</p>
+  <section class="bg-[#121215] p-6 rounded-2xl border border-white/5 shadow-sm">
+    <h2 class="text-lg font-bold text-white">Operational summaries</h2>
+    <p class="text-sm text-zinc-400 mt-1">Aggregated activity for {{ date_from }} through {{ date_to }}. Individual records and identifying details are not included.</p>
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-5">
-      <div><p class="text-xs uppercase tracking-wider text-gray-500">Volunteer sign-ups</p><p class="text-2xl font-bold">{{ total_volunteers }}</p></div>
-      <div><p class="text-xs uppercase tracking-wider text-gray-500">Verified donations</p><p class="text-2xl font-bold">R {{ "%.2f"|format(total_donation_amount|float) }}</p></div>
-      <div><p class="text-xs uppercase tracking-wider text-gray-500">Beneficiary requests</p><p class="text-2xl font-bold">{{ total_requests }}</p></div>
-      <div><p class="text-xs uppercase tracking-wider text-gray-500">News published</p><p class="text-2xl font-bold">{{ total_news }}</p></div>
+      <div class="rounded-xl border border-white/10 bg-[#09090B] p-4"><p class="text-xs uppercase tracking-wider text-zinc-400">Volunteer sign-ups</p><p class="text-2xl font-bold text-white">{{ total_volunteers }}</p></div>
+      <div class="rounded-xl border border-white/10 bg-[#09090B] p-4"><p class="text-xs uppercase tracking-wider text-zinc-400">Verified donations</p><p class="text-2xl font-bold text-white">R {{ "%.2f"|format(total_donation_amount|float) }}</p></div>
+      <div class="rounded-xl border border-white/10 bg-[#09090B] p-4"><p class="text-xs uppercase tracking-wider text-zinc-400">Beneficiary requests</p><p class="text-2xl font-bold text-white">{{ total_requests }}</p></div>
+      <div class="rounded-xl border border-white/10 bg-[#09090B] p-4"><p class="text-xs uppercase tracking-wider text-zinc-400">News published</p><p class="text-2xl font-bold text-white">{{ total_news }}</p></div>
     </div>
   </section>
   {% else %}
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
     {% if can_export_volunteers %}
-    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col justify-between space-y-4">
+    <div class="bg-[#121215] p-6 rounded-2xl border border-white/5 shadow-sm flex flex-col justify-between space-y-4 hover:border-[#FF2E93]/50 transition-all">
       <div class="space-y-2">
         <div class="flex items-center space-x-3">
-          <i class="fa-solid fa-users text-brand-800 text-xl"></i>
-          <h3 class="font-bold text-gray-900">Volunteer Activity Report</h3>
+          <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FF2E93]/10 text-[#FF2E93]"><i class="fa-solid fa-users text-lg"></i></span>
+          <h3 class="font-bold text-white">Volunteer Activity Report</h3>
         </div>
-        <p class="text-xs text-gray-500 leading-relaxed">Displays volunteer statistics, skills distribution, and availability.</p>
+        <p class="text-xs text-zinc-400 leading-relaxed">Displays volunteer statistics, skills distribution, and availability.</p>
       </div>
-      <a href="/admin/volunteers/export-pdf" target="_blank" class="w-full py-2.5 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
+      <a href="/admin/volunteers/export-pdf" target="_blank" class="w-full py-2.5 bg-[#FF2E93] hover:bg-[#E0257F] text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
         <i class="fa-solid fa-file-pdf"></i><span>Generate PDF</span>
       </a>
     </div>
     {% endif %}
 
     {% if can_export_donations %}
-    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col justify-between space-y-4">
+    <div class="bg-[#121215] p-6 rounded-2xl border border-white/5 shadow-sm flex flex-col justify-between space-y-4 hover:border-[#FF2E93]/50 transition-all">
       <div class="space-y-2">
         <div class="flex items-center space-x-3">
-          <i class="fa-solid fa-heart text-brand-800 text-xl"></i>
-          <h3 class="font-bold text-gray-900">Donation Summary Report</h3>
+          <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FF2E93]/10 text-[#FF2E93]"><i class="fa-solid fa-heart text-lg"></i></span>
+          <h3 class="font-bold text-white">Donation Summary Report</h3>
         </div>
-        <p class="text-xs text-gray-500 leading-relaxed">Shows donations received, types, dates, and beneficiary allocations.</p>
+        <p class="text-xs text-zinc-400 leading-relaxed">Shows donations received, types, dates, and beneficiary allocations.</p>
       </div>
-      <a href="/admin/donations/export-pdf" target="_blank" class="w-full py-2.5 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
+      <a href="/admin/donations/reconciliation.csv?from={{ date_from }}&amp;to={{ date_to }}" class="w-full py-2.5 bg-[#09090B] hover:bg-[#18181B] border border-white/10 text-zinc-200 font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
+        <i class="fa-solid fa-file-csv"></i><span>Export reconciliation CSV</span>
+      </a>
+      <a href="/admin/donations/export-pdf" target="_blank" class="w-full py-2.5 bg-[#FF2E93] hover:bg-[#E0257F] text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
         <i class="fa-solid fa-file-pdf"></i><span>Generate PDF</span>
       </a>
     </div>
     {% endif %}
 
     {% if can_export_needs %}
-    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col justify-between space-y-4">
+    <div class="bg-[#121215] p-6 rounded-2xl border border-white/5 shadow-sm flex flex-col justify-between space-y-4 hover:border-[#FF2E93]/50 transition-all">
       <div class="space-y-2">
         <div class="flex items-center space-x-3">
-          <i class="fa-solid fa-hand-holding-heart text-brand-800 text-xl"></i>
-          <h3 class="font-bold text-gray-900">Community Needs Report</h3>
+          <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FF2E93]/10 text-[#FF2E93]"><i class="fa-solid fa-hand-holding-heart text-lg"></i></span>
+          <h3 class="font-bold text-white">Community Needs Report</h3>
         </div>
-        <p class="text-xs text-gray-500 leading-relaxed">Displays registered active and historical community support needs.</p>
+        <p class="text-xs text-zinc-400 leading-relaxed">Displays registered active and historical community support needs.</p>
       </div>
-      <a href="/admin/needs/export-pdf" target="_blank" class="w-full py-2.5 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
+      <a href="/admin/needs/export-pdf" target="_blank" class="w-full py-2.5 bg-[#FF2E93] hover:bg-[#E0257F] text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
         <i class="fa-solid fa-file-pdf"></i><span>Generate PDF</span>
       </a>
     </div>
     {% endif %}
 
     {% if can_export_beneficiaries %}
-    <div class="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col justify-between space-y-4">
+    <div class="bg-[#121215] p-6 rounded-2xl border border-white/5 shadow-sm flex flex-col justify-between space-y-4 hover:border-[#FF2E93]/50 transition-all">
       <div class="space-y-2">
         <div class="flex items-center space-x-3">
-          <i class="fa-solid fa-clipboard-user text-brand-800 text-xl"></i>
-          <h3 class="font-bold text-gray-900">Beneficiary Requests</h3>
+          <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FF2E93]/10 text-[#FF2E93]"><i class="fa-solid fa-clipboard-user text-lg"></i></span>
+          <h3 class="font-bold text-white">Beneficiary Requests</h3>
         </div>
-        <p class="text-xs text-gray-500 leading-relaxed">Confidential POPIA-compliant beneficiary registry and request status report.</p>
+        <p class="text-xs text-zinc-400 leading-relaxed">Confidential POPIA-compliant beneficiary registry and request status report.</p>
       </div>
-      <a href="/admin/beneficiaries/export-pdf" target="_blank" class="w-full py-2.5 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
+      <a href="/admin/beneficiaries/export-pdf" target="_blank" class="w-full py-2.5 bg-[#FF2E93] hover:bg-[#E0257F] text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
         <i class="fa-solid fa-file-pdf"></i><span>Generate PDF</span>
       </a>
     </div>

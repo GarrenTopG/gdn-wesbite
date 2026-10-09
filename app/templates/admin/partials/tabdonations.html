@@ -1,57 +1,111 @@
 <!-- TAB 3: DONATIONS -->
 <div id="tab-donations" class="tab-content hidden space-y-6">
-  <div class="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-gray-100 gap-4">
+  <div class="rounded-2xl border border-white/5 bg-[#121215] shadow-sm p-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-white/10 gap-4">
       <div>
-        <h2 class="text-xl font-bold text-gray-900">Recent Donations</h2>
-        <p class="text-xs text-gray-500 mt-0.5">Track financial and food parcel contributions.</p>
+        <h2 class="text-xl font-bold text-white">Recent Donations</h2>
+        <p class="text-xs text-zinc-400 mt-0.5">Track financial and food parcel contributions.</p>
       </div>
-      <a href="/admin/donations/export-pdf" target="_blank" class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center space-x-2">
-        <i class="fa-solid fa-file-pdf"></i>
-        <span>Export PDF</span>
-      </a>
     </div>
 
-    <div class="overflow-x-auto mt-4">
-      <table class="w-full text-left border-collapse text-sm">
+    <form method="GET" action="/admin/dashboard" class="admin-date-filter admin-content-filter" aria-label="Choose donation reporting date range">
+      <input type="hidden" name="tab" value="donations">
+      <strong class="admin-filter-heading">Reporting date range</strong>
+      <label class="admin-date-input">
+        <span>From</span>
+        <input type="date" name="from" value="{{ date_from }}" aria-label="Start date" required>
+      </label>
+      <label class="admin-date-input">
+        <span>To</span>
+        <input type="date" name="to" value="{{ date_to }}" aria-label="End date" required>
+      </label>
+      <button type="submit" class="admin-apply-filter">Apply dates</button>
+    </form>
+    <div class="admin-record-toolbar">
+      <label class="admin-record-search">
+        <span>Search donations</span>
+        <input data-record-search type="search" placeholder="Donor, amount, type, status..." autocomplete="off">
+      </label>
+      <a href="/admin/donations/reconciliation.csv?from={{ date_from }}&amp;to={{ date_to }}" class="admin-action-button admin-action-secondary">
+        <i class="fa-solid fa-file-csv" aria-hidden="true"></i> Reconciliation CSV
+      </a>
+      <a href="/admin/donations/export-pdf" target="_blank" rel="noopener" class="admin-action-button admin-action-secondary">
+        <i class="fa-solid fa-file-pdf" aria-hidden="true"></i> Export PDF
+      </a>
+    </div>
+    <p class="admin-search-empty" data-search-empty hidden>No donations match that search.</p>
+
+    <div class="admin-table-wrap mt-4">
+      <table class="admin-record-table w-full text-left border-collapse text-sm">
         <thead>
-          <tr class="border-b border-gray-200 text-gray-400 font-semibold text-xs tracking-wider uppercase">
+          <tr class="border-b border-white/10 text-zinc-400 font-semibold text-xs tracking-wider uppercase">
             <th class="py-3 px-4">Donor</th>
             <th class="py-3 px-4">Total Amount</th>
             <th class="py-3 px-4">Allocated</th>
             <th class="py-3 px-4">Type</th>
+            <th class="py-3 px-4">Workflow state</th>
             <th class="py-3 px-4">Date</th>
-            <th class="py-3 px-4 text-right">Allocation</th>
+            <th class="py-3 px-4 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100">
+        <tbody class="divide-y divide-white/10">
           {% for donation in donations %}
           {% set total = donation.amount or 0 %}
           {% set allocated = donation.allocated_amount or 0 %}
           {% set remaining = total - allocated %}
-          <tr class="hover:bg-gray-50/80 transition">
-            <td class="py-4 px-4 font-semibold text-gray-800">{{ donation.donor_name or 'Anonymous' }}</td>
-            <td class="py-4 px-4 font-extrabold text-gray-900">R {{ "%.2f"|format(total) }}</td>
-            <td class="py-4 px-4 font-medium text-emerald-700">R {{ "%.2f"|format(allocated) }}</td>
-            <td class="py-4 px-4 text-gray-600">{{ donation.category or donation.donation_type or 'General Fund' }}</td>
-            <td class="py-4 px-4 text-gray-500 text-xs">{{ donation.created_at.strftime('%Y-%m-%d') }}</td>
-            <td class="py-4 px-4 text-right">
-              {% if remaining <= 0 %}
-                <span class="inline-flex items-center px-2.5 py-1 text-xs font-bold text-emerald-800 bg-emerald-100 rounded-md">
+          <tr id="donation-{{ donation.id }}" data-search-row tabindex="-1" class="hover:bg-white/[0.03] transition">
+            <td data-label="Donor" class="py-4 px-4 font-semibold text-white">{{ donation.donor_name or 'Anonymous' }}</td>
+            <td data-label="Total Amount" class="py-4 px-4 font-extrabold text-white">{{ "R %.2f"|format(total) }}</td>
+            <td data-label="Allocated" class="py-4 px-4 font-medium text-emerald-300">{{ "R %.2f"|format(allocated) }}</td>
+            <td data-label="Type" class="py-4 px-4 text-zinc-300">{{ donation.donation_type or 'General Fund' }}</td>
+            <td data-label="Workflow State" class="py-4 px-4">
+              {% if donation.archived_at %}
+              <span class="admin-status-pill admin-status-neutral">Archived - {{ donation.status }}</span>
+              {% else %}
+              <span class="admin-status-pill {% if donation.status == 'Received/Verified' or donation.status == 'Allocated' %}admin-status-success{% elif donation.status == 'Payment Pending' or donation.status == 'Submitted' %}admin-status-warning{% elif donation.status == 'Refunded' %}admin-status-danger{% else %}admin-status-neutral{% endif %}">{{ donation.status }}</span>
+              {% if donation.status == 'Submitted' %}
+              <form action="/admin/donations/{{ donation.id }}/status" method="post" class="mt-2">
+                {{ csrf_input(request) }}<input type="hidden" name="status" value="Payment Pending">
+                <button class="admin-action-button admin-action-secondary">Mark payment pending</button>
+              </form>
+              {% elif donation.status == 'Payment Pending' %}
+              <form action="/admin/donations/{{ donation.id }}/verify" method="post" class="mt-2">
+                {{ csrf_input(request) }}
+                <button class="admin-action-button admin-action-primary">Verify received</button>
+              </form>
+              {% endif %}
+              {% endif %}
+            </td>
+            <td data-label="Date" class="py-4 px-4 text-zinc-400 text-xs">{{ donation.created_at.strftime('%Y-%m-%d') }}</td>
+            <td data-label="Actions" class="py-4 px-4 text-right">
+              {% if not donation.archived_at %}
+              {% if donation.status == 'Received/Verified' and remaining > 0 %}
+                <button type="button"
+                        onclick="openAllocateModal('{{ donation.id }}', '{{ remaining }}')"
+                        class="admin-action-button admin-action-primary">
+                  Allocate (R {{ "%.2f"|format(remaining) }} left)
+                </button>
+              {% elif donation.status == 'Allocated' %}
+                <span class="admin-status-pill admin-status-success">
                   <i class="fa-solid fa-link mr-1"></i> Fully Allocated
                 </span>
-              {% else %}
-                <button type="button" 
-                        onclick="openAllocateModal('{{ donation.id }}', '{{ remaining }}')"
-                        class="px-3 py-1.5 bg-brand-800 hover:bg-brand-900 text-white font-bold text-xs rounded-xl shadow-sm transition">
-                  Allocate Need (R {{ "%.2f"|format(remaining) }} left)
-                </button>
+              {% endif %}
+              {% if donation.status != 'Refunded' %}
+              <form action="/admin/donations/{{ donation.id }}/status" method="post" class="mt-2">
+                {{ csrf_input(request) }}<input type="hidden" name="status" value="Refunded">
+                <button class="admin-action-button admin-action-danger">Mark refunded</button>
+              </form>
+              {% endif %}
+              <form action="/admin/donations/{{ donation.id }}/archive" method="post" class="mt-2">
+                {{ csrf_input(request) }}
+                <button class="admin-action-button admin-action-secondary">Archive</button>
+              </form>
               {% endif %}
             </td>
           </tr>
           {% else %}
-          <tr>
-            <td colspan="6" class="py-8 text-center text-gray-400">No donation records have been submitted yet.</td>
+          <tr class="admin-table-empty">
+            <td colspan="7" class="py-8 text-center text-zinc-500">No donation records have been submitted yet.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -62,16 +116,15 @@
 
 <!-- ALLOCATION MODAL -->
 <div id="allocateModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-  <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100">
-    <div class="flex justify-between items-center pb-4 border-b border-gray-100">
-      <h3 class="text-lg font-bold text-gray-900">Allocate Donation</h3>
-      <!-- Fixed accessibility warning by adding title and aria-label -->
+  <div class="bg-[#121215] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-white/10">
+    <div class="flex justify-between items-center pb-4 border-b border-white/10">
+      <h3 class="text-lg font-bold text-white">Allocate Donation</h3>
       <button 
         type="button" 
         onclick="closeAllocateModal()" 
         title="Close modal" 
         aria-label="Close modal" 
-        class="text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-800 rounded-lg p-1"
+        class="text-zinc-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-[#FF2E93] rounded-lg p-1"
       >
         <i class="fa-solid fa-xmark text-lg" aria-hidden="true"></i>
       </button>
@@ -80,27 +133,25 @@
     <form id="allocateForm" method="POST" action="" class="space-y-4 mt-4">
       {{ csrf_input(request) }}
       <div>
-        <!-- Linked label via 'for' attribute -->
-        <label for="need_id" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+        <label for="need_id" class="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-1">
           Select Beneficiary Need
         </label>
-        <!-- Fixed accessibility warning by adding id and title -->
         <select 
           id="need_id" 
           name="need_id" 
           title="Select Beneficiary Need" 
           required 
-          class="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-800"
+          class="w-full rounded-xl border border-white/10 bg-[#09090B] px-3 py-2 text-sm text-white focus:border-[#FF2E93] focus:outline-none"
         >
           <option value="" disabled selected>-- Choose a community need --</option>
-          {% for need in needs %}
+          {% for need in allocation_needs %}
             <option value="{{ need.id }}">{{ need.anonymised_title }} (Target: R {{ "%.2f"|format(need.target_amount or 0) }})</option>
           {% endfor %}
         </select>
       </div>
 
       <div>
-        <label for="allocateAmountInput" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+        <label for="allocateAmountInput" class="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-1">
           Allocation Amount (R)
         </label>
         <input 
@@ -112,16 +163,16 @@
           placeholder="0.00" 
           min="0.01" 
           required 
-          class="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-800"
+          class="w-full rounded-xl border border-white/10 bg-[#09090B] px-3 py-2 text-sm text-white focus:border-[#FF2E93] focus:outline-none"
         />
-        <p class="text-xs text-gray-500 mt-1" id="maxAmountHelp">Max available: R 0.00</p>
+        <p class="text-xs text-zinc-400 mt-1" id="maxAmountHelp">Max available: R 0.00</p>
       </div>
 
-      <div class="flex justify-end space-x-3 pt-4 border-t border-gray-100">
-        <button type="button" onclick="closeAllocateModal()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition">
+      <div class="flex justify-end space-x-3 pt-4 border-t border-white/10">
+        <button type="button" onclick="closeAllocateModal()" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-zinc-200 font-bold text-xs rounded-xl transition border border-white/10">
           Cancel
         </button>
-        <button type="submit" class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold text-xs rounded-xl shadow-sm transition">
+        <button type="submit" class="px-4 py-2 bg-[#FF2E93] hover:bg-[#E0257F] text-white font-bold text-xs rounded-xl shadow-sm transition">
           Confirm Allocation
         </button>
       </div>

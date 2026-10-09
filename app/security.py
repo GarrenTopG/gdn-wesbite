@@ -12,7 +12,13 @@ from fastapi import Depends, HTTPException, Request, status
 from sqlmodel import Session, func, select
 
 from app.db.session import get_session
-from app.models.entities import AuditLog, RateLimitHit, User, UserRole
+from app.models.entities import (
+    AuditLog,
+    RateLimitHit,
+    RecordHistory,
+    User,
+    UserRole,
+)
 
 CSRF_COOKIE_NAME = "csrf_token"
 STAFF_COOKIE_NAME = "staff_session"
@@ -113,6 +119,25 @@ def add_audit_event(
             action=action,
             target_type=target_type,
             target_id=str(target_id) if target_id is not None else None,
+            details=json.dumps(details, sort_keys=True) if details else None,
+        )
+    )
+
+def add_record_history(
+    session: Session,
+    request: Request,
+    record_type: str,
+    record_id: int,
+    action: str,
+    details: dict[str, object] | None = None,
+) -> None:
+    actor = getattr(request.state, "staff_user", None)
+    session.add(
+        RecordHistory(
+            record_type=record_type,
+            record_id=record_id,
+            actor_id=actor.id if isinstance(actor, User) else None,
+            action=action,
             details=json.dumps(details, sort_keys=True) if details else None,
         )
     )

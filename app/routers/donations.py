@@ -6,13 +6,14 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from sqlmodel import Session, select
-from datetime import timedelta, timezone
+from datetime import timezone
 import hashlib
 import secrets
 
 from app.db.session import get_session
 from app.models.entities import BeneficiaryNeed, Donation, NeedStatus, ReceiptAccess
 from app.security import (
+    add_record_history,
     enforce_receipt_rate_limit,
     enforce_public_form_rate_limit,
     now_utc,
@@ -86,15 +87,25 @@ async def submit_donation_form(
 
     message_val = str(form_data.get("message", "")).strip() or None
 
-    if form_data.get("request_tax_certificate") == "true":
-        raise HTTPException(
-            status_code=400,
-            detail="Section 18A receipts are not available through this site.",
-        )
-
-    req_tax = False
+    req_tax = form_data.get("request_tax_certificate") == "true"
     tax_id = str(form_data.get("tax_id_number", "")).strip() if req_tax else None
     tax_addr = str(form_data.get("tax_address", "")).strip() if req_tax else None
+    if req_tax and donation_type != "monetary":
+        raise HTTPException(
+            status_code=400,
+            detail="Tax receipts can only be requested for monetary donations.",
+        )
+    if req_tax and (
+        is_anon
+        or not donor_name_raw
+        or not donor_email
+        or not tax_id
+        or not tax_addr
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="A receipt request requires your name, email, tax ID, and address.",
+        )
 
     amount_val = Decimal("0.00")
     cause_val = None
@@ -108,6 +119,15 @@ async def submit_donation_form(
             raise HTTPException(status_code=400, detail="Invalid donation amount.")
         if not amount_val.is_finite() or amount_val <= Decimal("0.00"):
             raise HTTPException(status_code=400, detail="Donation amount must be positive.")
+        try:
+            rounded_amount = amount_val.quantize(Decimal("0.01"))
+        except InvalidOperation as exc:
+            raise HTTPException(status_code=400, detail="Invalid donation amount precision.") from exc
+        if rounded_amount != amount_val:
+            raise HTTPException(
+                status_code=400,
+                detail="Donation amounts may have at most two decimals.",
+            )
 
         raw_need_id = form_data.get("need_id")
         cause_val = "General Fund (Where Most Needed)"
@@ -156,21 +176,27 @@ async def submit_donation_form(
         is_verified=False,
     )
 
+    receipt_token = None
+    if req_tax:
+        receipt_token = secrets.token_urlsafe(32)
+        new_donation.pending_receipt_token_hash = hashlib.sha256(
+            receipt_token.encode("utf-8")
+        ).hexdigest()
     session.add(new_donation)
+    session.flush()
+    add_record_history(
+        session,
+        request,
+        "donation",
+        new_donation.id,
+        "submitted",
+        {
+            "status": new_donation.status,
+            "tax_receipt_requested": req_tax,
+        },
+    )
     session.commit()
     session.refresh(new_donation)
-
-    receipt_token = None
-    if req_tax and new_donation.id is not None:
-        receipt_token = secrets.token_urlsafe(32)
-        session.add(
-            ReceiptAccess(
-                donation_id=new_donation.id,
-                token_hash=hashlib.sha256(receipt_token.encode("utf-8")).hexdigest(),
-                expires_at=now_utc() + timedelta(days=30),
-            )
-        )
-        session.commit()
 
     active_needs = session.exec(
         select(BeneficiaryNeed).where(
@@ -205,6 +231,22 @@ async def download_tax_certificate(
         select(ReceiptAccess).where(ReceiptAccess.token_hash == token_hash)
     ).first()
     if not access:
+        pending_donation = session.exec(
+            select(Donation).where(
+                Donation.pending_receipt_token_hash == token_hash,
+                Donation.request_tax_certificate.is_(True),
+                Donation.is_verified.is_(False),
+            )
+        ).first()
+        if pending_donation:
+            return HTMLResponse(
+                content=(
+                    "The receipt is not available yet. Staff must first verify "
+                    "that payment was received."
+                ),
+                status_code=status.HTTP_202_ACCEPTED,
+                headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+            )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Tax certificate not available for this record.",

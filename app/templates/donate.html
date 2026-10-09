@@ -34,11 +34,19 @@
             <p class="text-emerald-700 text-base mb-4">
                 No payment was taken. This confirmation records your pledge or offer only; it is not a payment confirmation or a tax receipt.
             </p>
+            {% if request_tax and receipt_token %}
+            <p class="text-sm text-emerald-800">A private receipt link is ready, but it will remain unavailable until staff verify that payment was received.</p>
+            <form action="/donate/tax-certificate" method="post" class="mt-3">
+                {{ csrf_input(request) }}
+                <input type="hidden" name="receipt_token" value="{{ receipt_token }}">
+                <button type="submit" class="rounded-lg bg-emerald-800 px-4 py-2 text-sm font-bold text-white">Check receipt availability</button>
+            </form>
+            {% endif %}
         </div>
         {% endif %}
 
         <div class="mb-8 border border-amber-300 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950" role="note">
-            <strong>Demo pledge form:</strong> This page records an expression of intent only. It does not process a payment, provide banking details or issue a Section 18A tax receipt. Do not enter card, bank or other payment credentials.
+            <strong>Demo pledge form:</strong> This page records an expression of intent only. It does not process a payment or provide banking details. A requested Section 18A receipt is created only after staff verify payment. Do not enter card, bank or other payment credentials.
         </div>
 
         <!-- Mode Toggle Tabs -->
@@ -85,6 +93,21 @@
                     <div class="relative rounded-xl border border-gray-300 focus-within:ring-2 focus-within:ring-brand-800 overflow-hidden">
                         <span class="absolute left-4 top-3 text-gray-500 font-semibold">R</span>
                         <input id="amount" type="number" name="amount" min="10" step="1" placeholder="0.00" required class="w-full pl-10 pr-4 py-3 outline-none font-semibold text-gray-800">
+                    </div>
+                </div>
+
+                <div class="rounded-xl border border-gray-200 p-4">
+                    <label class="flex items-start gap-3 text-sm font-semibold text-gray-800">
+                        <input id="request_tax_certificate" name="request_tax_certificate" type="checkbox" value="true" onchange="toggleTaxReceipt(this)" class="mt-1">
+                        <span>Request a Section 18A tax receipt (monetary donations only; issued after staff verify payment)</span>
+                    </label>
+                    <div id="tax_receipt_fields" class="mt-4 hidden grid gap-4 sm:grid-cols-2">
+                        <label for="tax_id_number" class="text-sm font-semibold text-gray-700">Tax reference / ID
+                            <input id="tax_id_number" name="tax_id_number" autocomplete="off" class="mt-1 w-full rounded-lg border px-3 py-2" disabled>
+                        </label>
+                        <label for="tax_address" class="text-sm font-semibold text-gray-700">Tax address
+                            <input id="tax_address" name="tax_address" autocomplete="street-address" class="mt-1 w-full rounded-lg border px-3 py-2" disabled>
+                        </label>
                     </div>
                 </div>
 
@@ -216,6 +239,11 @@
 function switchDonationType(type) {
     document.getElementById('donation_type').value = type;
     const isMonetary = type === 'monetary';
+    const taxRequest = document.getElementById('request_tax_certificate');
+    if (!isMonetary && taxRequest.checked) {
+        taxRequest.checked = false;
+        toggleTaxReceipt(taxRequest);
+    }
 
     const monetaryFields = document.getElementById('monetary_fields');
     const inkindFields = document.getElementById('inkind_fields');
@@ -243,6 +271,22 @@ function switchDonationType(type) {
     document.getElementById('item_description').required = !isMonetary;
     const selectedLogistics = document.querySelector('input[name="logistics_type"]:checked');
     toggleLogistics(selectedLogistics ? selectedLogistics.value : 'dropoff');
+}
+
+function toggleTaxReceipt(checkbox) {
+    const fields = document.getElementById('tax_receipt_fields');
+    const enabled = checkbox.checked;
+    fields.classList.toggle('hidden', !enabled);
+    fields.querySelectorAll('input').forEach(field => {
+        field.disabled = !enabled;
+        field.required = enabled;
+    });
+    document.getElementById('donor_name').required = enabled;
+    document.getElementById('donor_email').required = enabled;
+    if (enabled) {
+        document.getElementById('is_anonymous').checked = false;
+        toggleAnonymous(document.getElementById('is_anonymous'));
+    }
 }
 
 function toggleLogistics(type) {

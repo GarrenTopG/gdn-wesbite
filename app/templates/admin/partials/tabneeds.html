@@ -1,76 +1,114 @@
 <!-- TAB 5: COMMUNITY NEEDS -->
 <div id="tab-needs" class="tab-content hidden space-y-6">
-  <div class="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-gray-100 gap-4">
+  <div class="rounded-2xl border border-white/5 bg-[#121215] shadow-sm p-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-white/10 gap-4">
       <div>
-        <h2 class="text-xl font-bold text-gray-900">Community Needs Tracking</h2>
-        <p class="text-xs text-gray-500 mt-0.5">Track urgent local community requirements and target funding amounts.</p>
+        <h2 class="text-xl font-bold text-white">Community Needs Tracking</h2>
+        <p class="text-xs text-zinc-400 mt-0.5">Track urgent local community requirements and target funding amounts.</p>
       </div>
       <div class="flex items-center space-x-3">
-        <a href="/admin/needs/export-pdf" target="_blank" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl text-xs shadow-sm transition flex items-center space-x-2 border border-gray-300">
+        <a href="/admin/needs/export-pdf" target="_blank" rel="noopener" class="admin-action-button admin-action-secondary">
           <i class="fa-solid fa-file-pdf"></i>
-          <span>Export PDF</span>
+          Export PDF
         </a>
-        {% if can_write_needs %}<button onclick="toggleModal('addNeedModal')" class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center justify-center space-x-2">
+        {% if can_write_needs %}<button type="button" onclick="toggleModal('addNeedModal')" class="admin-action-button admin-action-primary">
           <i class="fa-solid fa-plus"></i>
-          <span>Add New Need</span>
+          Add New Need
         </button>{% endif %}
       </div>
     </div>
-    <div class="overflow-x-auto mt-4">
-      <table class="w-full text-left border-collapse text-sm">
+    <div class="admin-record-toolbar">
+      <label class="admin-record-search">
+        <span>Search community needs</span>
+        <input data-record-search type="search" placeholder="Title, area, category, urgency..." autocomplete="off">
+      </label>
+    </div>
+    <p class="admin-search-empty" data-search-empty hidden>No community needs match that search.</p>
+    <div class="admin-table-wrap mt-4">
+      <table class="admin-record-table w-full text-left border-collapse text-sm">
         <thead>
-          <tr class="border-b border-gray-200 text-gray-400 font-semibold text-xs tracking-wider uppercase">
+          <tr class="border-b border-white/10 text-zinc-400 font-semibold text-xs tracking-wider uppercase">
             <th class="py-3 px-4">Title / Area</th>
             <th class="py-3 px-4">Category</th>
             <th class="py-3 px-4">Urgency</th>
             <th class="py-3 px-4">Target / Progress</th>
+            <th class="py-3 px-4">Deadline / history</th>
             <th class="py-3 px-4">Status</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100">
+        <tbody class="divide-y divide-white/10">
           {% for need in needs %}
           {% set urgency_str = (need.urgency.value if need.urgency.value is defined else need.urgency)|string|capitalize %}
           {% set status_str = (need.status.value if need.status.value is defined else need.status)|string|capitalize %}
           {% set target = (need.target_amount or 0.0) | float %}
           {% set current = (need.current_amount or 0.0) | float %}
           {% set progress_pct = ((current / target) * 100) if target > 0 else 0 %}
-          <tr class="hover:bg-gray-50/80 transition">
-            <td class="py-4 px-4 font-bold text-gray-800">
+          <tr data-search-row class="hover:bg-white/[0.02] transition">
+            <td data-label="Title / Area" class="py-4 px-4 font-bold text-white">
               {{ need.anonymised_title }}
-              <span class="block font-normal text-xs text-gray-500"><i class="fa-solid fa-location-dot mr-1"></i>{{ need.area }}</span>
+              {% if need.archived_at %}<span class="ml-1 rounded bg-white/5 px-1 text-[9px] font-bold text-zinc-300">ARCHIVED</span>{% endif %}
+              <span class="block font-normal text-xs text-zinc-400"><i class="fa-solid fa-location-dot mr-1"></i>{{ need.area }}</span>
             </td>
-            <td class="py-4 px-4 text-gray-600">{{ need.category }}</td>
-            <td class="py-4 px-4">
-              <span class="px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-md 
-                {% if urgency_str in ['High', 'Critical'] %}bg-rose-100 text-rose-800{% else %}bg-amber-100 text-amber-800{% endif %}">
+            <td data-label="Category" class="py-4 px-4 text-zinc-300">{{ need.category }}</td>
+            <td data-label="Urgency" class="py-4 px-4">
+              <span class="admin-status-pill {% if urgency_str == 'Critical' %}admin-status-danger{% elif urgency_str == 'High' %}admin-status-priority{% elif urgency_str == 'Medium' %}admin-status-warning{% else %}admin-status-neutral{% endif %}">
                 {{ urgency_str }}
               </span>
             </td>
-            <td class="py-4 px-4">
-              <div class="font-extrabold text-gray-900 text-xs">
+            <td data-label="Target / Progress" class="py-4 px-4">
+              <div class="font-extrabold text-white text-xs">
                 R {{ "%.2f"|format(current) }} / R {{ "%.2f"|format(target) }}
               </div>
-              <div class="w-full bg-gray-200 rounded-full h-1.5 mt-1.5 max-w-[140px] overflow-hidden">
-                <div class="bg-brand-800 h-1.5 rounded-full transition-all duration-300" style="width: {{ [progress_pct, 100]|min }}%"></div>
+              <div class="w-full bg-white/5 rounded-full h-1.5 mt-1.5 max-w-[140px] overflow-hidden">
+                <div class="bg-[#FF2E93] h-1.5 rounded-full transition-all duration-300" style="width: {{ [progress_pct, 100]|min }}%"></div>
               </div>
             </td>
-            <td class="py-4 px-4">
+            <td data-label="Deadline / History" class="py-4 px-4">
+              {% if can_write_needs and not need.archived_at %}
+              <form action="/admin/needs/{{ need.id }}/targets" method="post" class="admin-need-target-form">
+                {{ csrf_input(request) }}
+                <label>Target (R)
+                  <input type="number" name="target_amount" step="0.01" min="0" value="{{ target }}">
+                </label>
+                <label>Deadline
+                  <input type="date" name="deadline" value="{{ need.deadline.strftime('%Y-%m-%d') if need.deadline else '' }}">
+                </label>
+                <button type="submit" class="admin-action-button admin-action-secondary">Save changes</button>
+              </form>
+              {% else %}
+              <span class="admin-deadline-value">{{ need.deadline.strftime('%d %b %Y') if need.deadline else 'No deadline set' }}</span>
+              {% endif %}
+              <details class="admin-need-history">
+                <summary>Update history <span>{{ need_history.get(need.id, [])|length }}</span></summary>
+                <ul>
+                  {% for event in need_history.get(need.id, []) %}
+                  <li><time datetime="{{ event.occurred_at.strftime('%Y-%m-%d') }}">{{ event.occurred_at.strftime('%d %b %Y') }}</time><span>{{ event.action|replace('_', ' ')|title }}{% if event.details %}: {{ event.details }}{% endif %}</span></li>
+                  {% else %}<li>No updates recorded.</li>{% endfor %}
+                </ul>
+              </details>
+            </td>
+            <td data-label="Status" class="py-4 px-4">
               {% if status_str in ['Fulfilled', 'Target met'] or (target > 0 and current >= target) %}
-                <span class="px-3 py-1 text-xs font-extrabold rounded-full bg-emerald-100 text-emerald-800 inline-flex items-center space-x-1">
+                <span class="admin-status-pill admin-status-success">
                   <i class="fa-solid fa-circle-check"></i>
                   <span>Target Met</span>
                 </span>
               {% else %}
-                <span class="px-3 py-1 text-xs font-bold rounded-full bg-amber-100 text-amber-800">
+                <span class="admin-status-pill admin-status-warning">
                   {{ status_str }}
                 </span>
+              {% endif %}
+              {% if can_write_needs and not need.archived_at %}
+              <form action="/admin/needs/delete/{{ need.id }}" method="post" class="mt-2">
+                  {{ csrf_input(request) }}
+                  <button class="admin-action-button admin-action-danger">Archive need</button>
+              </form>
               {% endif %}
             </td>
           </tr>
           {% else %}
-          <tr>
-            <td colspan="5" class="py-8 text-center text-gray-400">No community needs logged yet. Click "Add New Need" to add one.</td>
+          <tr class="admin-table-empty">
+            <td colspan="6" class="py-8 text-center text-zinc-500">No community needs logged yet. Click "Add New Need" to add one.</td>
           </tr>
           {% endfor %}
         </tbody>

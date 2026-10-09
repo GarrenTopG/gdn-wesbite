@@ -1,26 +1,64 @@
 <!-- TAB 4: BENEFICIARIES -->
 <div id="tab-beneficiaries" class="tab-content hidden space-y-6">
-  <div class="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6">
-    
-    <!-- Tab Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-gray-100 gap-4">
+  <div class="rounded-2xl border border-white/5 bg-[#121215] shadow-sm p-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-white/10 gap-4">
       <div>
-        <h2 class="text-xl font-bold text-gray-900">Beneficiary Assistance Requests</h2>
-        <p class="text-xs text-gray-500 mt-1">
+        <h2 class="text-xl font-bold text-white">Beneficiary Assistance Requests</h2>
+        <p class="text-xs text-zinc-400 mt-1">
           {{ beneficiaries|length }} total public beneficiary requests registered. Manage and update aid progress.
         </p>
       </div>
-      <a href="/admin/beneficiaries/export-pdf" target="_blank" class="px-4 py-2 bg-brand-800 hover:bg-brand-900 text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center space-x-2">
+      <a href="/admin/beneficiaries/export-pdf" target="_blank" class="px-4 py-2 bg-[#FF2E93] hover:bg-[#E0257F] text-white font-bold rounded-xl text-xs shadow-sm transition flex items-center space-x-2">
         <i class="fa-solid fa-file-pdf"></i>
         <span>Export Needs PDF</span>
       </a>
     </div>
 
-    <!-- Beneficiary Requests Table -->
-    <div class="overflow-x-auto mt-6">
-      <table class="w-full text-left border-collapse">
+    <form method="get" action="/admin/dashboard" class="grid gap-3 border-b border-white/10 py-4 sm:grid-cols-2 lg:grid-cols-8">
+      <input type="hidden" name="tab" value="beneficiaries">
+      <label class="text-xs font-semibold text-zinc-300">Submitted from
+        <input type="date" name="from" value="{{ date_from }}" required class="mt-1 w-full rounded-lg border border-white/10 bg-[#09090B] p-2 text-sm text-white focus:border-[#FF2E93] focus:outline-none">
+      </label>
+      <label class="text-xs font-semibold text-zinc-300">Submitted to
+        <input type="date" name="to" value="{{ date_to }}" required class="mt-1 w-full rounded-lg border border-white/10 bg-[#09090B] p-2 text-sm text-white focus:border-[#FF2E93] focus:outline-none">
+      </label>
+      <label class="text-xs font-semibold text-zinc-300">Status
+        <select name="request_status" class="mt-1 w-full rounded-lg border border-white/10 bg-[#09090B] p-2 text-sm text-white focus:border-[#FF2E93] focus:outline-none">
+          <option value="">All statuses</option>
+          {% for value in need_statuses %}<option value="{{ value.value }}" {% if assistance_filters.status == value.value %}selected{% endif %}>{{ value.value }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="text-xs font-semibold text-zinc-300">Urgency
+        <select name="request_urgency" class="mt-1 w-full rounded-lg border border-white/10 bg-[#09090B] p-2 text-sm text-white focus:border-[#FF2E93] focus:outline-none">
+          <option value="">All urgency</option>
+          {% for value in need_urgencies %}<option value="{{ value.value }}" {% if assistance_filters.urgency == value.value %}selected{% endif %}>{{ value.value }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="text-xs font-semibold text-zinc-300">Category
+        <input name="request_category" value="{{ assistance_filters.category }}" class="mt-1 w-full rounded-lg border border-white/10 bg-[#09090B] p-2 text-sm text-white focus:border-[#FF2E93] focus:outline-none">
+      </label>
+      <label class="text-xs font-semibold text-zinc-300">Region
+        <input name="request_region" value="{{ assistance_filters.region }}" class="mt-1 w-full rounded-lg border border-white/10 bg-[#09090B] p-2 text-sm text-white focus:border-[#FF2E93] focus:outline-none">
+      </label>
+      <label class="flex items-end gap-2 pb-2 text-xs font-semibold text-zinc-300">
+        <input type="checkbox" name="include_archived" value="true" {% if include_archived %}checked{% endif %}>
+        Include archived records
+      </label>
+      <button class="admin-action-button admin-action-primary self-end">Apply filters</button>
+    </form>
+    <p class="mt-2 text-xs text-zinc-400">Contact details are hidden in this list; open a restricted record to view them.</p>
+    <div class="admin-record-toolbar">
+      <label class="admin-record-search">
+        <span>Search requests</span>
+        <input data-record-search type="search" placeholder="Title, area, category, status..." autocomplete="off">
+      </label>
+    </div>
+    <p class="admin-search-empty" data-search-empty hidden>No requests match that search.</p>
+
+    <div class="admin-table-wrap mt-6">
+      <table class="admin-record-table w-full text-left border-collapse">
         <thead>
-          <tr class="bg-gray-50/80 border-b border-gray-200/80 text-[11px] uppercase tracking-wider text-gray-500 font-semibold">
+          <tr class="bg-white/[0.02] border-b border-white/10 text-[11px] uppercase tracking-wider text-zinc-400 font-semibold">
             <th class="px-4 py-3">ID</th>
             <th class="px-4 py-3">Beneficiary Contact (POPIA)</th>
             <th class="px-4 py-3">Public Request Title & Area</th>
@@ -30,70 +68,51 @@
             <th class="px-4 py-3 text-center">Status Action</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100 text-xs">
+        <tbody class="divide-y divide-white/10 text-xs">
           {% for need in beneficiaries %}
-          <tr class="hover:bg-gray-50/50 transition">
-            
-            <!-- Record ID -->
-            <td class="px-4 py-3 font-mono text-gray-400 font-medium">#{{ need.id }}</td>
-            
-            <!-- Beneficiary Contact Info -->
-            <td class="px-4 py-3">
-              <div class="font-bold text-gray-900">{{ need.contact_name }}</div>
-              <div class="text-gray-500 flex items-center space-x-1 mt-0.5">
-                <i class="fa-solid fa-phone text-[10px] text-brand-700"></i>
-                <span>{{ need.contact_phone }}</span>
-              </div>
-              <div class="text-gray-400 text-[11px] truncate max-w-xs mt-0.5" title="{{ need.full_address }}">
-                <i class="fa-solid fa-location-dot text-[10px]"></i> {{ need.full_address }}
-              </div>
-              {% if need.request_details %}
-              <details class="mt-2 max-w-xs">
-                <summary class="cursor-pointer text-[11px] font-semibold text-brand-800">View request details</summary>
-                <p class="mt-1 whitespace-pre-wrap text-[11px] leading-relaxed text-gray-700">{{ need.request_details }}</p>
-              </details>
-              {% endif %}
+          <tr id="beneficiary-{{ need.id }}" data-search-row class="hover:bg-white/[0.03] transition">
+            <td data-label="ID" class="px-4 py-3 font-mono text-zinc-400 font-medium">#{{ need.id }}</td>
+            <td data-label="Beneficiary Contact (POPIA)" class="px-4 py-3">
+              <div class="font-bold text-zinc-200">Contact details masked</div>
+              <div class="text-zinc-400 mt-0.5">*** / **********</div>
+              <a href="/admin/beneficiaries/{{ need.id }}" class="mt-1 inline-block font-semibold text-[#FF9ECE] underline">Open restricted case</a>
             </td>
 
-            <!-- Anonymised Title & Area -->
-            <td class="px-4 py-3">
-              <div class="font-semibold text-gray-800">{{ need.anonymised_title }}</div>
-              <div class="text-gray-500 text-[11px] mt-0.5">
-                <i class="fa-solid fa-map-pin text-gray-400"></i> {{ need.area }}
+            <td data-label="Public Request Title &amp; Area" class="px-4 py-3">
+              <div class="font-semibold text-white">{{ need.anonymised_title }}</div>
+              <div class="text-zinc-400 text-[11px] mt-0.5">
+                <i class="fa-solid fa-map-pin text-zinc-500"></i> {{ need.area }}
               </div>
             </td>
 
-            <!-- Category -->
-            <td class="px-4 py-3">
-              <span class="px-2 py-0.5 rounded-md bg-pink-50 text-brand-800 border border-pink-100 font-medium text-[11px]">
+            <td data-label="Category" class="px-4 py-3">
+              <span class="admin-record-tag">
                 {{ need.category }}
               </span>
             </td>
 
-            <!-- Urgency Badge -->
-            <td class="px-4 py-3">
+            <td data-label="Urgency" class="px-4 py-3">
               {% set urg_str = need.urgency.value if need.urgency.value is defined else need.urgency|string %}
               {% if urg_str == 'Critical' or urg_str == 'CRITICAL' %}
-                <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-red-100 text-red-800 border border-red-200">Critical</span>
+                <span class="admin-status-pill admin-status-danger">Critical</span>
               {% elif urg_str == 'High' or urg_str == 'HIGH' %}
-                <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-orange-100 text-orange-800 border border-orange-200">High</span>
+                <span class="admin-status-pill admin-status-priority">High</span>
               {% elif urg_str == 'Medium' or urg_str == 'MEDIUM' %}
-                <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-100 text-amber-800 border border-amber-200">Medium</span>
+                <span class="admin-status-pill admin-status-warning">Medium</span>
               {% else %}
-                <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-gray-100 text-gray-700 border border-gray-200">Low</span>
+                <span class="admin-status-pill admin-status-neutral">Low</span>
               {% endif %}
             </td>
 
-            <!-- Funding Progress Cell -->
-            <td class="px-4 py-3">
+            <td data-label="Funding Progress" class="px-4 py-3">
               {% set prog = need_funding_progress.get(need.id) %}
               {% if prog %}
-                <div class="flex justify-between text-[11px] font-semibold text-gray-700 mb-1">
+                <div class="flex justify-between text-[11px] font-semibold text-zinc-300 mb-1">
                   <span>R {{ "%.2f"|format(prog.raised) }}</span>
-                  <span class="text-gray-400">R {{ "%.2f"|format(prog.target) }}</span>
+                  <span class="text-zinc-500">R {{ "%.2f"|format(prog.target) }}</span>
                 </div>
-                <div class="w-28 bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                  <div class="bg-brand-800 h-1.5 rounded-full
+                <div class="w-28 bg-white/5 rounded-full h-1.5 overflow-hidden">
+                  <div class="bg-[#FF2E93] h-1.5 rounded-full
                     {% if prog.percentage <= 0 %}w-0
                     {% elif prog.percentage < 10 %}w-[10%]
                     {% elif prog.percentage < 20 %}w-[20%]
@@ -107,39 +126,24 @@
                     {% else %}w-full{% endif %}"></div>
                 </div>
               {% else %}
-                <span class="text-gray-400 text-[11px]">N/A</span>
+                <span class="text-zinc-500 text-[11px]">N/A</span>
               {% endif %}
             </td>
 
-            <!-- Status Dropdown -->
-            <td class="px-4 py-3 text-center">
+            <td data-label="Status Action" class="px-4 py-3 text-center">
               {% set status_str = need.status.value if need.status.value is defined else need.status|string %}
-              <form action="/admin/needs/{{ need.id }}/update-status" method="POST" class="inline-block">
-                {{ csrf_input(request) }}
-                <select name="status" 
-                        title="Update assistance request status"
-                        aria-label="Update assistance request status"
-                        onchange="this.form.submit()" 
-                        class="text-xs font-semibold rounded-lg px-2.5 py-1.5 border shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer
-                  {% if status_str == 'Pending' or status_str == 'PENDING' %} bg-amber-50 text-amber-900 border-amber-200
-                  {% elif status_str == 'In Progress' or status_str == 'IN_PROGRESS' %} bg-blue-50 text-blue-900 border-blue-200
-                  {% elif status_str == 'Matched' or status_str == 'MATCHED' %} bg-purple-50 text-purple-900 border-purple-200
-                  {% elif status_str == 'Fulfilled' or status_str == 'FULFILLED' %} bg-emerald-50 text-emerald-900 border-emerald-200
-                  {% elif status_str == 'Rejected' or status_str == 'REJECTED' %} bg-red-50 text-red-900 border-red-200 {% endif %}">
-                  
-                  <option value="Pending" {% if status_str == 'Pending' or status_str == 'PENDING' %}selected{% endif %}>⏳ Pending</option>
-                  <option value="In Progress" {% if status_str == 'In Progress' or status_str == 'IN_PROGRESS' %}selected{% endif %}>🔄 In Progress</option>
-                  <option value="Matched" {% if status_str == 'Matched' or status_str == 'MATCHED' %}selected{% endif %}>🤝 Matched</option>
-                  <option value="Fulfilled" {% if status_str == 'Fulfilled' or status_str == 'FULFILLED' %}selected{% endif %}>✅ Fulfilled</option>
-                  <option value="Rejected" {% if status_str == 'Rejected' or status_str == 'REJECTED' %}selected{% endif %}>❌ Rejected</option>
-                </select>
-              </form>
+              <span class="admin-status-pill admin-status-neutral">{{ status_str }}</span>
+              {% if need.archived_at %}
+              <span class="block text-[11px] font-bold text-zinc-500">Archived</span>
+              {% else %}
+              <a href="/admin/beneficiaries/{{ need.id }}" class="block font-semibold text-[#FF9ECE] underline">Manage case</a>
+              {% endif %}
             </td>
 
           </tr>
           {% else %}
-          <tr>
-            <td colspan="7" class="text-center py-8 text-gray-400">
+          <tr class="admin-table-empty">
+            <td colspan="7" class="text-center py-8 text-zinc-500">
               No beneficiary assistance requests found.
             </td>
           </tr>

@@ -33,42 +33,16 @@
 
   <div class="admin-main">
     <header class="admin-header">
-      <div class="admin-header-leading">
-        <button type="button" class="admin-mobile-toggle" id="mobile-sidebar-toggle"
-                aria-controls="admin-sidebar" aria-expanded="false" aria-label="Open workspace menu">
-          <i class="fa-solid fa-bars" aria-hidden="true"></i>
-        </button>
-        <div>
-          <p class="admin-breadcrumb">Workspace <span aria-hidden="true">/</span> <span id="breadcrumb-section">Overview</span></p>
-          <h1 class="admin-page-title" id="page-title">Overview</h1>
-        </div>
-      </div>
+      <button type="button" class="admin-mobile-toggle" id="mobile-sidebar-toggle"
+              aria-controls="admin-sidebar" aria-expanded="false" aria-label="Open workspace menu">
+        <i class="fa-solid fa-bars" aria-hidden="true"></i>
+      </button>
       <div class="admin-header-actions">
-        {% if pending_work_count %}
-        <span class="admin-work-queue" role="status" aria-label="{{ pending_work_count }} outstanding work items"
-              title="Unverified donations and pending requests or needs">
-          <i class="fa-solid fa-inbox" aria-hidden="true"></i>
-          <span>{{ pending_work_count }} open</span>
-        </span>
-        {% endif %}
-        <form method="GET" action="/admin/dashboard" class="admin-date-filter" aria-label="Filter dashboard metrics by date">
-          <input type="hidden" name="tab" value="{{ request.query_params.get('tab', 'overview') }}" id="filter-tab">
-          <label>From <input type="date" name="from" value="{{ date_from }}" aria-label="Start date" required></label>
-          <label>To <input type="date" name="to" value="{{ date_to }}" aria-label="End date" required></label>
-          <button type="submit" class="admin-apply-filter" id="apply-date-filter">Apply</button>
-        </form>
-        <label class="sr-only" for="workspace-search">Filter visible rows</label>
-        <input class="admin-search" id="workspace-search" type="search" placeholder="Search records..." autocomplete="off">
-        <div class="admin-user">
-          <span class="admin-user-avatar" aria-hidden="true">{{ staff_user.full_name[:1]|upper }}</span>
-          <span class="admin-user-name">{{ staff_user.full_name }} · {{ staff_user.role.value|replace('_', ' ')|title }}</span>
-        </div>
-        {% if is_administrator %}
-        <a href="/admin/security" class="admin-signout" aria-label="Manage staff accounts and view audit log">
-          <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
-          <span>Security</span>
-        </a>
-        {% endif %}
+        <button type="button" class="admin-header-icon" aria-label="Notifications">
+          <i class="fa-solid fa-bell" aria-hidden="true"></i>
+          <span class="admin-header-icon-badge">3</span>
+        </button>
+        <span class="admin-user-label">{{ staff_user.full_name }}</span>
         <form action="/admin/logout" method="POST" class="admin-signout-form">
           {{ csrf_input(request) }}
           <button type="submit" class="admin-signout">
@@ -80,6 +54,7 @@
     </header>
 
     <main class="admin-content" id="admin-main" tabindex="-1">
+      <h1 class="admin-page-title" id="page-title">Overview</h1>
       <p id="admin-loading" class="admin-loading-state" role="status" aria-live="polite" hidden>
         <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Updating date-filtered metrics…
       </p>
@@ -127,12 +102,11 @@
     const activeBtn = document.getElementById(`tab-btn-${tabName}`);
     if (activeBtn) activeBtn.setAttribute('aria-current', 'page');
     document.getElementById('page-title').textContent = tabLabels[tabName];
-    document.getElementById('breadcrumb-section').textContent = tabLabels[tabName];
-    document.getElementById('filter-tab').value = tabName;
 
     if (updateHistory) {
       const url = new URL(window.location.href);
       url.searchParams.set('tab', tabName);
+      url.searchParams.delete('focus');
       url.hash = '';
       window.history.pushState({ tab: tabName }, '', url);
     }
@@ -175,6 +149,14 @@
     const urlParams = new URLSearchParams(window.location.search);
     const activeTab = urlParams.get('tab') || window.location.hash.replace('#', '') || 'overview';
     switchTab(activeTab, false);
+    const focusTarget = urlParams.get('focus');
+    if (focusTarget) {
+      const target = document.getElementById(focusTarget);
+      if (target) {
+        target.scrollIntoView({ block: 'center' });
+        target.focus({ preventScroll: true });
+      }
+    }
 
     window.addEventListener('popstate', () => {
       switchTab(new URLSearchParams(window.location.search).get('tab') || 'overview', false);
@@ -215,22 +197,32 @@
     });
     if (localStorage.getItem('admin-sidebar-collapsed') === 'true') collapseButton.click();
 
-    const search = document.getElementById('workspace-search');
-    search.addEventListener('input', () => {
-      const query = search.value.trim().toLocaleLowerCase();
-      document.querySelectorAll('.tab-content:not(.hidden) tbody tr').forEach(row => {
-        row.classList.toggle('hidden', query !== '' && !row.textContent.toLocaleLowerCase().includes(query));
+    document.querySelectorAll('[data-record-search]').forEach(search => {
+      search.addEventListener('input', () => {
+        const tab = search.closest('.tab-content');
+        const query = search.value.trim().toLocaleLowerCase();
+        let matchCount = 0;
+        const rows = tab.querySelectorAll('[data-search-row]');
+        rows.forEach(row => {
+          const matches = query === '' || row.textContent.toLocaleLowerCase().includes(query);
+          row.classList.toggle('hidden', !matches);
+          if (matches) matchCount += 1;
+        });
+        const emptyMessage = tab.querySelector('[data-search-empty]');
+        if (emptyMessage) emptyMessage.hidden = query === '' || rows.length === 0 || matchCount > 0;
       });
     });
 
-    document.querySelector('.admin-date-filter').addEventListener('submit', () => {
-      document.getElementById('admin-loading').hidden = false;
-      document.getElementById('apply-date-filter').disabled = true;
+    document.querySelectorAll('.admin-date-filter').forEach(dateFilter => {
+      dateFilter.addEventListener('submit', () => {
+        document.getElementById('admin-loading').hidden = false;
+        dateFilter.querySelector('button[type="submit"]').disabled = true;
+      });
     });
 
-    const brandColor = '#67d9ae';
-    const chartText = '#9aaca5';
-    const chartGrid = '#263b35';
+    const brandColor = '#FF2E93';
+    const chartText = '#A1A1AA';
+    const chartGrid = '#27272A';
 
     // Volunteer Growth Chart
     const growthCtx = document.getElementById('growthChart');
@@ -243,7 +235,7 @@
             label: 'New Volunteer Registrations',
             data: {{ monthly_volunteer_counts | tojson }},
             borderColor: brandColor,
-            backgroundColor: 'rgba(103, 217, 174, 0.12)',
+            backgroundColor: 'rgba(255, 46, 147, 0.12)',
             fill: true,
             tension: 0.3,
             pointBackgroundColor: brandColor

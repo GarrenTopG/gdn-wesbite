@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Optional, List
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel, Column, JSON
 
 
@@ -28,6 +29,19 @@ class NeedStatus(str, Enum):
     MATCHED = "Matched"
     FULFILLED = "Fulfilled"
     REJECTED = "Rejected"
+
+class DonationStatus(str, Enum):
+    SUBMITTED = "Submitted"
+    PAYMENT_PENDING = "Payment Pending"
+    RECEIVED_VERIFIED = "Received/Verified"
+    ALLOCATED = "Allocated"
+    REFUNDED = "Refunded"
+
+class NewsStatus(str, Enum):
+    DRAFT = "Draft"
+    PREVIEW = "Preview"
+    PUBLISHED = "Published"
+    ARCHIVED = "Archive"
 
 # ENUMS FOR VOLUNTEER STATUS
 class VolunteerStatus(str, Enum):
@@ -103,6 +117,9 @@ class Volunteer(SQLModel, table=True):
     assigned_day: Optional[str] = Field(default="Inactive")  # "Inactive" by default or chosen day
     
     status: VolunteerStatus = Field(default=VolunteerStatus.ACTIVE)
+    onboarding_status: str = Field(default="Pending", index=True)
+    next_assignment_at: Optional[datetime] = Field(default=None, index=True)
+    archived_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
@@ -134,6 +151,11 @@ class BeneficiaryNeed(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc)
     )
     closed_at: Optional[datetime] = Field(default=None, index=True)
+    assigned_staff_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    internal_notes: Optional[str] = None
+    follow_up_at: Optional[datetime] = Field(default=None, index=True)
+    deadline: Optional[datetime] = Field(default=None, index=True)
+    archived_at: Optional[datetime] = Field(default=None, index=True)
 
 
 def set_need_status(need: BeneficiaryNeed, status: NeedStatus) -> None:
@@ -168,6 +190,7 @@ class Donation(SQLModel, table=True):
     request_tax_certificate: bool = Field(default=False)
     tax_id_number: Optional[str] = None
     tax_address: Optional[str] = None
+    pending_receipt_token_hash: Optional[str] = Field(default=None, index=True)
 
     # Verification & Payment Tracking
     payment_method: str = Field(default="Gateway")
@@ -175,10 +198,28 @@ class Donation(SQLModel, table=True):
     message: Optional[str] = None
     is_anonymous: bool = Field(default=False)
     is_verified: bool = Field(default=False, index=True)
+    status: str = Field(default=DonationStatus.SUBMITTED.value, index=True)
+    archived_at: Optional[datetime] = Field(default=None, index=True)
 
     need_id: Optional[int] = Field(
         default=None, foreign_key="beneficiaryneed.id", index=True
     )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+
+class DonationAllocation(SQLModel, table=True):
+    __table_args__ = (
+        UniqueConstraint(
+            "donation_id", "need_id", name="uq_donationallocation_donation_need"
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    donation_id: int = Field(foreign_key="donation.id", index=True)
+    need_id: int = Field(foreign_key="beneficiaryneed.id", index=True)
+    amount: Decimal = Field(max_digits=12, decimal_places=2)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
@@ -191,6 +232,7 @@ class VolunteerMatch(SQLModel, table=True):
     volunteer_id: int = Field(foreign_key="volunteer.id", index=True)
     matched_by_admin: str = Field(default="System Scored")
     status: str = Field(default="Assigned")
+    assigned_for: Optional[datetime] = Field(default=None, index=True)
     matched_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
@@ -207,6 +249,20 @@ class NewsArticle(SQLModel, table=True):
     image_url: Optional[str] = None
     author: str = Field(default="Aurorah Team")
     is_featured: bool = Field(default=False)
+    status: str = Field(default=NewsStatus.DRAFT.value, index=True)
+    archived_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+
+class RecordHistory(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    record_type: str = Field(index=True)
+    record_id: int = Field(index=True)
+    actor_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    action: str = Field(index=True)
+    details: Optional[str] = None
+    occurred_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), index=True
     )

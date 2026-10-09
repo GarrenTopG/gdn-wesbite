@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 from sqlmodel import Session, desc, select
 
 from app.db.session import get_session
-from app.models.entities import NewsArticle
+from app.models.entities import NewsArticle, NewsStatus
 from app.templatesconfig import templates
 
 router = APIRouter(prefix="/news", tags=["News"])
@@ -23,7 +23,10 @@ async def get_news_feed(
     if per_page < 1 or per_page > 50:
         raise HTTPException(status_code=400, detail="Page size must be between 1 and 50.")
 
-    query = select(NewsArticle)
+    query = select(NewsArticle).where(
+        NewsArticle.status == NewsStatus.PUBLISHED.value,
+        NewsArticle.archived_at.is_(None),
+    )
     if category and category.strip():
         query = query.where(NewsArticle.category == category.strip())
 
@@ -64,9 +67,18 @@ async def get_news_article_detail(
     article = None
     if identifier.isdigit():
         article = session.get(NewsArticle, int(identifier))
+        if article and (
+            article.status != NewsStatus.PUBLISHED.value
+            or article.archived_at is not None
+        ):
+            article = None
     if not article:
         article = session.exec(
-            select(NewsArticle).where(NewsArticle.slug == identifier)
+            select(NewsArticle).where(
+                NewsArticle.slug == identifier,
+                NewsArticle.status == NewsStatus.PUBLISHED.value,
+                NewsArticle.archived_at.is_(None),
+            )
         ).first()
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")

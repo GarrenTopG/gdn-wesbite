@@ -94,6 +94,7 @@ def purge_expired_personal_data(apply_changes: bool = False) -> tuple[int, int]:
                     donation.donor_phone = None
                     donation.tax_id_number = None
                     donation.tax_address = None
+                    donation.pending_receipt_token_hash = None
                     donation.pickup_address = None
                     donation.item_description = None
                     donation.message = None

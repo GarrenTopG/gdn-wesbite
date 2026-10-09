@@ -4,7 +4,7 @@ from sqlmodel import Session
 
 from app.db.session import get_session
 from app.models.entities import Volunteer, VolunteerStatus
-from app.security import enforce_public_form_rate_limit, require_csrf
+from app.security import add_record_history, enforce_public_form_rate_limit, require_csrf
 from app.templatesconfig import templates
 
 router = APIRouter(
@@ -69,6 +69,15 @@ async def submit_volunteer_form(
     )
 
     session.add(new_volunteer)
+    session.flush()
+    add_record_history(
+        session,
+        request,
+        "volunteer",
+        new_volunteer.id,
+        "submitted",
+        {"onboarding_status": new_volunteer.onboarding_status},
+    )
     session.commit()
     session.refresh(new_volunteer)
 

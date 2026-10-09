@@ -1,6 +1,6 @@
 import hashlib
 import secrets
-from datetime import date, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Optional
 
@@ -13,7 +13,13 @@ from app.models.entities import (
     AuthSession,
     AuditLog,
     BeneficiaryNeed,
+    Donation,
+    DonationAllocation,
+    DonationStatus,
     NeedStatus,
+    NeedUrgency,
+    NewsStatus,
+    RecordHistory,
     User,
     UserRole,
     Volunteer,
@@ -27,6 +33,7 @@ from app.security import (
     enforce_login_rate_limit,
     enforce_rate_limit,
     add_audit_event,
+    add_record_history,
     matching_totp_counter,
     new_totp_secret,
     now_utc,
@@ -289,17 +296,37 @@ async def get_admin_dashboard(
     can_view_needs = role_has_permission(staff_user.role, "needs.read")
     can_view_news = role_has_permission(staff_user.role, "news.read")
     can_view_reports = role_has_permission(staff_user.role, "reports.read")
+    include_archived = (
+        request.query_params.get("include_archived", "").lower() == "true"
+    )
 
     volunteers = (
-        session.exec(select(Volunteer)).all() if can_view_volunteers else []
+        session.exec(
+            select(Volunteer)
+            .where(
+                True if include_archived else Volunteer.archived_at.is_(None)
+            )
+            .order_by(Volunteer.id.desc())
+        ).all()
+        if can_view_volunteers
+        else []
     )
-    donations = (
+    donation_activity = (
         session.exec(select(Donation).order_by(col(Donation.id).desc())).all()
         if can_view_donations
         else []
     )
+    donations = [
+        donation
+        for donation in donation_activity
+        if include_archived or donation.archived_at is None
+    ]
     if can_view_beneficiaries:
-        all_needs = session.exec(select(BeneficiaryNeed)).all()
+        all_needs = session.exec(
+            select(BeneficiaryNeed).where(
+                True if include_archived else BeneficiaryNeed.archived_at.is_(None)
+            )
+        ).all()
     elif can_view_needs:
         need_rows = session.exec(
             select(
@@ -313,7 +340,10 @@ async def get_admin_dashboard(
                 BeneficiaryNeed.target_amount,
                 BeneficiaryNeed.current_amount,
                 BeneficiaryNeed.created_at,
-            ).where(BeneficiaryNeed.is_community_need.is_(True))
+            ).where(
+                BeneficiaryNeed.is_community_need.is_(True),
+                True if include_archived else BeneficiaryNeed.archived_at.is_(None),
+            )
         ).all()
         all_needs = [
             SimpleNamespace(
@@ -340,6 +370,79 @@ async def get_admin_dashboard(
         need for need in all_needs if not need.is_community_need
     ]
     community_needs = [need for need in all_needs if need.is_community_need]
+    allocation_needs = [
+        need
+        for need in community_needs
+        if need.archived_at is None
+        and need.status != NeedStatus.REJECTED
+        and (
+            need.target_amount is None
+            or need.target_amount <= Decimal("0.00")
+            or (need.current_amount or Decimal("0.00")) < need.target_amount
+        )
+    ]
+
+    assistance_status = request.query_params.get("request_status", "").strip()
+    assistance_urgency = request.query_params.get("request_urgency", "").strip()
+    assistance_category = request.query_params.get("request_category", "").strip()
+    assistance_region = request.query_params.get("request_region", "").strip()
+    known_statuses = {value.value for value in NeedStatus}
+    known_urgencies = {value.value for value in NeedUrgency}
+    if assistance_status and assistance_status not in known_statuses:
+        raise HTTPException(status_code=422, detail="Invalid assistance status filter.")
+    if assistance_urgency and assistance_urgency not in known_urgencies:
+        raise HTTPException(status_code=422, detail="Invalid urgency filter.")
+    filtered_beneficiaries = [
+        need
+        for need in beneficiaries
+        if (
+            not assistance_status
+            or getattr(need.status, "value", need.status) == assistance_status
+        )
+        and (
+            not assistance_urgency
+            or getattr(need.urgency, "value", need.urgency) == assistance_urgency
+        )
+        and (
+            not assistance_category
+            or assistance_category.casefold() in need.category.casefold()
+        )
+        and (
+            not assistance_region
+            or assistance_region.casefold() in need.area.casefold()
+        )
+        and date_from <= need.created_at.date() <= date_to
+    ]
+    volunteer_skills = request.query_params.get("volunteer_skills", "").strip()
+    volunteer_location = request.query_params.get("volunteer_location", "").strip()
+    volunteer_availability = request.query_params.get(
+        "volunteer_availability", ""
+    ).strip()
+    volunteer_onboarding = request.query_params.get(
+        "volunteer_onboarding", ""
+    ).strip()
+    filtered_volunteers = [
+        volunteer
+        for volunteer in volunteers
+        if (
+            not volunteer_skills
+            or volunteer_skills.casefold() in volunteer.skills.casefold()
+        )
+        and (
+            not volunteer_location
+            or volunteer_location.casefold() in volunteer.location.casefold()
+        )
+        and (
+            not volunteer_availability
+            or volunteer_availability.casefold() in volunteer.availability.casefold()
+            or volunteer_availability.casefold()
+            in ", ".join(volunteer.available_days or []).casefold()
+        )
+        and (
+            not volunteer_onboarding
+            or volunteer.onboarding_status == volunteer_onboarding
+        )
+    ]
 
     def is_in_date_range(record) -> bool:
         created_at = record.created_at
@@ -347,10 +450,26 @@ async def get_admin_dashboard(
             created_at = created_at.replace(tzinfo=timezone.utc)
         return date_from <= created_at.date() <= date_to
 
-    range_volunteers = [record for record in volunteers if is_in_date_range(record)]
-    range_donations = [record for record in donations if is_in_date_range(record)]
-    range_beneficiaries = [record for record in beneficiaries if is_in_date_range(record)]
-    range_news_articles = [record for record in news_articles if is_in_date_range(record)]
+    range_volunteers = [
+        record
+        for record in volunteers
+        if record.archived_at is None and is_in_date_range(record)
+    ]
+    range_donations = [
+        record for record in donation_activity if is_in_date_range(record)
+    ]
+    range_beneficiaries = [
+        record
+        for record in beneficiaries
+        if record.archived_at is None and is_in_date_range(record)
+    ]
+    range_news_articles = [
+        record
+        for record in news_articles
+        if is_in_date_range(record)
+        and record.status == NewsStatus.PUBLISHED.value
+        and record.archived_at is None
+    ]
 
     total_donation_amount = sum(
         (
@@ -358,6 +477,7 @@ async def get_admin_dashboard(
             for donation in range_donations
             if donation.amount
             and donation.is_verified
+            and donation.status != DonationStatus.REFUNDED.value
             and donation.donation_type == "monetary"
         ),
         Decimal("0.00"),
@@ -366,6 +486,7 @@ async def get_admin_dashboard(
         date_filter = func.date(Volunteer.created_at)
         total_volunteers = session.exec(
             select(func.count(Volunteer.id)).where(
+                Volunteer.archived_at.is_(None),
                 date_filter >= date_from.isoformat(),
                 date_filter <= date_to.isoformat(),
             )
@@ -374,6 +495,7 @@ async def get_admin_dashboard(
         total_donation_amount = session.exec(
             select(func.coalesce(func.sum(Donation.amount), 0)).where(
                 Donation.is_verified.is_(True),
+                Donation.status != DonationStatus.REFUNDED.value,
                 Donation.donation_type == "monetary",
                 donation_date >= date_from.isoformat(),
                 donation_date <= date_to.isoformat(),
@@ -383,6 +505,7 @@ async def get_admin_dashboard(
         total_requests = session.exec(
             select(func.count(BeneficiaryNeed.id)).where(
                 BeneficiaryNeed.is_community_need.is_(False),
+                BeneficiaryNeed.archived_at.is_(None),
                 request_date >= date_from.isoformat(),
                 request_date <= date_to.isoformat(),
             )
@@ -390,6 +513,8 @@ async def get_admin_dashboard(
         news_date = func.date(NewsArticle.created_at)
         total_news = session.exec(
             select(func.count(NewsArticle.id)).where(
+                NewsArticle.status == NewsStatus.PUBLISHED.value,
+                NewsArticle.archived_at.is_(None),
                 news_date >= date_from.isoformat(),
                 news_date <= date_to.isoformat(),
             )
@@ -398,18 +523,36 @@ async def get_admin_dashboard(
         total_volunteers = len(range_volunteers)
         total_requests = len(range_beneficiaries)
         total_news = len(range_news_articles)
+    allocation_totals: dict[int, Decimal] = {}
+    funding_need_ids = [
+        need.id for need in community_needs if need.id is not None
+    ]
+    if can_view_donations and funding_need_ids:
+        funding_rows = session.exec(
+            select(
+                DonationAllocation.need_id,
+                func.sum(DonationAllocation.amount),
+            )
+            .join(Donation, Donation.id == DonationAllocation.donation_id)
+            .where(
+                DonationAllocation.need_id.in_(funding_need_ids),
+                Donation.is_verified.is_(True),
+                Donation.status != DonationStatus.REFUNDED.value,
+            )
+            .group_by(DonationAllocation.need_id)
+        ).all()
+        allocation_totals = {
+            row[0]: Decimal(str(row[1] or "0.00")) for row in funding_rows
+        }
+
     need_funding_progress: Dict[int, Dict[str, Decimal]] = {}
     for need in all_needs:
         if need.id is None:
             continue
-        allocated = [
-            donation
-            for donation in donations
-            if donation.need_id == need.id and donation.is_verified
-        ]
-        raised = sum(
-            (donation.allocated_amount or Decimal("0.00") for donation in allocated),
-            Decimal("0.00"),
+        raised = (
+            allocation_totals.get(need.id, Decimal("0.00"))
+            if can_view_donations
+            else (need.current_amount or Decimal("0.00"))
         )
         target = need.target_amount or Decimal("0.00")
         percent = (
@@ -450,6 +593,7 @@ async def get_admin_dashboard(
                         donation.amount
                         for donation in range_donations
                         if donation.is_verified
+                        and donation.status != DonationStatus.REFUNDED.value
                         and donation.donation_type == "monetary"
                         and donation.created_at.strftime("%Y-%m")
                         == month.strftime("%Y-%m")
@@ -459,13 +603,80 @@ async def get_admin_dashboard(
             )
         )
 
-    pending_donations = sum(not donation.is_verified for donation in donations)
+    pending_donations = sum(
+        donation.archived_at is None
+        and donation.status
+        in {
+            DonationStatus.SUBMITTED.value,
+            DonationStatus.PAYMENT_PENDING.value,
+        }
+        for donation in donations
+    )
     pending_beneficiaries = sum(
-        need.status == NeedStatus.PENDING for need in beneficiaries
+        need.archived_at is None and need.status == NeedStatus.PENDING
+        for need in beneficiaries
     )
     pending_needs = sum(
-        need.status == NeedStatus.PENDING for need in community_needs
+        need.archived_at is None and need.status == NeedStatus.PENDING
+        for need in community_needs
     )
+    urgent_assistance = [
+        need
+        for need in beneficiaries
+        if need.archived_at is None
+        and need.urgency in {NeedUrgency.HIGH, NeedUrgency.CRITICAL}
+        and need.status not in {NeedStatus.FULFILLED, NeedStatus.REJECTED}
+    ]
+    unverified_donations = [
+        donation
+        for donation in donations
+        if donation.archived_at is None
+        and donation.status
+        in {
+            DonationStatus.SUBMITTED.value,
+            DonationStatus.PAYMENT_PENDING.value,
+        }
+    ]
+    queue_now = now_utc()
+    upcoming_volunteers = [
+        volunteer
+        for volunteer in volunteers
+        if volunteer.archived_at is None
+        and volunteer.next_assignment_at is not None
+        and queue_now
+        <= (
+            volunteer.next_assignment_at.replace(tzinfo=timezone.utc)
+            if volunteer.next_assignment_at.tzinfo is None
+            else volunteer.next_assignment_at
+        )
+        <= queue_now + timedelta(days=7)
+    ]
+    overdue_followups = [
+        need
+        for need in beneficiaries
+        if need.archived_at is None
+        and need.follow_up_at is not None
+        and (
+            need.follow_up_at.replace(tzinfo=timezone.utc)
+            if need.follow_up_at.tzinfo is None
+            else need.follow_up_at
+        )
+        < queue_now
+        and need.status not in {NeedStatus.FULFILLED, NeedStatus.REJECTED}
+    ]
+    community_need_ids = [need.id for need in community_needs if need.id is not None]
+    need_history: dict[int, list[RecordHistory]] = {}
+    if community_need_ids:
+        history_rows = session.exec(
+            select(RecordHistory)
+            .where(
+                RecordHistory.record_type == "beneficiary_need",
+                RecordHistory.record_id.in_(community_need_ids),
+            )
+            .order_by(RecordHistory.occurred_at.desc())
+        ).all()
+        for event in history_rows:
+            need_history.setdefault(event.record_id, []).append(event)
 
     visible_areas = [
         name
@@ -494,9 +705,11 @@ async def get_admin_dashboard(
         context={
             "active_page": "admin",
             "volunteers": volunteers,
+            "filtered_volunteers": filtered_volunteers,
             "donations": donations,
             "needs": community_needs,
-            "beneficiaries": beneficiaries,
+            "allocation_needs": allocation_needs,
+            "beneficiaries": filtered_beneficiaries,
             "news_articles": news_articles,
             "staff_user": request.state.staff_user,
             "can_view_volunteers": can_view_volunteers,
@@ -523,12 +736,14 @@ async def get_admin_dashboard(
             "total_requests": total_requests,
             "total_news": total_news,
             "need_funding_progress": need_funding_progress,
+            "need_history": need_history,
             "chart_month_labels": chart_month_labels,
             "monthly_volunteer_counts": monthly_volunteer_counts,
             "monthly_verified_donations": monthly_verified_donations,
             "has_volunteer_activity": bool(range_volunteers),
             "has_verified_donation_activity": any(
                 donation.is_verified
+                and donation.status != DonationStatus.REFUNDED.value
                 and donation.donation_type == "monetary"
                 and donation.amount
                 for donation in range_donations
@@ -540,11 +755,31 @@ async def get_admin_dashboard(
             "pending_needs": pending_needs,
             "pending_work_count": sum(
                 (
-                    pending_donations if can_view_donations else 0,
-                    pending_beneficiaries if can_view_beneficiaries else 0,
-                    pending_needs if can_view_needs else 0,
+                    len(urgent_assistance),
+                    len(unverified_donations),
+                    len(upcoming_volunteers),
+                    len(overdue_followups),
                 )
             ),
+            "urgent_assistance": urgent_assistance,
+            "unverified_donations": unverified_donations,
+            "upcoming_volunteers": upcoming_volunteers,
+            "overdue_followups": overdue_followups,
+            "assistance_filters": {
+                "status": assistance_status,
+                "urgency": assistance_urgency,
+                "category": assistance_category,
+                "region": assistance_region,
+            },
+            "volunteer_filters": {
+                "skills": volunteer_skills,
+                "location": volunteer_location,
+                "availability": volunteer_availability,
+                "onboarding": volunteer_onboarding,
+            },
+            "include_archived": include_archived,
+            "need_statuses": list(NeedStatus),
+            "need_urgencies": list(NeedUrgency),
         },
     )
 
@@ -558,13 +793,191 @@ async def update_need_status(
     staff_user: User = Depends(permission_required("beneficiaries.write")),
 ):
     need = session.get(BeneficiaryNeed, need_id)
-    if not need:
+    if not need or need.archived_at is not None:
         raise HTTPException(status_code=404, detail="Need record not found")
+    form = await request.form()
+    reason = str(form.get("reason", "")).strip()
+    if (
+        status_value in {NeedStatus.FULFILLED, NeedStatus.REJECTED}
+        and not reason
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="A reason is required when closing or rejecting a request.",
+        )
+    previous_status = getattr(need.status, "value", need.status)
     set_need_status(need, status_value)
     session.add(need)
+    add_record_history(
+        session,
+        request,
+        "beneficiary_need",
+        need_id,
+        "status_changed",
+        {
+            "from": previous_status,
+            "to": status_value.value,
+            "reason": reason or None,
+        },
+    )
     add_audit_event(session, request, "beneficiary.status_changed", "beneficiary_need", need_id)
     session.commit()
-    return RedirectResponse(url="/admin/dashboard#beneficiaries", status_code=303)
+    return RedirectResponse(url=f"/admin/beneficiaries/{need_id}", status_code=303)
+
+
+@protected_router.get(
+    "/beneficiaries/{need_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(permission_required("beneficiaries.read"))],
+)
+async def get_beneficiary_detail(
+    need_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    need = session.get(BeneficiaryNeed, need_id)
+    if not need or need.is_community_need or need.archived_at is not None:
+        raise HTTPException(status_code=404, detail="Assistance request not found.")
+    add_audit_event(
+        session, request, "beneficiary.detail_view", "beneficiary_need", need_id
+    )
+    session.commit()
+    history = session.exec(
+        select(RecordHistory)
+        .where(
+            RecordHistory.record_type == "beneficiary_need",
+            RecordHistory.record_id == need_id,
+        )
+        .order_by(RecordHistory.occurred_at.desc())
+    ).all()
+    staff = session.exec(
+        select(User)
+        .where(
+            User.is_active.is_(True),
+            User.role.in_([UserRole.ADMINISTRATOR, UserRole.CASE_WORKER]),
+        )
+        .order_by(User.full_name)
+    ).all()
+    assigned_staff = (
+        session.get(User, need.assigned_staff_id) if need.assigned_staff_id else None
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="adminbeneficiary.html",
+        context={
+            "active_page": "admin",
+            "staff_user": request.state.staff_user,
+            "need": need,
+            "history": history,
+            "staff_accounts": staff,
+            "assigned_staff": assigned_staff,
+            "need_statuses": list(NeedStatus),
+        },
+    )
+
+
+@protected_router.post(
+    "/beneficiaries/{need_id}/notes",
+    dependencies=[Depends(permission_required("beneficiaries.write"))],
+)
+async def update_beneficiary_notes(
+    need_id: int,
+    request: Request,
+    internal_notes: str = Form(...),
+    session: Session = Depends(get_session),
+):
+    need = session.get(BeneficiaryNeed, need_id)
+    if not need or need.is_community_need or need.archived_at is not None:
+        raise HTTPException(status_code=404, detail="Assistance request not found.")
+    notes = internal_notes.strip()
+    if not notes or len(notes) > 4000:
+        raise HTTPException(status_code=400, detail="Notes must be 1-4000 characters.")
+    need.internal_notes = notes
+    session.add(need)
+    add_record_history(
+        session, request, "beneficiary_need", need_id, "internal_note_added"
+    )
+    add_audit_event(session, request, "beneficiary.note_added", "beneficiary_need", need_id)
+    session.commit()
+    return RedirectResponse(url=f"/admin/beneficiaries/{need_id}", status_code=303)
+
+
+@protected_router.post(
+    "/beneficiaries/{need_id}/assign",
+    dependencies=[Depends(permission_required("beneficiaries.write"))],
+)
+async def assign_beneficiary_request(
+    need_id: int,
+    request: Request,
+    staff_id: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    need = session.get(BeneficiaryNeed, need_id)
+    if not need or need.is_community_need or need.archived_at is not None:
+        raise HTTPException(status_code=404, detail="Assistance request not found.")
+    assigned_id = None
+    if staff_id.strip():
+        if not staff_id.isdigit():
+            raise HTTPException(status_code=400, detail="Invalid staff selection.")
+        assigned_id = int(staff_id)
+        assignee = session.get(User, assigned_id)
+        if (
+            not assignee
+            or not assignee.is_active
+            or assignee.role not in {UserRole.ADMINISTRATOR, UserRole.CASE_WORKER}
+        ):
+            raise HTTPException(status_code=400, detail="Staff member is not eligible.")
+    need.assigned_staff_id = assigned_id
+    session.add(need)
+    add_record_history(
+        session,
+        request,
+        "beneficiary_need",
+        need_id,
+        "staff_assigned",
+        {"staff_id": assigned_id},
+    )
+    add_audit_event(
+        session, request, "beneficiary.staff_assigned", "beneficiary_need", need_id
+    )
+    session.commit()
+    return RedirectResponse(url=f"/admin/beneficiaries/{need_id}", status_code=303)
+
+
+@protected_router.post(
+    "/beneficiaries/{need_id}/follow-up",
+    dependencies=[Depends(permission_required("beneficiaries.write"))],
+)
+async def schedule_beneficiary_followup(
+    need_id: int,
+    request: Request,
+    follow_up_at: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    need = session.get(BeneficiaryNeed, need_id)
+    if not need or need.is_community_need or need.archived_at is not None:
+        raise HTTPException(status_code=404, detail="Assistance request not found.")
+    try:
+        parsed = datetime.fromisoformat(follow_up_at) if follow_up_at else None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid follow-up date.") from exc
+    if parsed and parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    need.follow_up_at = parsed
+    session.add(need)
+    add_record_history(
+        session,
+        request,
+        "beneficiary_need",
+        need_id,
+        "follow_up_scheduled",
+        {"follow_up_at": parsed.isoformat() if parsed else None},
+    )
+    add_audit_event(
+        session, request, "beneficiary.follow_up_scheduled", "beneficiary_need", need_id
+    )
+    session.commit()
+    return RedirectResponse(url=f"/admin/beneficiaries/{need_id}", status_code=303)
 
 
 @protected_router.post("/volunteers/{volunteer_id}/assign-day")
@@ -572,11 +985,12 @@ async def assign_volunteer_day(
     volunteer_id: int,
     request: Request,
     assigned_day: str = Form(...),
+    next_assignment_at: str = Form(""),
     session: Session = Depends(get_session),
     staff_user: User = Depends(permission_required("volunteers.write")),
 ):
     volunteer = session.get(Volunteer, volunteer_id)
-    if not volunteer:
+    if not volunteer or volunteer.archived_at is not None:
         raise HTTPException(status_code=404, detail="Volunteer not found")
     valid_days = {
         "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
@@ -588,13 +1002,44 @@ async def assign_volunteer_day(
         and assigned_day not in set(volunteer.available_days) | {"Inactive"}
     ):
         raise HTTPException(status_code=400, detail="Day is not in the volunteer's availability.")
+    try:
+        scheduled_at = (
+            datetime.fromisoformat(next_assignment_at)
+            if next_assignment_at.strip()
+            else None
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid assignment date.") from exc
+    if scheduled_at and scheduled_at.tzinfo is None:
+        scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
+    if scheduled_at and scheduled_at <= now_utc():
+        raise HTTPException(
+            status_code=400, detail="The next assignment date must be in the future."
+        )
+    if assigned_day == "Inactive" and scheduled_at:
+        raise HTTPException(
+            status_code=400,
+            detail="An inactive volunteer cannot have a scheduled assignment.",
+        )
     volunteer.assigned_day = assigned_day
+    volunteer.next_assignment_at = scheduled_at
     volunteer.status = (
         VolunteerStatus.ASSIGNED
         if assigned_day != "Inactive"
         else VolunteerStatus.ACTIVE
     )
     session.add(volunteer)
+    add_record_history(
+        session,
+        request,
+        "volunteer",
+        volunteer_id,
+        "assignment_updated",
+        {
+            "assigned_day": assigned_day,
+            "next_assignment_at": scheduled_at.isoformat() if scheduled_at else None,
+        },
+    )
     add_audit_event(
         session,
         request,
@@ -607,6 +1052,60 @@ async def assign_volunteer_day(
     return RedirectResponse(
         url="/admin/dashboard#volunteers", status_code=status.HTTP_303_SEE_OTHER
     )
+
+
+@protected_router.post(
+    "/volunteers/{volunteer_id}/onboarding",
+    dependencies=[Depends(permission_required("volunteers.write"))],
+)
+async def update_volunteer_onboarding(
+    volunteer_id: int,
+    request: Request,
+    onboarding_status: str = Form(...),
+    session: Session = Depends(get_session),
+):
+    volunteer = session.get(Volunteer, volunteer_id)
+    if not volunteer or volunteer.archived_at is not None:
+        raise HTTPException(status_code=404, detail="Volunteer not found.")
+    allowed_statuses = {"Pending", "Contacted", "Approved", "Complete"}
+    if onboarding_status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Invalid onboarding status.")
+    old_status = volunteer.onboarding_status
+    volunteer.onboarding_status = onboarding_status
+    session.add(volunteer)
+    add_record_history(
+        session,
+        request,
+        "volunteer",
+        volunteer_id,
+        "onboarding_status_changed",
+        {"from": old_status, "to": onboarding_status},
+    )
+    add_audit_event(
+        session, request, "volunteer.onboarding_updated", "volunteer", volunteer_id
+    )
+    session.commit()
+    return RedirectResponse(url="/admin/dashboard?tab=volunteers", status_code=303)
+
+
+@protected_router.post(
+    "/volunteers/{volunteer_id}/archive",
+    dependencies=[Depends(permission_required("volunteers.write"))],
+)
+async def archive_volunteer(
+    volunteer_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    volunteer = session.get(Volunteer, volunteer_id)
+    if not volunteer or volunteer.archived_at is not None:
+        raise HTTPException(status_code=404, detail="Volunteer not found.")
+    volunteer.archived_at = now_utc()
+    session.add(volunteer)
+    add_record_history(session, request, "volunteer", volunteer_id, "archived")
+    add_audit_event(session, request, "volunteer.archived", "volunteer", volunteer_id)
+    session.commit()
+    return RedirectResponse(url="/admin/dashboard?tab=volunteers", status_code=303)
 
 
 @protected_router.get(
