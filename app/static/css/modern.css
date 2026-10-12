@@ -439,3 +439,216 @@ textarea:focus-visible {
         transform: none;
     }
 }
+
+.account-menu {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.account-menu-trigger {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.3rem 0.45rem;
+    border-radius: 999px;
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    list-style: none;
+    cursor: pointer;
+}
+
+.account-menu-trigger::-webkit-details-marker {
+    display: none;
+}
+
+.account-menu-trigger:hover,
+.account-menu[open] > .account-menu-trigger {
+    background: rgba(255, 255, 255, 0.13);
+}
+
+.account-menu-trigger .fa-chevron-down {
+    font-size: 0.65rem;
+    transition: transform 160ms ease;
+}
+
+.account-menu[open] .account-menu-trigger .fa-chevron-down {
+    transform: rotate(180deg);
+}
+
+.account-avatar {
+    display: grid;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 2px solid rgba(255, 255, 255, 0.75);
+    border-radius: 50%;
+    background: #f7dce6;
+    color: var(--brand-900);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
+
+.account-menu-name {
+    max-width: 9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.account-menu-popover {
+    position: absolute;
+    z-index: 70;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    width: min(17rem, calc(100vw - 2rem));
+    padding: 1rem;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    box-shadow: 0 12px 28px rgba(40, 37, 42, 0.2);
+    color: var(--ink);
+}
+
+.account-menu-fullname {
+    margin: 0;
+    font-weight: 700;
+}
+
+.account-menu-email {
+    margin: 0.15rem 0 0.8rem;
+    overflow-wrap: anywhere;
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
+.account-menu-popover form {
+    border-top: 1px solid var(--line);
+    padding-top: 0.6rem;
+}
+
+.account-menu-popover form button {
+    display: flex;
+    width: 100%;
+    min-height: 2.5rem;
+    align-items: center;
+    gap: 0.55rem;
+    border: 0;
+    background: transparent;
+    color: var(--brand-900);
+    font-weight: 700;
+    cursor: pointer;
+    text-align: left;
+}
+
+.account-menu-popover form button:hover {
+    color: var(--brand-700);
+}
+
+.account-menu-mobile .account-menu-trigger {
+    width: 100%;
+    justify-content: flex-start;
+    border-radius: 0.2rem;
+    padding: 0.45rem 0.75rem;
+}
+
+.account-menu-mobile .account-menu-popover {
+    position: static;
+    width: auto;
+    margin: 0 0.75rem 0.5rem;
+    border-color: rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.98);
+}
+
+.account-page-background {
+    display: flex;
+    min-height: 74vh;
+    align-items: center;
+    background-color: var(--brand-900);
+    background-image:
+        linear-gradient(115deg, rgba(61, 24, 41, 0.78), rgba(117, 45, 66, 0.56)),
+        url("https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=2000&q=85");
+    background-position: center;
+    background-size: cover;
+}
+
+.account-card {
+    width: 100%;
+    box-shadow: 0 22px 65px rgba(27, 12, 20, 0.28);
+}
+
+.about-visit-section {
+    background: #f8f3f5;
+}
+
+.about-visit-card {
+    border-top: 4px solid var(--brand-700);
+}
+
+.about-visit-directions {
+    min-width: 13rem;
+    box-shadow: 0 8px 20px rgba(117, 45, 66, 0.17);
+    text-decoration: none;
+}
+
+.about-visit-directions:hover {
+    color: white;
+}
+
+.about-library-photo {
+    width: min(100%, 20rem);
+    flex: 0 1 20rem;
+    margin: 0;
+}
+
+.about-library-photo img {
+    display: block;
+    width: 100%;
+    height: 10rem;
+    border: 1px solid #f0d5e1;
+    object-fit: cover;
+}
+
+.about-library-photo figcaption {
+    margin-top: 0.45rem;
+    color: #6b5561;
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.latifah-profile-section {
+    background: #f8d7e8;
+}
+
+.latifah-profile-card {
+    border-color: #f1bfd6;
+    border-radius: 1rem;
+    box-shadow: 0 18px 48px rgba(117, 45, 84, 0.13);
+}
+
+.latifah-profile-photo {
+    object-position: center 24%;
+    background: #fce4ef;
+}
+
+@media (max-width: 767px) {
+    .account-menu-mobile .account-menu-trigger {
+        min-height: 48px;
+    }
+
+    .account-menu-mobile .account-menu-popover {
+        margin-right: 0;
+        margin-left: 0;
+    }
+
+    .about-visit-directions {
+        width: 100%;
+    }
+
+    .about-library-photo {
+        width: 100%;
+        flex-basis: auto;
+    }
+}

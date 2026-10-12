@@ -115,4 +115,53 @@
       </table>
     </div>
   </div>
+
+  <div class="rounded-2xl border border-white/5 bg-[#121215] shadow-sm p-6">
+    <div class="pb-4 border-b border-white/10">
+      <h2 class="text-xl font-bold text-white">Offers to help</h2>
+      <p class="text-xs text-zinc-400 mt-0.5">Review volunteer offers submitted from the mobile app.</p>
+    </div>
+    <div class="admin-table-wrap mt-4">
+      <table class="admin-record-table w-full text-left border-collapse text-sm">
+        <thead>
+          <tr class="border-b border-white/10 text-zinc-400 font-semibold text-xs tracking-wider uppercase">
+            <th class="py-3 px-4">Volunteer</th>
+            <th class="py-3 px-4">Community need</th>
+            <th class="py-3 px-4">Skills / notes</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4">Submitted</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-white/10">
+          {% for offer in volunteer_offers %}
+          <tr>
+            <td data-label="Volunteer" class="py-4 px-4 text-white">
+              <strong>{{ offer.full_name }}</strong>
+              <a class="block text-xs text-pink-200 underline" href="mailto:{{ offer.email }}">{{ offer.email }}</a>
+            </td>
+            <td data-label="Community need" class="py-4 px-4 text-zinc-300">{{ offer.need_title }}</td>
+            <td data-label="Skills / notes" class="py-4 px-4 text-zinc-300">
+              <strong>{{ offer.volunteer_skill }}</strong>
+              {% if offer.notes %}<span class="block text-xs text-zinc-400">{{ offer.notes }}</span>{% endif %}
+            </td>
+            <td data-label="Status" class="py-4 px-4">
+              <span class="admin-status-pill {% if offer.status == 'Reviewed' %}admin-status-success{% else %}admin-status-warning{% endif %}">{{ offer.status }}</span>
+              {% if can_write_needs and offer.status == 'Pending' %}
+              <form action="/admin/needs/offers/{{ offer.id }}/review" method="post" class="mt-2">
+                {{ csrf_input(request) }}
+                <button type="submit" class="admin-action-button admin-action-secondary">Mark reviewed</button>
+              </form>
+              {% endif %}
+            </td>
+            <td data-label="Submitted" class="py-4 px-4 text-zinc-400">{{ offer.created_at.strftime('%d %b %Y') }}</td>
+          </tr>
+          {% else %}
+          <tr class="admin-table-empty">
+            <td colspan="5" class="py-8 text-center text-zinc-500">No volunteer offers have been submitted.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>

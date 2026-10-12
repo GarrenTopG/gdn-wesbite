@@ -111,6 +111,57 @@ The app creates the SQLite database and required tables if they do not already e
 Startup also removes only the four legacy seeded-news slugs and converts old internal-need placeholder contact values to empty values.
 Back up an existing `aurorah.db` before the first upgraded launch; startup applies the additive schema and the narrowly scoped legacy-data cleanup.
 
+### Website accounts
+
+Visitors can browse without signing in, and guest donation pledges are allowed with an optional email address. Requesting assistance or applying to volunteer requires a website account. Create an account at `/account/register`, sign in at `/account/login`, and sign out from the site navigation. Account passwords must be at least 12 characters; sessions use HTTP-only cookies and expire after 12 hours. Website accounts are separate from staff accounts and cannot access the admin workspace.
+
+### Android mobile API
+
+The Android app and website use this FastAPI service and the same configured database; the mobile app must not connect directly to SQLite or SQL Server. The JSON API uses the `/api` prefix:
+
+| Endpoint | Authentication | Purpose |
+| --- | --- | --- |
+| `POST /api/auth/register` | Public | Create a regular user account (`fullName`, `email`, `password`; password minimum 12 characters). Any submitted `role` is ignored. |
+| `POST /api/auth/login` | Public | Sign in with email and password. |
+| `POST /api/auth/google-sso` | Public | Verify a Firebase ID token and sign in or create a regular user account. |
+| `POST /api/auth/change-password` | Bearer token | Change the signed-in user's password (`email`, `oldPassword`, `newPassword`). |
+| `GET /api/news` | Public | Return published news items. |
+| `GET /api/needs` | Public | Return open, public community needs without beneficiary contact details. |
+| `POST /api/needs/offer-assistance` | Bearer token | Submit an offer for an open community need (`needId`, `userEmail`, `volunteerSkill`, `notes`). |
+| `POST /api/donations` | Bearer token | Record a monetary donation pledge (`category`, `amount`, `paymentMethod`, `userEmail`). |
+
+Successful sign-in and registration responses include `success`, `message`, `token`, and a `user` object. Send the token on protected requests as `Authorization: Bearer <token>`; mobile sessions expire after 12 hours. Account roles are assigned by the server, never trusted from the app. Failed or malformed requests return HTTP error responses.
+
+Google sign-in accepts a **Firebase ID token** in the JSON field `idToken` (not a raw Google ID token). Set `FIREBASE_PROJECT_ID` to the Firebase project used by Android, and configure Application Default Credentials for the website process. In local development, this can be done with `GOOGLE_APPLICATION_CREDENTIALS` pointing to a private service-account JSON file; in production, prefer the hosting platform's attached service identity. Keep credential files outside Git and never put credentials in Android, website JavaScript, or chat. Google sign-in returns a clear service-unavailable error until this configuration and the `firebase-admin` dependency are available.
+
+Mobile donation submissions are **pledges only**. The website currently has no online payment processor: `paymentMethod` is not used to charge or verify a payment, and the API response explicitly says no payment was processed. Donations remain unverified until staff handle them through the existing admin workflow. Offers to help are saved with `Pending` status; staff with community-needs access can review them in Admin → Needs and mark them reviewed.
+
+### Connect to Azure SQL Server
+
+The website connects to its database from the FastAPI backend; `base.html` must not connect directly to SQL Server. SQLite remains the default for local development. To use the Azure database, install the SQL Server adapter and the Microsoft ODBC Driver 18 for SQL Server on the machine running the app:
+
+```powershell
+pip install -r requirements-sqlserver.txt
+```
+
+Add these settings to the private `.env` file (or the deployment's secret environment). Replace the username and password with a dedicated website database login; do not use the shared server administrator account:
+
+```dotenv
+DATABASE_BACKEND=sqlserver
+DATABASE_AUTO_CREATE_SCHEMA=false
+MSSQL_SERVER=aurorah-sql-server.database.windows.net
+MSSQL_DATABASE=aurorah-db
+MSSQL_USERNAME=your-website-database-login
+MSSQL_PASSWORD=your-website-database-password
+MSSQL_DRIVER=ODBC Driver 18 for SQL Server
+```
+
+For a new, empty database, initialize the tables once with a schema-provisioning login: temporarily set `DATABASE_AUTO_CREATE_SCHEMA=true`, run `python -c "from app.db.session import create_db_and_tables; create_db_and_tables()"`, then switch it back to `false` and configure the restricted website login. The website login should have only the data permissions it needs; keep schema-owner/admin credentials out of the running website. Schema initialization does not migrate records from `aurorah.db` or alter an existing SQL Server schema.
+
+When upgrading an existing SQL Server database to a version that adds tables, rerun the one-time schema setup with `DATABASE_AUTO_CREATE_SCHEMA=true` and a schema-provisioning login before starting the app with the restricted website login. This creates missing tables such as `VolunteerOffer`; it does not alter existing tables or migrate SQLite records.
+
+Allow the app machine's outbound IP address in the Azure SQL firewall. The IP auto-added when connecting through SSMS is your workstation's IP; it does not automatically allow a separately hosted website. Keep all database credentials in `.env` or a hosting secret store—never in templates, frontend JavaScript, or Git.
+
 ## Staff Accounts
 
 There are no built-in or shared admin credentials. Create an individual account from the project directory. For the first account, replace the example email and name with the administrator's details:

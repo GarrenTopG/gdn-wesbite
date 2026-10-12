@@ -132,6 +132,8 @@ def add_record_history(
     details: dict[str, object] | None = None,
 ) -> None:
     actor = getattr(request.state, "staff_user", None)
+    if not isinstance(actor, User):
+        actor = getattr(request.state, "mobile_user", None)
     session.add(
         RecordHistory(
             record_type=record_type,

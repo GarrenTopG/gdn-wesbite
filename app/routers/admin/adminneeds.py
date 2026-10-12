@@ -11,6 +11,7 @@ from app.models.entities import (
     NeedUrgency,
     Volunteer,
     VolunteerMatch,
+    VolunteerOffer,
     VolunteerStatus,
     set_need_status,
 )
@@ -92,6 +93,43 @@ async def create_community_need(
     session.commit()
 
     return RedirectResponse(url="/admin/dashboard?tab=needs", status_code=303)
+
+
+@router.post("/needs/offers/{offer_id}/review")
+async def review_volunteer_offer(
+    offer_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    if not verify_staff_session(request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    offer = session.get(VolunteerOffer, offer_id)
+    if not offer:
+        raise HTTPException(status_code=404, detail="Volunteer offer not found.")
+    if offer.status != "Pending":
+        raise HTTPException(status_code=409, detail="Volunteer offer has already been reviewed.")
+
+    offer.status = "Reviewed"
+    session.add(offer)
+    add_record_history(
+        session,
+        request,
+        "volunteer_offer",
+        offer.id,
+        "reviewed",
+        {"status": offer.status},
+    )
+    add_audit_event(
+        session,
+        request,
+        "volunteer_offer.reviewed",
+        "volunteer_offer",
+        offer.id,
+    )
+    session.commit()
+    return RedirectResponse(url="/admin/dashboard?tab=needs", status_code=303)
+
 
 # Admin route to delete a BeneficiaryNeed from the admin dashboard
 @router.post("/needs/delete/{need_id}")

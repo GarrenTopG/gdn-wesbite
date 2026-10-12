@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Aurorah CAN Digital Hub{% endblock %}</title>
-    <meta name="description" content="{% block meta_description %}Aurorah NPC is a community action network supporting vulnerable households and young people in Kuils River and nearby Cape Flats communities.{% endblock %}">
+    <meta name="description" content="{% block meta_description %}Aurorah CAN is a community action network supporting vulnerable households and young people in Kuils River and nearby Cape Flats communities.{% endblock %}">
     <meta property="og:title" content="{% block og_title %}Aurorah CAN{% endblock %}">
     <meta property="og:description" content="{% block og_description %}Community development, food relief and educational support in Kuils River and nearby Cape Flats communities.{% endblock %}">
     
@@ -51,6 +51,26 @@
     </script>
     <link rel="stylesheet" href="/static/css/modern.css">
 </head>
+{% macro public_account_menu(user, mobile=false) %}
+<details class="account-menu{% if mobile %} account-menu-mobile{% endif %}">
+    <summary class="account-menu-trigger" aria-label="Account for {{ user.full_name }}">
+        <span class="account-avatar" aria-hidden="true">{{ user.full_name.split()[:2] | map('first') | join | upper }}</span>
+        <span class="account-menu-name">{{ user.full_name }}</span>
+        <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+    </summary>
+    <div class="account-menu-popover">
+        <p class="account-menu-fullname">{{ user.full_name }}</p>
+        <p class="account-menu-email">{{ user.email }}</p>
+        <form action="/account/logout" method="post">
+            {{ csrf_input(request) }}
+            <button type="submit">
+                <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+                Sign out
+            </button>
+        </form>
+    </div>
+</details>
+{% endmacro %}
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col font-sans overflow-x-hidden">
 
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -100,6 +120,11 @@
                    class="{% if active_page == 'news' %}is-current{% endif %}">
                     News
                 </a>
+                {% if request.state.public_user %}
+                {{ public_account_menu(request.state.public_user) }}
+                {% else %}
+                <a href="/account/login">Sign in</a>
+                {% endif %}
             </nav>
 
             <nav id="mobile-navigation" class="mobile-navigation hidden md:hidden"
@@ -117,6 +142,12 @@
                     </div>
                 </details>
                 <a href="/news" {% if active_page == 'news' %}aria-current="page"{% endif %}>News</a>
+                {% if request.state.public_user %}
+                {{ public_account_menu(request.state.public_user, true) }}
+                {% else %}
+                <a href="/account/login">Sign in</a>
+                <a href="/account/register">Create account</a>
+                {% endif %}
             </nav>
         </div>
     </header>
@@ -136,7 +167,7 @@
                     <span>Aurorah CAN</span>
                 </div>
                 <p class="text-white/80 leading-relaxed text-sm">
-                    Aurorah NPC is a community action network supporting vulnerable households and young people in Kuils River and nearby Cape Flats communities.
+                    Aurorah CAN is a community action network supporting vulnerable households and young people in Kuils River and nearby Cape Flats communities.
                 </p>
             </div>
             

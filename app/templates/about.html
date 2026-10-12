@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}About Aurorah CAN | Aurorah NPC{% endblock %}
-{% block meta_description %}Learn about Aurorah NPC, the Kuils River community action network founded by community activist Latifa Jacobs.{% endblock %}
-{% block og_title %}About Aurorah CAN | Aurorah NPC{% endblock %}
+{% block title %}About Aurorah CAN{% endblock %}
+{% block meta_description %}Learn about Aurorah CAN, the Kuils River community action network founded by community activist Latifah Jacobs.{% endblock %}
+{% block og_title %}About Aurorah CAN{% endblock %}
 {% block og_description %}Our story, community work and local roots in Kuils River, Cape Town.{% endblock %}
 
 {% block content %}
@@ -16,29 +16,77 @@
     </div>
 </section>
 
+<section class="about-visit-section px-6 py-12 md:py-16">
+    <div class="about-visit-card mx-auto flex max-w-6xl flex-col gap-8 border border-gray-200 bg-white p-7 shadow-sm sm:p-10 md:flex-row md:items-center md:justify-between">
+        <div class="about-visit-copy">
+            <p class="mb-2 text-sm font-bold uppercase tracking-widest text-brand-700">Visit us</p>
+            <h2 class="mb-4 text-3xl font-extrabold text-gray-900 sm:text-4xl">Come say hello</h2>
+            <address class="not-italic text-lg font-semibold leading-relaxed text-gray-900">
+                27 Lovebird Walk, Sunbird Park<br>
+                Cape Town, 7580
+            </address>
+            <p class="mt-4 text-base leading-relaxed text-gray-600">Monday–Friday: 08:00–17:00<br>Saturday: 09:00–14:00 · Sunday: Closed</p>
+        </div>
+        <figure class="about-library-photo">
+            <img src="/static/images/aurora-public-library.webp"
+                 alt="Aurora Public Library, where Aurorah CAN operates" loading="lazy" decoding="async">
+            <figcaption>Aurorah CAN operates from Aurora Public Library.</figcaption>
+        </figure>
+        <a href="https://maps.google.com/?q=27+Lovebird+Walk,+Sunbird+Park,+Cape+Town,+7580" target="_blank" rel="noopener noreferrer" class="about-visit-directions inline-flex min-h-14 items-center justify-center gap-3 bg-brand-800 px-7 py-4 text-lg font-bold text-white hover:bg-brand-900">
+            <i class="fa-solid fa-location-dot" aria-hidden="true"></i>Get directions
+        </a>
+    </div>
+</section>
+
 <section class="bg-white px-6 py-12">
-    <div class="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.4fr_0.8fr]">
+    <div class="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
         <article class="max-w-3xl">
             <p class="mb-2 text-sm font-bold uppercase tracking-widest text-brand-700">Our story</p>
             <h2 class="mb-5 text-3xl font-extrabold text-gray-900">Community action shaped by local needs</h2>
             <p class="mb-4 leading-relaxed text-gray-700">
-                Founded in Kuils River by community activist, author and human-rights advocate Latifa Jacobs, Aurorah CAN grew from grassroots community action during the COVID-19 pandemic. Its work focuses on building bridges between residents and community organisations, addressing hunger, supporting young people and contributing to community development.
+                Founded in Kuils River by community activist, author and human-rights advocate Latifah Jacobs, Aurorah CAN grew from grassroots community action during the COVID-19 pandemic. Its work focuses on building bridges between residents and community organisations, addressing hunger, supporting young people and contributing to community development.
             </p>
             <p class="leading-relaxed text-gray-700">
                 The network's approach is grounded in local relationships and participation. Its work has included food relief, educational support, community engagement and advocacy on issues including gender-based violence and social inclusion.
             </p>
         </article>
 
-        <aside class="border-l-4 border-brand-700 bg-brand-50 p-6">
-            <p class="mb-2 text-sm font-bold uppercase tracking-wider text-brand-800">Founder</p>
-            <h2 class="mb-3 text-xl font-bold text-gray-900">Latifa Jacobs</h2>
+        <div class="space-y-5">
+            <img src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1000&q=80"
+                 alt="Community members meeting together outdoors" loading="lazy" decoding="async"
+                 class="h-80 w-full object-cover md:h-96">
+        </div>
+    </div>
+</section>
+
+<section class="latifah-profile-section px-6 py-14 md:py-20" id="latifah-jacobs">
+    <div class="latifah-profile-card mx-auto grid max-w-6xl overflow-hidden border bg-white shadow-sm md:grid-cols-[0.72fr_1.28fr]">
+        <img src="https://cdn.24.co.za/files/Cms/General/d/8285/020dda8f2e224d6d8fe438177cfad1bb.jpg"
+             alt="Latifah Jacobs" loading="lazy" decoding="async"
+             class="latifah-profile-photo h-72 w-full object-cover object-top md:h-full">
+        <div class="p-7 sm:p-10">
+            <p class="mb-2 text-sm font-bold uppercase tracking-widest text-brand-700">Community contact</p>
+            <h2 class="mb-4 text-3xl font-extrabold text-gray-900">Latifah Jacobs</h2>
             <p class="leading-relaxed text-gray-700">
-                Jacobs' work includes participatory community research and advocacy on gender-based violence, femicide and social inclusion. Her community bridge-building has received recognition, including the Brand South Africa Play Your Part Award; she was also named a finalist in the Good Hope FM Warrior Woman Awards.
+                Founder of Aurorah CAN, Latifah works in participatory community research and advocacy on gender-based violence, femicide and social inclusion. Her community bridge-building has received recognition, including the Brand South Africa Play Your Part Award; she was also named a finalist in the Good Hope FM Warrior Woman Awards.
             </p>
-            <p class="mt-4 text-sm leading-relaxed text-gray-600">
-                Recognition and award details are included here as background to the organisation's story, not as a claim of government endorsement.
+            <p class="mt-3 text-sm leading-relaxed text-gray-600">
+                Contact Latifah directly about volunteer work, donations or partnerships. Recognition and award details are included as background to the organisation's story, not as a claim of government endorsement.
             </p>
-        </aside>
+            <div class="mt-6 grid gap-3 sm:grid-cols-2">
+                <a href="tel:+27715893409" class="inline-flex min-h-12 items-center justify-center gap-2 border border-brand-800 px-4 py-3 font-bold text-brand-800 hover:bg-brand-50">
+                    <i class="fa-solid fa-phone" aria-hidden="true"></i>071 589 3409
+                </a>
+                <a href="mailto:latifahjacobm@gmail.com" class="inline-flex min-h-12 items-center justify-center gap-2 bg-brand-800 px-4 py-3 font-bold text-white hover:bg-brand-900">
+                    <i class="fa-solid fa-envelope" aria-hidden="true"></i>Email Latifah
+                </a>
+            </div>
+            <div class="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold">
+                <a class="text-brand-800 underline underline-offset-2" href="mailto:latifahjacobm@gmail.com?subject=Volunteering%20with%20Aurorah%20CAN">Volunteer work</a>
+                <a class="text-brand-800 underline underline-offset-2" href="mailto:latifahjacobm@gmail.com?subject=Donation%20for%20Aurorah%20CAN">Donations</a>
+                <a class="text-brand-800 underline underline-offset-2" href="mailto:latifahjacobm@gmail.com?subject=Partnership%20with%20Aurorah%20CAN">Partnerships</a>
+            </div>
+        </div>
     </div>
 </section>
 
@@ -51,16 +99,22 @@
         </div>
         <div class="grid gap-5 md:grid-cols-3">
             <article class="border border-gray-200 bg-white p-6">
+                <img src="https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=700&q=80"
+                     alt="Fresh food prepared for sharing" loading="lazy" decoding="async" class="mb-5 h-36 w-full object-cover">
                 <i class="fa-solid fa-bowl-food mb-4 text-2xl text-brand-800" aria-hidden="true"></i>
                 <h3 class="mb-2 text-lg font-bold text-gray-900">Food relief</h3>
                 <p class="text-sm leading-relaxed text-gray-700">Grassroots efforts to address hunger and connect households with local support.</p>
             </article>
             <article class="border border-gray-200 bg-white p-6">
+                <img src="https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=700&q=80"
+                     alt="Students learning together in a classroom" loading="lazy" decoding="async" class="mb-5 h-36 w-full object-cover">
                 <i class="fa-solid fa-book-open mb-4 text-2xl text-brand-800" aria-hidden="true"></i>
                 <h3 class="mb-2 text-lg font-bold text-gray-900">Youth and learning</h3>
                 <p class="text-sm leading-relaxed text-gray-700">Educational support and community-led opportunities for young people.</p>
             </article>
             <article class="border border-gray-200 bg-white p-6">
+                <img src="https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=700&q=80"
+                     alt="Local community members working together" loading="lazy" decoding="async" class="mb-5 h-36 w-full object-cover">
                 <i class="fa-solid fa-people-group mb-4 text-2xl text-brand-800" aria-hidden="true"></i>
                 <h3 class="mb-2 text-lg font-bold text-gray-900">Community development</h3>
                 <p class="text-sm leading-relaxed text-gray-700">Building relationships between residents, civil-society groups and local initiatives.</p>
@@ -87,18 +141,12 @@
 <section class="bg-brand-900 px-6 py-12 text-white">
     <div class="mx-auto grid max-w-6xl gap-8 md:grid-cols-2 md:items-center">
         <div>
-            <p class="mb-2 text-sm font-bold uppercase tracking-widest text-pink-100">Aurorah NPC</p>
-            <h2 class="mb-3 text-2xl font-extrabold">Find us in Sunbird Park</h2>
-            <address class="not-italic leading-relaxed text-white/90">
-                27 Lovebird Walk<br>
-                Sunbird Park, Cape Town, 7580
-            </address>
-            <p class="mt-3 text-sm text-white/80">Monday–Friday: 08:00–17:00<br>Saturday: 09:00–14:00 · Sunday: Closed</p>
+            <p class="mb-2 text-sm font-bold uppercase tracking-widest text-pink-100">Get involved</p>
+            <h2 class="mb-3 text-2xl font-extrabold">Support local community work</h2>
+            <p class="leading-relaxed text-white/90">Explore ways to volunteer or make a donation pledge to support community-led work.</p>
         </div>
         <div class="flex flex-col gap-3 sm:flex-row md:justify-end">
-            <a href="https://maps.google.com/?q=27+Lovebird+Walk,+Sunbird+Park,+Cape+Town,+7580" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-12 items-center justify-center border border-white px-5 py-3 font-bold text-white hover:bg-white/10">
-                <i class="fa-solid fa-location-dot mr-2" aria-hidden="true"></i>Directions
-            </a>
+            <a href="/donate" class="inline-flex min-h-12 items-center justify-center border border-white px-5 py-3 font-bold text-white hover:bg-white/10">Make a pledge</a>
             <a href="/volunteer" class="inline-flex min-h-12 items-center justify-center bg-white px-5 py-3 font-bold text-brand-900 hover:bg-pink-50">Explore volunteering</a>
         </div>
     </div>

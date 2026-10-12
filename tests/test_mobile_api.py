@@ -1,0 +1,279 @@
+import hashlib
+import os
+import secrets
+import unittest
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
+
+os.environ.setdefault("APP_SECRET_KEY", "test-mobile-api-key-not-for-production-000000")
+os.environ["DATABASE_BACKEND"] = "sqlite"
+os.environ["SQLITE_FILE_NAME"] = "mobile_api_test_unused.db"
+
+from fastapi.testclient import TestClient
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine, select
+
+from app.db.session import get_session
+from app.models.entities import (
+    BeneficiaryNeed,
+    AuthSession,
+    Donation,
+    NeedStatus,
+    NeedUrgency,
+    NewsArticle,
+    NewsStatus,
+    VolunteerOffer,
+    User,
+    UserRole,
+)
+from app.security import STAFF_COOKIE_NAME
+from main import app
+
+
+class MobileApiTests(unittest.TestCase):
+    def setUp(self):
+        self.engine = create_engine(
+            "sqlite://",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        SQLModel.metadata.create_all(self.engine)
+
+        def get_test_session():
+            with Session(self.engine) as session:
+                yield session
+
+        app.dependency_overrides[get_session] = get_test_session
+        self.client = TestClient(app)
+
+    def tearDown(self):
+        self.client.close()
+        app.dependency_overrides.clear()
+        self.engine.dispose()
+
+    def register(self, email="volunteer@example.org"):
+        response = self.client.post(
+            "/api/auth/register",
+            json={
+                "fullName": "Mobile Volunteer",
+                "email": email,
+                "password": "CorrectHorseBatteryStaple1!",
+                "role": "administrator",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        return response.json()
+
+    def test_registration_login_and_password_change(self):
+        account = self.register()
+        self.assertEqual(account["user"]["role"], "Volunteer")
+        self.assertEqual(
+            self.client.post(
+                "/api/auth/register",
+                json={
+                    "fullName": "Duplicate",
+                    "email": "volunteer@example.org",
+                    "password": "CorrectHorseBatteryStaple1!",
+                },
+            ).status_code,
+            409,
+        )
+
+        changed = self.client.post(
+            "/api/auth/change-password",
+            headers={"Authorization": f"Bearer {account['token']}"},
+            json={
+                "email": "volunteer@example.org",
+                "oldPassword": "CorrectHorseBatteryStaple1!",
+                "newPassword": "AnotherCorrectHorseBattery2!",
+            },
+        )
+        self.assertEqual(changed.status_code, 200, changed.text)
+        login = self.client.post(
+            "/api/auth/login",
+            json={
+                "email": "volunteer@example.org",
+                "password": "AnotherCorrectHorseBattery2!",
+            },
+        )
+        self.assertEqual(login.status_code, 200, login.text)
+        self.assertEqual(login.headers["cache-control"], "no-store")
+
+    def test_public_feeds_return_only_public_records(self):
+        with Session(self.engine) as session:
+            session.add_all(
+                [
+                    BeneficiaryNeed(
+                        contact_name="Private Beneficiary",
+                        contact_phone="555-0100",
+                        full_address="Private street",
+                        anonymised_title="Food support",
+                        area="Kuils River",
+                        category="Food",
+                        urgency=NeedUrgency.HIGH,
+                        status=NeedStatus.PENDING,
+                        is_community_need=True,
+                    ),
+                    BeneficiaryNeed(
+                        contact_name="Private Beneficiary",
+                        contact_phone="555-0100",
+                        full_address="Private street",
+                        anonymised_title="Private case",
+                        area="Private area",
+                        category="Health",
+                        is_community_need=False,
+                    ),
+                    NewsArticle(
+                        title="Published update",
+                        slug="published-update",
+                        summary="Public summary",
+                        content="Public story",
+                        status=NewsStatus.PUBLISHED.value,
+                    ),
+                    NewsArticle(
+                        title="Draft update",
+                        slug="draft-update",
+                        summary="Draft summary",
+                        content="Draft story",
+                        status=NewsStatus.DRAFT.value,
+                    ),
+                ]
+            )
+            session.commit()
+
+        needs = self.client.get("/api/needs").json()
+        self.assertEqual(len(needs), 1)
+        self.assertEqual(needs[0]["title"], "Food support")
+        self.assertNotIn("contact_name", needs[0])
+        news = self.client.get("/api/news").json()
+        self.assertEqual([article["title"] for article in news], ["Published update"])
+
+    def test_offers_and_donations_require_the_account_identity(self):
+        account = self.register()
+        with Session(self.engine) as session:
+            need = BeneficiaryNeed(
+                contact_name="Internal",
+                contact_phone="",
+                full_address="",
+                anonymised_title="Community garden",
+                area="Kuils River",
+                category="Food",
+                is_community_need=True,
+            )
+            session.add(need)
+            session.commit()
+            session.refresh(need)
+            need_id = need.id
+
+        headers = {"Authorization": f"Bearer {account['token']}"}
+        mismatch = self.client.post(
+            "/api/needs/offer-assistance",
+            headers=headers,
+            json={
+                "needId": need_id,
+                "userEmail": "other@example.org",
+                "volunteerSkill": "Gardening",
+                "notes": "Weekends",
+            },
+        )
+        self.assertEqual(mismatch.status_code, 403)
+        offer = self.client.post(
+            "/api/needs/offer-assistance",
+            headers=headers,
+            json={
+                "needId": need_id,
+                "userEmail": "volunteer@example.org",
+                "volunteerSkill": "Gardening",
+                "notes": "Weekends",
+            },
+        )
+        self.assertEqual(offer.status_code, 200, offer.text)
+
+        donation = self.client.post(
+            "/api/donations",
+            headers=headers,
+            json={
+                "category": "General Fund",
+                "amount": "25.50",
+                "paymentMethod": "Card",
+                "userEmail": "volunteer@example.org",
+            },
+        )
+        self.assertEqual(donation.status_code, 200, donation.text)
+        self.assertIn("No payment was processed", donation.json()["message"])
+        with Session(self.engine) as session:
+            self.assertEqual(len(session.exec(select(VolunteerOffer)).all()), 1)
+            saved_donation = session.exec(select(Donation)).one()
+            self.assertEqual(saved_donation.payment_method, "Pledge - No Online Payment")
+            self.assertEqual(saved_donation.status, "Submitted")
+
+    def test_google_sign_in_fails_clearly_without_server_configuration(self):
+        with patch.dict(os.environ, {"FIREBASE_PROJECT_ID": ""}):
+            response = self.client.post(
+                "/api/auth/google-sso",
+                json={"idToken": "not-a-real-token"},
+            )
+        self.assertEqual(response.status_code, 503)
+
+    def test_staff_can_review_mobile_offers_from_needs_dashboard(self):
+        with Session(self.engine) as session:
+            applicant = User(
+                full_name="Mobile Volunteer",
+                email="volunteer@example.org",
+                hashed_password="unused",
+                role=UserRole.USER,
+            )
+            staff = User(
+                full_name="Case Worker",
+                email="caseworker@example.org",
+                hashed_password="unused",
+                role=UserRole.CASE_WORKER,
+            )
+            need = BeneficiaryNeed(
+                contact_name="Internal",
+                contact_phone="",
+                full_address="",
+                anonymised_title="Community garden",
+                area="Kuils River",
+                category="Food",
+                is_community_need=True,
+            )
+            session.add_all([applicant, staff, need])
+            session.flush()
+            offer = VolunteerOffer(
+                need_id=need.id,
+                user_id=applicant.id,
+                volunteer_skill="Gardening",
+            )
+            session.add(offer)
+            session.flush()
+            offer_id = offer.id
+            staff_token = secrets.token_urlsafe(32)
+            session.add(
+                AuthSession(
+                    token_hash=hashlib.sha256(staff_token.encode()).hexdigest(),
+                    user_id=staff.id,
+                    expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+                    mfa_verified=True,
+                )
+            )
+            session.commit()
+
+        self.client.cookies.set(STAFF_COOKIE_NAME, staff_token)
+        dashboard = self.client.get("/admin/dashboard?tab=needs")
+        self.assertEqual(dashboard.status_code, 200, dashboard.text)
+        self.assertIn("volunteer@example.org", dashboard.text)
+
+        csrf_token = self.client.cookies.get("csrf_token")
+        reviewed = self.client.post(
+            f"/admin/needs/offers/{offer_id}/review",
+            headers={"X-CSRF-Token": csrf_token},
+            follow_redirects=False,
+        )
+        self.assertEqual(reviewed.status_code, 303, reviewed.text)
+        with Session(self.engine) as session:
+            self.assertEqual(session.get(VolunteerOffer, offer_id).status, "Reviewed")
+
+
+if __name__ == "__main__":
+    unittest.main()

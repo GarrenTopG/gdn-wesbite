@@ -1,12 +1,12 @@
 {% extends "adminbase.html" %}
 {% block title %}Staff Security & Audit - Aurorah CAN{% endblock %}
 {% block content %}
-<main class="min-h-screen bg-slate-50 px-4 py-8 sm:px-8">
-  <div class="mx-auto max-w-7xl space-y-8">
+<div class="admin-workspace">
+<main class="admin-content space-y-8" id="admin-main" tabindex="-1">
     <header class="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <p class="text-xs font-bold uppercase tracking-wider text-brand-800">Administrator controls</p>
-        <h1 class="mt-1 text-3xl font-extrabold text-gray-900">Staff security &amp; audit</h1>
+        <p class="admin-breadcrumb">Administrator controls</p>
+        <h1 class="admin-page-title mt-1">Staff security &amp; audit</h1>
         <p class="mt-2 text-sm text-gray-600">Manage roles and sessions. New staff accounts are created by an authorized operator using the staff CLI.</p>
       </div>
       <a href="/admin/dashboard" class="rounded-xl bg-brand-800 px-4 py-2 text-sm font-bold text-white hover:bg-brand-900">Back to dashboard</a>
@@ -87,6 +87,6 @@
         </table>
       </div>
     </section>
-  </div>
-</main>
+  </main>
+</div>
 {% endblock %}

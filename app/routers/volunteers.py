@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session
 
 from app.db.session import get_session
+from app.routers.accounts import get_public_user
 from app.models.entities import Volunteer, VolunteerStatus
 from app.security import add_record_history, enforce_public_form_rate_limit, require_csrf
 from app.templatesconfig import templates
@@ -18,7 +19,14 @@ router = APIRouter(
 
 # Volunteer route to render the volunteer page
 @router.get("", response_class=HTMLResponse)
-async def get_volunteer_page(request: Request):
+async def get_volunteer_page(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    if not get_public_user(request, session):
+        return RedirectResponse(
+            "/account/login?next_path=%2Fvolunteer", status_code=303
+        )
     return templates.TemplateResponse(
         request=request,
         name="volunteer.html",
@@ -31,6 +39,12 @@ async def submit_volunteer_form(
     request: Request,
     session: Session = Depends(get_session),
 ):
+    user = get_public_user(request, session)
+    if not user:
+        return RedirectResponse(
+            "/account/login?next_path=%2Fvolunteer", status_code=303
+        )
+    request.state.mobile_user = user
     form_data = await request.form()
 
     # Name Parsing

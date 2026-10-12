@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session
 
 from app.db.session import get_session
+from app.routers.accounts import get_public_user
 from app.models.entities import BeneficiaryNeed, NeedUrgency, NeedStatus
 from app.security import add_record_history, enforce_public_form_rate_limit, require_csrf
 from app.templatesconfig import templates
@@ -18,7 +19,14 @@ router = APIRouter(
 
 # Assistance route to render the assistance request page
 @router.get("", response_class=HTMLResponse)
-async def get_assistance_page(request: Request):
+async def get_assistance_page(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    if not get_public_user(request, session):
+        return RedirectResponse(
+            "/account/login?next_path=%2Frequestassistance", status_code=303
+        )
     return templates.TemplateResponse(
         request=request,
         name="requestassistance.html",
@@ -31,6 +39,12 @@ async def submit_assistance_form(
     request: Request,
     session: Session = Depends(get_session),
 ):
+    user = get_public_user(request, session)
+    if not user:
+        return RedirectResponse(
+            "/account/login?next_path=%2Frequestassistance", status_code=303
+        )
+    request.state.mobile_user = user
     form_data = await request.form()
 
     # Personal Data Parsing

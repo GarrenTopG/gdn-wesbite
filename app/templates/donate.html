@@ -6,6 +6,7 @@
 {% block og_description %}Record a monetary pledge or offer goods to support community work in Kuils River and nearby communities.{% endblock %}
 
 {% block content %}
+{% set form = donation_form_values|default({}) %}
 
 <!-- Header Banner -->
 <section class="bg-brand-800 text-white py-20 px-6 text-center relative overflow-hidden">
@@ -23,6 +24,16 @@
 <!-- Form Section -->
 <section class="py-12 px-4 bg-gray-50 min-h-screen">
     <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200/80 p-8 md:p-12">
+
+        {% if error %}
+        <div class="mb-6 rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-900" role="alert">
+            <p class="font-bold">We could not submit this pledge.</p>
+            <p class="mt-1">{{ error }}</p>
+            {% if 'receipt request requires' in error|lower %}
+            <p class="mt-2">Email is optional for a regular pledge. To request a Section 18A receipt, provide your name, email, tax reference and tax address, and do not select anonymous donation.</p>
+            {% endif %}
+        </div>
+        {% endif %}
 
         {% if submitted %}
         <!-- Success State -->
@@ -92,21 +103,21 @@
                     <label for="amount" class="block text-base font-semibold text-gray-800 mb-1.5">Custom Amount (ZAR) <span class="text-red-500">*</span></label>
                     <div class="relative rounded-xl border border-gray-300 focus-within:ring-2 focus-within:ring-brand-800 overflow-hidden">
                         <span class="absolute left-4 top-3 text-gray-500 font-semibold">R</span>
-                        <input id="amount" type="number" name="amount" min="10" step="1" placeholder="0.00" required class="w-full pl-10 pr-4 py-3 outline-none font-semibold text-gray-800">
+                        <input id="amount" type="number" name="amount" min="10" step="1" placeholder="0.00" value="{{ form.get('amount', '') }}" required class="w-full pl-10 pr-4 py-3 outline-none font-semibold text-gray-800">
                     </div>
                 </div>
 
                 <div class="rounded-xl border border-gray-200 p-4">
                     <label class="flex items-start gap-3 text-sm font-semibold text-gray-800">
-                        <input id="request_tax_certificate" name="request_tax_certificate" type="checkbox" value="true" onchange="toggleTaxReceipt(this)" class="mt-1">
+                        <input id="request_tax_certificate" name="request_tax_certificate" type="checkbox" value="true" {% if form.get('request_tax_certificate') == 'true' %}checked{% endif %} onchange="toggleTaxReceipt(this)" class="mt-1">
                         <span>Request a Section 18A tax receipt (monetary donations only; issued after staff verify payment)</span>
                     </label>
                     <div id="tax_receipt_fields" class="mt-4 hidden grid gap-4 sm:grid-cols-2">
                         <label for="tax_id_number" class="text-sm font-semibold text-gray-700">Tax reference / ID
-                            <input id="tax_id_number" name="tax_id_number" autocomplete="off" class="mt-1 w-full rounded-lg border px-3 py-2" disabled>
+                            <input id="tax_id_number" name="tax_id_number" autocomplete="off" value="{{ form.get('tax_id_number', '') }}" class="mt-1 w-full rounded-lg border px-3 py-2" disabled>
                         </label>
                         <label for="tax_address" class="text-sm font-semibold text-gray-700">Tax address
-                            <input id="tax_address" name="tax_address" autocomplete="street-address" class="mt-1 w-full rounded-lg border px-3 py-2" disabled>
+                            <input id="tax_address" name="tax_address" autocomplete="street-address" value="{{ form.get('tax_address', '') }}" class="mt-1 w-full rounded-lg border px-3 py-2" disabled>
                         </label>
                     </div>
                 </div>
@@ -115,10 +126,14 @@
                     <label for="need_id" class="block text-base font-semibold text-gray-800 mb-1.5">What Will Your Donation Support?</label>
                     <select id="need_id" name="need_id" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 outline-none text-base bg-white">
                         <option value="" {% if not selected_need_id %}selected{% endif %}>General fund — where most needed</option>
+                        <option value="food_relief" {% if selected_need_id == 'food_relief' %}selected{% endif %}>Food relief</option>
+                        <option value="youth_learning" {% if selected_need_id == 'youth_learning' %}selected{% endif %}>Youth and learning</option>
+                        <option value="community_library" {% if selected_need_id == 'community_library' %}selected{% endif %}>Community library</option>
+                        <option value="community_development" {% if selected_need_id == 'community_development' %}selected{% endif %}>Community development</option>
                         {% if active_needs %}
                             <optgroup label="Direct Community Needs">
                                 {% for need in active_needs %}
-                                    <option value="{{ need.id }}" {% if selected_need_id == need.id %}selected{% endif %}>
+                                    <option value="{{ need.id }}" {% if selected_need_id|string == need.id|string %}selected{% endif %}>
                                         Targeted pledge: {{ need.anonymised_title }} ({{ need.area }})
                                     </option>
                                 {% endfor %}
@@ -136,28 +151,28 @@
                 <div>
                     <label for="item_category" class="block text-base font-semibold text-gray-800 mb-1.5">Item Category <span class="text-red-500">*</span></label>
                     <select id="item_category" name="item_category" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base bg-white">
-                        <option value="Non-Perishable Food / Canned Goods">Non-Perishable Food / Canned Goods</option>
-                        <option value="Clothing & Footwear">Clothing & Footwear</option>
-                        <option value="Blankets & Bedding">Blankets & Bedding</option>
-                        <option value="School Supplies & Books">School Supplies & Books</option>
-                        <option value="Other Physical Goods">Other Physical Goods</option>
+                        <option value="Non-Perishable Food / Canned Goods" {% if form.get('item_category') == 'Non-Perishable Food / Canned Goods' %}selected{% endif %}>Non-Perishable Food / Canned Goods</option>
+                        <option value="Clothing & Footwear" {% if form.get('item_category') == 'Clothing & Footwear' %}selected{% endif %}>Clothing & Footwear</option>
+                        <option value="Blankets & Bedding" {% if form.get('item_category') == 'Blankets & Bedding' %}selected{% endif %}>Blankets & Bedding</option>
+                        <option value="School Supplies & Books" {% if form.get('item_category') == 'School Supplies & Books' %}selected{% endif %}>School Supplies & Books</option>
+                        <option value="Other Physical Goods" {% if form.get('item_category') == 'Other Physical Goods' %}selected{% endif %}>Other Physical Goods</option>
                     </select>
                 </div>
 
                 <div>
                     <label for="item_description" class="block text-base font-semibold text-gray-800 mb-1.5">Item Description &amp; Estimated Quantities <span class="text-red-500">*</span></label>
-                    <textarea id="item_description" name="item_description" rows="3" required placeholder="e.g. 3 boxes of canned beans, 10 warm winter jackets" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base"></textarea>
+                    <textarea id="item_description" name="item_description" rows="3" required placeholder="e.g. 3 boxes of canned beans, 10 warm winter jackets" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base">{{ form.get('item_description', '') }}</textarea>
                 </div>
 
                 <div>
                     <label class="block text-base font-semibold text-gray-800 mb-2">Fulfillment Method</label>
                     <div class="grid grid-cols-2 gap-4">
                         <label class="p-4 border rounded-xl flex items-center space-x-3 cursor-pointer hover:border-brand-800">
-                            <input type="radio" name="logistics_type" value="dropoff" checked onchange="toggleLogistics('dropoff')" class="text-brand-800">
+                            <input type="radio" name="logistics_type" value="dropoff" {% if form.get('logistics_type', 'dropoff') != 'pickup' %}checked{% endif %} onchange="toggleLogistics('dropoff')" class="text-brand-800">
                             <span class="text-sm font-bold text-gray-800">I will drop off</span>
                         </label>
                         <label class="p-4 border rounded-xl flex items-center space-x-3 cursor-pointer hover:border-brand-800">
-                            <input type="radio" name="logistics_type" value="pickup" onchange="toggleLogistics('pickup')" class="text-brand-800">
+                            <input type="radio" name="logistics_type" value="pickup" {% if form.get('logistics_type') == 'pickup' %}checked{% endif %} onchange="toggleLogistics('pickup')" class="text-brand-800">
                             <span class="text-sm font-bold text-gray-800">Request collection</span>
                         </label>
                     </div>
@@ -171,7 +186,7 @@
 
                 <div id="pickup_info" class="hidden">
                     <label for="pickup_address" class="block text-base font-semibold text-gray-800 mb-1.5">Collection Address <span class="text-red-500">*</span></label>
-                    <input id="pickup_address" type="text" name="pickup_address" placeholder="Enter full address for driver pickup" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base">
+                    <input id="pickup_address" type="text" name="pickup_address" value="{{ form.get('pickup_address', '') }}" placeholder="Enter full address for driver pickup" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base">
                 </div>
             </div>
 
@@ -180,38 +195,38 @@
                 <h3 class="text-xl font-bold text-gray-900 mb-4 border-b pb-2">Your Information</h3>
 
                 <div class="flex items-center mb-5">
-                    <input id="is_anonymous" name="is_anonymous" type="checkbox" value="true" onchange="toggleAnonymous(this)" class="w-5 h-5 text-brand-800 border-gray-300 rounded focus:ring-brand-800">
+                    <input id="is_anonymous" name="is_anonymous" type="checkbox" value="true" {% if form.get('is_anonymous') == 'true' %}checked{% endif %} onchange="toggleAnonymous(this)" class="w-5 h-5 text-brand-800 border-gray-300 rounded focus:ring-brand-800">
                     <label for="is_anonymous" class="ml-3 text-base text-gray-700 font-medium cursor-pointer">I prefer to donate anonymously</label>
                 </div>
 
                 <div id="name_container" class="mb-5">
                     <label for="donor_name" class="block text-base font-semibold text-gray-800 mb-1.5">Your Name</label>
-                    <input id="donor_name" type="text" name="donor_name" placeholder="e.g. Jane Doe" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base">
+                    <input id="donor_name" type="text" name="donor_name" value="{{ form.get('donor_name', '') }}" placeholder="e.g. Jane Doe" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base">
                 </div>
 
                 <!-- Cleaned Grid Layout for Contact & Message Fields -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                     <div>
                         <label for="donor_email" class="block text-base font-semibold text-gray-800 mb-1.5">Email Address (Optional)</label>
-                        <input type="email" name="donor_email" id="donor_email" placeholder="e.g. email@example.com" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base outline-none">
+                        <input type="email" name="donor_email" id="donor_email" value="{{ form.get('donor_email', '') }}" placeholder="e.g. email@example.com" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base outline-none">
                     </div>
                     
                     <div>
                         <label for="phone" class="block text-base font-semibold text-gray-800 mb-1.5">Phone Number (Optional)</label>
                         <div class="flex rounded-xl border border-gray-300 focus-within:ring-2 focus-within:ring-brand-800 overflow-hidden">
                             <select id="country_code" name="country_code" aria-label="Country Dial Code" class="bg-gray-100 border-r border-gray-300 px-3.5 py-3 text-base text-gray-700 outline-none">
-                                <option value="+27" selected>🇿🇦 +27</option>
-                                <option value="+264">🇳🇦 +264</option>
-                                <option value="+267">🇧🇼 +267</option>
+                                <option value="+27" {% if form.get('country_code', '+27') == '+27' %}selected{% endif %}>🇿🇦 +27</option>
+                                <option value="+264" {% if form.get('country_code') == '+264' %}selected{% endif %}>🇳🇦 +264</option>
+                                <option value="+267" {% if form.get('country_code') == '+267' %}selected{% endif %}>🇧🇼 +267</option>
                             </select>
-                            <input id="phone" type="tel" name="phone" placeholder="82 123 4567" class="w-full px-4 py-3 outline-none text-base">
+                            <input id="phone" type="tel" name="phone" value="{{ form.get('phone', '') }}" placeholder="82 123 4567" class="w-full px-4 py-3 outline-none text-base">
                         </div>
                     </div>
                 </div>
 
                 <div class="mb-5">
                     <label for="message" class="block text-base font-semibold text-gray-800 mb-1.5">Message (Optional)</label>
-                    <textarea id="message" name="message" rows="3" placeholder="Leave a message to inspire others..." class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base outline-none"></textarea>
+                    <textarea id="message" name="message" rows="3" placeholder="Leave a message to inspire others..." class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 text-base outline-none">{{ form.get('message', '') }}</textarea>
                 </div>
             </div>
 
@@ -222,7 +237,7 @@
                     <a href="#privacy-notice" class="font-semibold text-brand-800 underline underline-offset-2">Privacy &amp; POPIA notice</a>.
                 </p>
                 <div class="flex items-start mb-6">
-                    <input id="popia" name="popia" type="checkbox" value="true" required class="w-5 h-5 mt-0.5 text-brand-800 border-gray-300 rounded focus:ring-brand-800">
+                    <input id="popia" name="popia" type="checkbox" value="true" {% if form.get('popia') == 'true' %}checked{% endif %} required class="w-5 h-5 mt-0.5 text-brand-800 border-gray-300 rounded focus:ring-brand-800">
                     <label for="popia" class="ml-3 text-sm text-gray-600 cursor-pointer">I have read the privacy information and agree that Aurorah NPC may use the details I provide to record and review this pledge or offer.</label>
                 </div>
 
@@ -332,7 +347,13 @@ document.getElementById('tab_inkind').addEventListener('keydown', function(event
     if (event.key === 'ArrowLeft') {
         event.preventDefault();
         document.getElementById('tab_monetary').focus();
-        switchDonationType('monetary');
+        switchDonationType('{{ form.get("donation_type", "monetary") if form.get("donation_type", "monetary") in ["monetary", "inkind"] else "monetary" }}');
+        if (document.getElementById('request_tax_certificate').checked) {
+            toggleTaxReceipt(document.getElementById('request_tax_certificate'));
+        }
+        if (document.getElementById('is_anonymous').checked) {
+            toggleAnonymous(document.getElementById('is_anonymous'));
+        }
     }
 });
 

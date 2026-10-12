@@ -38,6 +38,14 @@ receipt_router = APIRouter(
     ],
 )
 
+SUPPORT_AREAS = {
+    "food_relief": "Food relief",
+    "youth_learning": "Youth and learning",
+    "community_library": "Community library",
+    "community_development": "Community development",
+}
+
+
 # Donation route to render the donation page
 @router.get("", response_class=HTMLResponse)
 async def get_donate_page(
@@ -68,7 +76,36 @@ async def submit_donation_form(
     request: Request,
     session: Session = Depends(get_session),
 ):
+    active_needs = session.exec(
+        select(BeneficiaryNeed).where(
+            BeneficiaryNeed.is_community_need.is_(True),
+            BeneficiaryNeed.status != NeedStatus.FULFILLED,
+        )
+    ).all()
+    request.state.donation_active_needs = active_needs
     form_data = await request.form()
+    request.state.donation_form_values = {
+        key: str(form_data.get(key, "")).strip()
+        for key in (
+            "donation_type",
+            "amount",
+            "request_tax_certificate",
+            "tax_id_number",
+            "tax_address",
+            "need_id",
+            "item_category",
+            "item_description",
+            "logistics_type",
+            "pickup_address",
+            "is_anonymous",
+            "donor_name",
+            "donor_email",
+            "country_code",
+            "phone",
+            "message",
+            "popia",
+        )
+    }
 
     donation_type = str(form_data.get("donation_type", "monetary")).strip()
     if donation_type not in {"monetary", "inkind"}:
@@ -144,6 +181,10 @@ async def submit_donation_form(
                 ):
                     raise HTTPException(status_code=400, detail="Selected community need is unavailable.")
                 cause_val = f"Targeted: {linked_need.anonymised_title}"
+            elif cleaned_need_id in SUPPORT_AREAS:
+                cause_val = SUPPORT_AREAS[cleaned_need_id]
+            else:
+                raise HTTPException(status_code=400, detail="Choose a valid donation support option.")
 
     # In-Kind Attributes
     item_category = str(form_data.get("item_category", "")).strip() if donation_type == "inkind" else None
@@ -197,13 +238,6 @@ async def submit_donation_form(
     )
     session.commit()
     session.refresh(new_donation)
-
-    active_needs = session.exec(
-        select(BeneficiaryNeed).where(
-            BeneficiaryNeed.is_community_need.is_(True),
-            BeneficiaryNeed.status != NeedStatus.FULFILLED,
-        )
-    ).all()
 
     return templates.TemplateResponse(
         request=request,

@@ -32,24 +32,106 @@
   </aside>
 
   <div class="admin-main">
+    {% set staff_role_label = 'Administration' if staff_user.role.value == 'administrator' else staff_user.role.value | replace('_', ' ') | title %}
     <header class="admin-header">
       <button type="button" class="admin-mobile-toggle" id="mobile-sidebar-toggle"
               aria-controls="admin-sidebar" aria-expanded="false" aria-label="Open workspace menu">
         <i class="fa-solid fa-bars" aria-hidden="true"></i>
       </button>
       <div class="admin-header-actions">
-        <button type="button" class="admin-header-icon" aria-label="Notifications">
+        <button type="button" class="admin-header-icon" id="notifications-toggle"
+                aria-label="Notifications" aria-controls="notifications-panel" aria-expanded="false">
           <i class="fa-solid fa-bell" aria-hidden="true"></i>
-          <span class="admin-header-icon-badge">3</span>
+          <span class="admin-header-icon-badge{% if not notification_count %} hidden{% endif %}" id="notifications-badge" aria-hidden="true">{{ notification_count }}</span>
         </button>
-        <span class="admin-user-label">{{ staff_user.full_name }}</span>
-        <form action="/admin/logout" method="POST" class="admin-signout-form">
-          {{ csrf_input(request) }}
-          <button type="submit" class="admin-signout">
-            <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
-            <span>Sign out</span>
-          </button>
-        </form>
+        <dialog class="admin-notifications" id="notifications-panel"
+                aria-labelledby="notifications-title" data-csrf-token="{{ request.state.csrf_token }}">
+          <header class="admin-notifications-header">
+            <div>
+              <p class="admin-notifications-eyebrow">Workspace updates</p>
+              <h2 class="admin-notifications-title" id="notifications-title">Notifications</h2>
+            </div>
+            <button type="button" class="admin-notifications-close" id="notifications-close"
+                    aria-label="Close notifications">
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          </header>
+          <div class="admin-notifications-actions">
+            <span id="notifications-unread-summary" aria-live="polite"></span>
+            <button type="button" class="admin-mark-all-read" id="notifications-mark-all"{% if not notification_count %} disabled{% endif %}>
+              Mark all as read
+            </button>
+          </div>
+          <p class="admin-notifications-error" role="alert" aria-live="polite"></p>
+          {% if notification_items %}
+          <ul class="admin-notifications-list">
+            {% for item in notification_items %}
+            <li class="admin-notifications-list-item">
+              <article class="admin-notification-card{% if item.is_read %} is-read{% endif %}"
+                       data-notification
+                       data-notification-key="{{ item.key }}"
+                       data-notification-fingerprint="{{ item.fingerprint }}"
+                       data-notification-count="{{ item.count }}"
+                       data-notification-read="{{ 'true' if item.is_read else 'false' }}">
+                <div class="admin-notification-copy">
+                  <span class="admin-notification-status" aria-hidden="true"></span>
+                  <div>
+                    <h3>{{ item.label }}</h3>
+                    <p>
+                      {{ item.count }}
+                      {% if item.key == 'volunteers' %}
+                      pending volunteer application{% if item.count != 1 %}s{% endif %}
+                      {% elif item.key == 'donations' %}
+                      donation pledge{% if item.count != 1 %}s{% endif %} awaiting review
+                      {% elif item.key == 'beneficiaries' %}
+                      assistance request{% if item.count != 1 %}s{% endif %} awaiting review
+                      {% elif item.key == 'needs' %}
+                      community need{% if item.count != 1 %}s{% endif %} awaiting review
+                      {% else %}
+                      volunteer offer{% if item.count != 1 %}s{% endif %} awaiting review
+                      {% endif %}
+                    </p>
+                    <span class="admin-notification-read-label">{% if item.is_read %}Read{% else %}Unread{% endif %}</span>
+                  </div>
+                </div>
+                <div class="admin-notification-controls">
+                  <button type="button" class="admin-notification-view" data-notification-tab="{{ item.tab }}">
+                    View queue <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                  </button>
+                  <button type="button" class="admin-notification-mark-read"
+                          data-mark-notification-read{% if item.is_read %} disabled{% endif %}>
+                    {% if item.is_read %}Read{% else %}Mark as read{% endif %}
+                  </button>
+                </div>
+              </article>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="admin-notifications-empty">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            You’re all caught up. New items that need review will appear here.
+          </p>
+          {% endif %}
+        </dialog>
+        <details class="admin-user-menu">
+          <summary class="admin-user-menu-trigger" aria-label="Account for {{ staff_user.full_name }} ({{ staff_role_label }})">
+            <span class="admin-user-initials" aria-hidden="true">{{ staff_user.full_name[:1] | upper }}</span>
+            <span class="admin-user-role-pill">{{ staff_role_label }}</span>
+            <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+          </summary>
+          <div class="admin-user-menu-panel">
+            <p class="admin-user-menu-name">{{ staff_user.full_name }}</p>
+            <p class="admin-user-menu-role">{{ staff_role_label }}</p>
+            <form action="/admin/logout" method="POST" class="admin-signout-form">
+              {{ csrf_input(request) }}
+              <button type="submit" class="admin-signout">
+                <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+                <span>Sign out</span>
+              </button>
+            </form>
+          </div>
+        </details>
       </div>
     </header>
 
@@ -289,5 +371,93 @@
       });
     }
   });
+</script>
+<script>
+  const notificationToggle = document.getElementById('notifications-toggle');
+  const notificationPanel = document.getElementById('notifications-panel');
+  if (notificationToggle && notificationPanel) {
+    const notificationClose = document.getElementById('notifications-close');
+    const notificationBadge = document.getElementById('notifications-badge');
+    const unreadSummary = document.getElementById('notifications-unread-summary');
+    const markAllRead = document.getElementById('notifications-mark-all');
+    const notificationItems = Array.from(notificationPanel.querySelectorAll('[data-notification]'));
+    const unreadCount = () => notificationItems.reduce((total, item) => (
+      total + (item.dataset.notificationRead === 'true' ? 0 : Number(item.dataset.notificationCount))
+    ), 0);
+    const updateUnreadDisplay = () => {
+      const count = unreadCount();
+      notificationBadge.textContent = String(count);
+      notificationBadge.classList.toggle('hidden', count === 0);
+      notificationToggle.setAttribute(
+        'aria-label',
+        count ? `Notifications, ${count} unread` : 'Notifications, no unread items'
+      );
+      unreadSummary.textContent = count
+        ? `${count} item${count === 1 ? '' : 's'} need review`
+        : 'All notifications are read';
+      markAllRead.disabled = count === 0;
+    };
+    const markItemRead = async item => {
+      if (item.dataset.notificationRead === 'true') return true;
+      const markButton = item.querySelector('[data-mark-notification-read]');
+      markButton.disabled = true;
+      try {
+        const response = await fetch('/admin/notifications/read', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            'X-CSRF-Token': notificationPanel.dataset.csrfToken
+          },
+          body: new URLSearchParams({
+            notification_key: item.dataset.notificationKey,
+            fingerprint: item.dataset.notificationFingerprint
+          })
+        });
+        if (!response.ok) throw new Error(`Read status update failed (${response.status}).`);
+        item.dataset.notificationRead = 'true';
+        item.classList.add('is-read');
+        item.querySelector('.admin-notification-read-label').textContent = 'Read';
+        markButton.textContent = 'Read';
+        updateUnreadDisplay();
+        return true;
+      } catch (error) {
+        console.error(error);
+        notificationPanel.querySelector('.admin-notifications-error').textContent =
+          'Could not save this read status. Please try again.';
+        markButton.disabled = false;
+        return false;
+      }
+    };
+
+    notificationToggle.addEventListener('click', () => {
+      notificationPanel.showModal();
+      notificationToggle.setAttribute('aria-expanded', 'true');
+    });
+    notificationClose.addEventListener('click', () => notificationPanel.close());
+    notificationPanel.addEventListener('click', event => {
+      if (event.target === notificationPanel) notificationPanel.close();
+    });
+    notificationPanel.addEventListener('close', () => {
+      notificationToggle.setAttribute('aria-expanded', 'false');
+      notificationToggle.focus();
+    });
+    notificationPanel.querySelectorAll('[data-notification-tab]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const item = button.closest('[data-notification]');
+        if (!(await markItemRead(item))) return;
+        switchTab(button.dataset.notificationTab);
+        notificationPanel.close();
+      });
+    });
+    notificationPanel.querySelectorAll('[data-mark-notification-read]').forEach(button => {
+      button.addEventListener('click', () => markItemRead(button.closest('[data-notification]')));
+    });
+    markAllRead.addEventListener('click', async () => {
+      markAllRead.disabled = true;
+      await Promise.all(notificationItems.map(markItemRead));
+      updateUnreadDisplay();
+    });
+    updateUnreadDisplay();
+  }
 </script>
 {% endblock %}

@@ -75,6 +75,18 @@ class AuthSession(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class StaffNotificationRead(SQLModel, table=True):
+    __table_args__ = (
+        UniqueConstraint("staff_user_id", "notification_key"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    staff_user_id: int = Field(foreign_key="user.id", index=True)
+    notification_key: str = Field(index=True)
+    fingerprint: str
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class AuditLog(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     actor_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
@@ -234,6 +246,18 @@ class VolunteerMatch(SQLModel, table=True):
     status: str = Field(default="Assigned")
     assigned_for: Optional[datetime] = Field(default=None, index=True)
     matched_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+
+class VolunteerOffer(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    need_id: int = Field(foreign_key="beneficiaryneed.id", index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    volunteer_skill: str
+    notes: str = Field(default="")
+    status: str = Field(default="Pending", index=True)
+    created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
 

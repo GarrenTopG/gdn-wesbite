@@ -1,5 +1,11 @@
+import os
+
+from dotenv import load_dotenv
 from sqlalchemy import inspect, text
+from sqlalchemy.engine import Engine, URL
 from sqlmodel import SQLModel, Session, create_engine
+
+load_dotenv()
 
 LEGACY_SEEDED_NEWS_SLUGS = (
     "another-big-win-for-our-youth-financial-literacy-employment-milestones",
@@ -8,16 +14,88 @@ LEGACY_SEEDED_NEWS_SLUGS = (
     "serving-hope-and-warmth-community-cook-off-supports-over-400-residents",
 )
 
-# SQLite database file path
-sqlite_file_name = "aurorah.db"
-sqlite_url = f"sqlite:///{sqlite_file_name}"
+def _create_engine() -> Engine:
+    backend = os.getenv("DATABASE_BACKEND", "sqlite").strip().lower()
+    if backend == "sqlite":
+        sqlite_file_name = os.getenv("SQLITE_FILE_NAME", "aurorah.db")
+        return create_engine(
+            f"sqlite:///{sqlite_file_name}",
+            connect_args={"check_same_thread": False},
+        )
+    if backend != "sqlserver":
+        raise ValueError("DATABASE_BACKEND must be either 'sqlite' or 'sqlserver'.")
 
-# Create the SQLAlchemy engine for SQLite with the specified URL and connection arguments
-engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
+    required_settings = {
+        "MSSQL_SERVER": os.getenv("MSSQL_SERVER"),
+        "MSSQL_DATABASE": os.getenv("MSSQL_DATABASE"),
+        "MSSQL_USERNAME": os.getenv("MSSQL_USERNAME"),
+        "MSSQL_PASSWORD": os.getenv("MSSQL_PASSWORD"),
+    }
+    missing_settings = [key for key, value in required_settings.items() if not value]
+    if missing_settings:
+        raise RuntimeError(
+            "SQL Server configuration is missing: " + ", ".join(missing_settings)
+        )
+
+    connection_url = URL.create(
+        "mssql+pyodbc",
+        username=required_settings["MSSQL_USERNAME"],
+        password=required_settings["MSSQL_PASSWORD"],
+        host=required_settings["MSSQL_SERVER"],
+        database=required_settings["MSSQL_DATABASE"],
+        query={
+            "driver": os.getenv("MSSQL_DRIVER", "ODBC Driver 18 for SQL Server"),
+            "Encrypt": "yes",
+            "TrustServerCertificate": "no",
+        },
+    )
+    return create_engine(connection_url, pool_pre_ping=True, pool_recycle=1800)
+
+
+engine = _create_engine()
+
+
+def _create_sqlserver_audit_triggers():
+    trigger_statements = (
+        "CREATE OR ALTER TRIGGER auditlog_no_update ON auditlog "
+        "INSTEAD OF UPDATE AS BEGIN "
+        ";THROW 50000, 'audit log is immutable', 1; END",
+        "CREATE OR ALTER TRIGGER auditlog_no_delete ON auditlog "
+        "INSTEAD OF DELETE AS BEGIN "
+        ";THROW 50000, 'audit log is immutable', 1; END",
+        "CREATE OR ALTER TRIGGER recordhistory_no_update ON recordhistory "
+        "INSTEAD OF UPDATE AS BEGIN "
+        ";THROW 50000, 'record history is immutable', 1; END",
+        "CREATE OR ALTER TRIGGER recordhistory_no_delete ON recordhistory "
+        "INSTEAD OF DELETE AS BEGIN "
+        ";THROW 50000, 'record history is immutable', 1; END",
+    )
+    with engine.begin() as connection:
+        for statement in trigger_statements:
+            connection.execute(text(statement))
 
 # Create the database and tables if they don't exist
 def create_db_and_tables():
     """Initializes and creates all database tables."""
+    if engine.dialect.name == "mssql":
+        auto_create_schema = os.getenv(
+            "DATABASE_AUTO_CREATE_SCHEMA", "false"
+        ).strip().lower()
+        if auto_create_schema not in {"true", "false"}:
+            raise ValueError("DATABASE_AUTO_CREATE_SCHEMA must be 'true' or 'false'.")
+        if auto_create_schema == "true":
+            SQLModel.metadata.create_all(engine)
+            _create_sqlserver_audit_triggers()
+        else:
+            existing_tables = set(inspect(engine).get_table_names())
+            missing_tables = sorted(set(SQLModel.metadata.tables) - existing_tables)
+            if missing_tables:
+                raise RuntimeError(
+                    "SQL Server schema is not initialized. Run the documented "
+                    "one-time schema setup before starting the website."
+                )
+        return
+
     SQLModel.metadata.create_all(engine)
     inspector = inspect(engine)
     columns = {column["name"] for column in inspector.get_columns("beneficiaryneed")}

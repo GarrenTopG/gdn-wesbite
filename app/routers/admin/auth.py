@@ -20,15 +20,16 @@ from app.models.entities import (
     NeedUrgency,
     NewsStatus,
     RecordHistory,
+    StaffNotificationRead,
     User,
     UserRole,
     Volunteer,
+    VolunteerOffer,
     VolunteerStatus,
     set_need_status,
 )
 from app.security import (
     STAFF_COOKIE_NAME,
-    MFA_CHALLENGE_TTL_SECONDS,
     STAFF_SESSION_TTL_SECONDS,
     enforce_login_rate_limit,
     enforce_rate_limit,
@@ -51,10 +52,25 @@ router = APIRouter(
 )
 protected_router = APIRouter()
 DUMMY_PASSWORD_HASH = hash_password("invalid staff account password")
+NOTIFICATION_PERMISSIONS = {
+    "volunteers": "volunteers.read",
+    "donations": "donations.read",
+    "beneficiaries": "beneficiaries.read",
+    "needs": "needs.read",
+    "volunteer_offers": "needs.read",
+}
 
 
 def _session_digest(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _notification_fingerprint(record_ids: list[Optional[int]]) -> str:
+    identifiers = ",".join(
+        str(record_id)
+        for record_id in sorted(record_id for record_id in record_ids if record_id is not None)
+    )
+    return hashlib.sha256(identifiers.encode("utf-8")).hexdigest()
 
 
 def get_staff_user(request: Request, session: Session) -> Optional[User]:
@@ -189,7 +205,7 @@ async def post_admin_login(
     response.set_cookie(
         key=STAFF_COOKIE_NAME,
         value=token,
-        max_age=MFA_CHALLENGE_TTL_SECONDS,
+        max_age=STAFF_SESSION_TTL_SECONDS,
         httponly=True,
         secure=secure_cookies(),
         samesite="lax",
@@ -665,6 +681,138 @@ async def get_admin_dashboard(
         and need.status not in {NeedStatus.FULFILLED, NeedStatus.REJECTED}
     ]
     community_need_ids = [need.id for need in community_needs if need.id is not None]
+    volunteer_offers = []
+    if can_view_needs:
+        offer_rows = session.exec(
+            select(
+                VolunteerOffer,
+                User.full_name,
+                User.email,
+                BeneficiaryNeed.anonymised_title,
+            )
+            .join(User, User.id == VolunteerOffer.user_id)
+            .join(BeneficiaryNeed, BeneficiaryNeed.id == VolunteerOffer.need_id)
+            .order_by(VolunteerOffer.created_at.desc())
+        ).all()
+        volunteer_offers = [
+            SimpleNamespace(
+                id=offer.id,
+                need_id=offer.need_id,
+                need_title=need_title,
+                full_name=full_name,
+                email=email,
+                volunteer_skill=offer.volunteer_skill,
+                notes=offer.notes,
+                status=offer.status,
+                created_at=offer.created_at,
+            )
+            for offer, full_name, email, need_title in offer_rows
+        ]
+    pending_volunteer_offers = [
+        offer for offer in volunteer_offers if offer.status == "Pending"
+    ]
+    notification_items = []
+    if can_view_volunteers:
+        pending_volunteer_records = [
+            volunteer
+            for volunteer in volunteers
+            if volunteer.archived_at is None
+            and volunteer.onboarding_status == "Pending"
+        ]
+        pending_volunteer_applications = len(pending_volunteer_records)
+        if pending_volunteer_applications:
+            notification_items.append(
+                {
+                    "key": "volunteers",
+                    "label": "Volunteer applications to review",
+                    "count": pending_volunteer_applications,
+                    "tab": "volunteers",
+                    "fingerprint": _notification_fingerprint(
+                        [volunteer.id for volunteer in pending_volunteer_records]
+                    ),
+                }
+            )
+    if can_view_donations and pending_donations:
+        pending_donation_records = [
+            donation
+            for donation in donations
+            if donation.archived_at is None
+            and donation.status
+            in {
+                DonationStatus.SUBMITTED.value,
+                DonationStatus.PAYMENT_PENDING.value,
+            }
+        ]
+        notification_items.append(
+            {
+                "key": "donations",
+                "label": "Donation pledges to review",
+                "count": pending_donations,
+                "tab": "donations",
+                "fingerprint": _notification_fingerprint(
+                    [donation.id for donation in pending_donation_records]
+                ),
+            }
+        )
+    if can_view_beneficiaries and pending_beneficiaries:
+        pending_beneficiary_records = [
+            need
+            for need in beneficiaries
+            if need.archived_at is None and need.status == NeedStatus.PENDING
+        ]
+        notification_items.append(
+            {
+                "key": "beneficiaries",
+                "label": "Assistance requests to review",
+                "count": pending_beneficiaries,
+                "tab": "beneficiaries",
+                "fingerprint": _notification_fingerprint(
+                    [need.id for need in pending_beneficiary_records]
+                ),
+            }
+        )
+    if can_view_needs and pending_needs:
+        pending_community_records = [
+            need
+            for need in community_needs
+            if need.archived_at is None and need.status == NeedStatus.PENDING
+        ]
+        notification_items.append(
+            {
+                "key": "needs",
+                "label": "Community needs to review",
+                "count": pending_needs,
+                "tab": "needs",
+                "fingerprint": _notification_fingerprint(
+                    [need.id for need in pending_community_records]
+                ),
+            }
+        )
+    if can_view_needs and pending_volunteer_offers:
+        notification_items.append(
+            {
+                "key": "volunteer_offers",
+                "label": "Volunteer offers to review",
+                "count": len(pending_volunteer_offers),
+                "tab": "needs",
+                "fingerprint": _notification_fingerprint(
+                    [offer.id for offer in pending_volunteer_offers]
+                ),
+            }
+        )
+    notification_reads = {
+        item.notification_key: item.fingerprint
+        for item in session.exec(
+            select(StaffNotificationRead).where(
+                StaffNotificationRead.staff_user_id == staff_user.id
+            )
+        ).all()
+    }
+    for item in notification_items:
+        item["is_read"] = notification_reads.get(item["key"]) == item["fingerprint"]
+    unread_notification_count = sum(
+        item["count"] for item in notification_items if not item["is_read"]
+    )
     need_history: dict[int, list[RecordHistory]] = {}
     if community_need_ids:
         history_rows = session.exec(
@@ -708,9 +856,12 @@ async def get_admin_dashboard(
             "filtered_volunteers": filtered_volunteers,
             "donations": donations,
             "needs": community_needs,
+            "volunteer_offers": volunteer_offers,
             "allocation_needs": allocation_needs,
             "beneficiaries": filtered_beneficiaries,
             "news_articles": news_articles,
+            "notification_items": notification_items,
+            "notification_count": unread_notification_count,
             "staff_user": request.state.staff_user,
             "can_view_volunteers": can_view_volunteers,
             "can_view_donations": can_view_donations,
@@ -759,6 +910,7 @@ async def get_admin_dashboard(
                     len(unverified_donations),
                     len(upcoming_volunteers),
                     len(overdue_followups),
+                    len(pending_volunteer_offers),
                 )
             ),
             "urgent_assistance": urgent_assistance,
@@ -782,6 +934,42 @@ async def get_admin_dashboard(
             "need_urgencies": list(NeedUrgency),
         },
     )
+
+
+@protected_router.post("/notifications/read")
+async def mark_notification_read(
+    notification_key: str = Form(...),
+    fingerprint: str = Form(...),
+    session: Session = Depends(get_session),
+    staff_user: User = Depends(permission_required("dashboard")),
+):
+    permission = NOTIFICATION_PERMISSIONS.get(notification_key)
+    if not permission or not role_has_permission(staff_user.role, permission):
+        raise HTTPException(status_code=403, detail="Notification is not available.")
+    if len(fingerprint) != 64 or any(
+        character not in "0123456789abcdef" for character in fingerprint
+    ):
+        raise HTTPException(status_code=422, detail="Invalid notification fingerprint.")
+
+    notification_read = session.exec(
+        select(StaffNotificationRead).where(
+            StaffNotificationRead.staff_user_id == staff_user.id,
+            StaffNotificationRead.notification_key == notification_key,
+        )
+    ).first()
+    if notification_read:
+        notification_read.fingerprint = fingerprint
+        notification_read.updated_at = now_utc()
+    else:
+        notification_read = StaffNotificationRead(
+            staff_user_id=staff_user.id,
+            notification_key=notification_key,
+            fingerprint=fingerprint,
+            updated_at=now_utc(),
+        )
+        session.add(notification_read)
+    session.commit()
+    return {"ok": True}
 
 
 @protected_router.post("/needs/{need_id}/update-status")
