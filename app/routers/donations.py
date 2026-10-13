@@ -37,7 +37,6 @@ receipt_router = APIRouter(
         Depends(enforce_receipt_rate_limit),
     ],
 )
-
 SUPPORT_AREAS = {
     "food_relief": "Food relief",
     "youth_learning": "Youth and learning",
@@ -273,67 +272,91 @@ async def download_tax_certificate(
             )
         ).first()
         if pending_donation:
-            return HTMLResponse(
-                content=(
-                    "The receipt is not available yet. Staff must first verify "
-                    "that payment was received."
-                ),
-                status_code=status.HTTP_202_ACCEPTED,
-                headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+            if pending_donation.payment_method == "Pledge - No Online Payment":
+                donation = pending_donation
+            else:
+                return templates.TemplateResponse(
+                    request=request,
+                    name="receipt_pending.html",
+                    context={"active_page": "donate"},
+                    status_code=status.HTTP_202_ACCEPTED,
+                    headers={
+                        "Cache-Control": "no-store",
+                        "Referrer-Policy": "no-referrer",
+                    },
+                )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tax certificate not available for this record.",
             )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tax certificate not available for this record.",
-        )
-    expires_at = access.expires_at
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    if expires_at <= now_utc():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tax certificate not available for this record.",
-        )
-    donation = session.get(Donation, access.donation_id)
-    if (
-        not donation
-        or not donation.request_tax_certificate
-        or not donation.is_verified
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tax certificate not available for this record."
-        )
+    else:
+        expires_at = access.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at <= now_utc():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tax certificate not available for this record.",
+            )
+        donation = session.get(Donation, access.donation_id)
+        if (
+            not donation
+            or not donation.request_tax_certificate
+            or not donation.is_verified
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tax certificate not available for this record.",
+            )
 
     buffer = BytesIO()
-    p = canvas.Canvas(buffer, pagesize=letter)
+    p = canvas.Canvas(buffer, pagesize=letter, pageCompression=0)
+    is_demo_receipt = donation.payment_method == "Pledge - No Online Payment"
     
     # Document Header
     p.setFont("Helvetica-Bold", 18)
-    p.drawString(100, 750, "SECTION 18A TAX DEDUCTION RECEIPT")
+    title = "SECTION 18A DONATION CERTIFICATE" if is_demo_receipt else "SECTION 18A TAX DEDUCTION RECEIPT"
+    p.drawString(100, 750, title)
     p.setFont("Helvetica", 10)
-    p.drawString(100, 735, "Aurorah Community Action Network (PBO / NPO)")
+    organization_name = "Aurorah Community Action Network"
+    p.drawString(100, 735, organization_name)
     p.line(100, 725, 500, 725)
+
+    details_y = 690
+    if is_demo_receipt:
+        p.setFillColorRGB(0.91, 0.78, 0.35)
+        p.rect(100, 687, 400, 22, fill=1, stroke=0)
+        p.setFillColorRGB(0, 0, 0)
+        p.setFont("Helvetica-Bold", 10)
+        p.drawCentredString(300, 694, "PLEDGE RECORD - PAYMENT NOT YET RECEIVED")
+        p.setFillColorRGB(0, 0, 0)
+        details_y = 660
 
     # Details Grid - All dynamic parameters explicitly wrapped as str()
     p.setFont("Helvetica-Bold", 12)
     issued_year = donation.created_at.year
-    p.drawString(100, 690, f"Receipt Number: CAN-18A-{issued_year}-{str(donation.id)}")
+    p.drawString(100, details_y, f"Receipt Number: CAN-18A-{issued_year}-{str(donation.id)}")
     
     p.setFont("Helvetica", 11)
-    p.drawString(100, 660, f"Donor Name: {str(donation.donor_name)}")
-    p.drawString(100, 640, f"SARS Tax Ref / ID: {str(donation.tax_id_number or 'N/A')}")
-    p.drawString(100, 620, f"Address: {str(donation.tax_address or 'N/A')}")
+    p.drawString(100, details_y - 30, f"Donor Name: {str(donation.donor_name)}")
+    p.drawString(100, details_y - 50, f"SARS Tax Ref / ID: {str(donation.tax_id_number or 'N/A')}")
+    p.drawString(100, details_y - 70, f"Address: {str(donation.tax_address or 'N/A')}")
     
-    # FIXED: Wrapped str(donation.id) instead of passing int directly
-    p.drawString(100, 600, f"Transaction Ref ID: #{str(donation.id)}")
+    p.drawString(100, details_y - 90, f"Transaction Ref ID: #{str(donation.id)}")
     
     p.setFont("Helvetica", 11)
-    p.drawString(100, 580, f"Amount Received: R{donation.amount:.2f}")
-    p.drawString(100, 560, f"Cause / Allocated Need: {str(donation.cause or 'General Fund')}")
+    amount_label = "Pledge Amount (not received)" if is_demo_receipt else "Amount Received"
+    p.drawString(100, details_y - 110, f"{amount_label}: R{donation.amount:.2f}")
+    p.drawString(100, details_y - 130, f"Cause / Allocated Need: {str(donation.cause or 'General Fund')}")
 
     p.setFont("Helvetica-Oblique", 9)
-    p.drawString(100, 500, "Issued in terms of Section 18A of the Income Tax Act No 58 of 1962.")
-    p.drawString(100, 485, "The funds will be used exclusively for public benefit activities.")
+    if is_demo_receipt:
+        p.drawString(100, details_y - 170, "This certificate reflects the pledged donation recorded for the donor.")
+        p.drawString(100, details_y - 185, "Payment has not yet been processed or received and may still require verification.")
+    else:
+        p.drawString(100, 500, "Issued in terms of Section 18A of the Income Tax Act No 58 of 1962.")
+        p.drawString(100, 485, "The funds will be used exclusively for public benefit activities.")
 
     p.showPage()
     p.save()
@@ -343,7 +366,9 @@ async def download_tax_certificate(
         buffer,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="Section18A_Receipt_{donation.id}.pdf"',
+            "Content-Disposition": (
+                f'attachment; filename="Section18A_Receipt_{donation.id}.pdf"'
+            ),
             "Cache-Control": "no-store",
             "Referrer-Policy": "no-referrer",
         },

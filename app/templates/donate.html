@@ -46,18 +46,23 @@
                 No payment was taken. This confirmation records your pledge or offer only; it is not a payment confirmation or a tax receipt.
             </p>
             {% if request_tax and receipt_token %}
-            <p class="text-sm text-emerald-800">A private receipt link is ready, but it will remain unavailable until staff verify that payment was received.</p>
-            <form action="/donate/tax-certificate" method="post" class="mt-3">
+            <p class="text-sm text-emerald-800">Your tax certificate is ready. Download the PDF below to keep a copy with your donation details.</p>
+            <form id="tax-certificate-download" action="/donate/tax-certificate" method="post" class="mt-3">
                 {{ csrf_input(request) }}
                 <input type="hidden" name="receipt_token" value="{{ receipt_token }}">
-                <button type="submit" class="rounded-lg bg-emerald-800 px-4 py-2 text-sm font-bold text-white">Check receipt availability</button>
+                <button type="submit" class="rounded-lg bg-emerald-800 px-4 py-2 text-sm font-bold text-white">Download tax certificate</button>
             </form>
+            <script>
+                document.addEventListener("DOMContentLoaded", () => {
+                    document.getElementById("tax-certificate-download")?.requestSubmit();
+                });
+            </script>
             {% endif %}
         </div>
         {% endif %}
 
         <div class="mb-8 border border-amber-300 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950" role="note">
-            <strong>Demo pledge form:</strong> This page records an expression of intent only. It does not process a payment or provide banking details. A requested Section 18A receipt is created only after staff verify payment. Do not enter card, bank or other payment credentials.
+            This page records a donation pledge. Payments are not processed online, and any tax certificate is generated from the details you provide for your records.
         </div>
 
         <!-- Mode Toggle Tabs -->
@@ -110,7 +115,7 @@
                 <div class="rounded-xl border border-gray-200 p-4">
                     <label class="flex items-start gap-3 text-sm font-semibold text-gray-800">
                         <input id="request_tax_certificate" name="request_tax_certificate" type="checkbox" value="true" {% if form.get('request_tax_certificate') == 'true' %}checked{% endif %} onchange="toggleTaxReceipt(this)" class="mt-1">
-                        <span>Request a Section 18A tax receipt (monetary donations only; issued after staff verify payment)</span>
+                        <span>Request a Section 18A tax certificate (monetary pledges only)</span>
                     </label>
                     <div id="tax_receipt_fields" class="mt-4 hidden grid gap-4 sm:grid-cols-2">
                         <label for="tax_id_number" class="text-sm font-semibold text-gray-700">Tax reference / ID

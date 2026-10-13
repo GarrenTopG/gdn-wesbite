@@ -1,4 +1,5 @@
 import re
+from datetime import date
 from typing import Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -42,6 +43,7 @@ async def create_news_article(
         summary=summary,
         content=content,
         image_url=image_url if image_url and image_url.strip() else None,
+        published_date=date.today(),
         status=NewsStatus.DRAFT.value,
     )
     session.add(article)

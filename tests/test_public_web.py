@@ -1,6 +1,8 @@
+import hashlib
 import os
 import re
 import unittest
+from datetime import datetime, timedelta, timezone
 
 os.environ.setdefault("APP_SECRET_KEY", "test-public-web-key-not-for-production-000000")
 os.environ["DATABASE_BACKEND"] = "sqlite"
@@ -11,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.db.session import get_session
-from app.models.entities import Donation, DonationStatus, User, UserRole
+from app.models.entities import Donation, DonationStatus, ReceiptAccess, User, UserRole
 from app.manage_staff import hash_password
 from main import app
 
@@ -116,6 +118,73 @@ class PublicWebTests(unittest.TestCase):
             donation = session.exec(select(Donation)).one()
         self.assertIsNone(donation.donor_email)
         self.assertEqual(donation.cause, "Food relief")
+
+    def test_demo_tax_certificate_is_available_without_payment_verification(self):
+        csrf = self.csrf_token()
+        pledge_response = self.client.post(
+            "/donate",
+            data={
+                "csrf_token": csrf,
+                "donation_type": "monetary",
+                "amount": "50.00",
+                "request_tax_certificate": "true",
+                "tax_id_number": "1234567890",
+                "tax_address": "1 Example Road",
+                "donor_name": "Receipt Donor",
+                "donor_email": "donor@example.org",
+                "popia": "true",
+            },
+        )
+        self.assertEqual(pledge_response.status_code, 200, pledge_response.text)
+        self.assertIn("Your sample certificate is ready", pledge_response.text)
+        self.assertIn('id="demo-receipt-download"', pledge_response.text)
+        token_match = re.search(
+            r'name="receipt_token" value="([^"]+)"', pledge_response.text
+        )
+        if token_match is None:
+            self.fail("The donation confirmation did not include a receipt token.")
+        token = token_match.group(1)
+
+        response = self.client.post(
+            "/donate/tax-certificate",
+            data={"csrf_token": csrf, "receipt_token": token},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-type"], "application/pdf")
+        self.assertIn("DEMO_Section18A_Receipt_", response.headers["content-disposition"])
+        self.assertIn(b"DEMO ONLY - NOT VALID FOR TAX PURPOSES", response.content)
+        self.assertIn(b"No payment was processed or received.", response.content)
+
+    def test_verified_tax_receipt_can_be_downloaded(self):
+        token = "verified-receipt-access-token"
+        with Session(self.engine) as session:
+            donation = Donation(
+                donor_name="Receipt Donor",
+                donor_email="donor@example.org",
+                request_tax_certificate=True,
+                tax_id_number="1234567890",
+                tax_address="1 Example Road",
+                is_verified=True,
+            )
+            session.add(donation)
+            session.flush()
+            session.add(
+                ReceiptAccess(
+                    donation_id=donation.id,
+                    token_hash=hashlib.sha256(token.encode("utf-8")).hexdigest(),
+                    expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+                )
+            )
+            session.commit()
+
+        csrf = self.csrf_token()
+        receipt_response = self.client.post(
+            "/donate/tax-certificate",
+            data={"csrf_token": csrf, "receipt_token": token},
+        )
+        self.assertEqual(receipt_response.status_code, 200)
+        self.assertEqual(receipt_response.headers["content-type"], "application/pdf")
+        self.assertTrue(receipt_response.content.startswith(b"%PDF"))
 
     def test_donation_validation_returns_a_human_readable_page(self):
         response = self.client.post(

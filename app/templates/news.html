@@ -1,194 +1,209 @@
 {% extends "base.html" %}
 
 {% block title %}News & Updates - Aurorah CAN{% endblock %}
-{% block meta_description %}Read dated community updates, project milestones and announcements from Aurorah CAN in Kuils River.{% endblock %}
+{% block meta_description %}Read community updates, project milestones and announcements from Aurorah CAN in Kuils River.{% endblock %}
 {% block og_title %}Community News & Updates | Aurorah CAN{% endblock %}
 {% block og_description %}News and documented milestones from Aurorah CAN's work in Kuils River and nearby communities.{% endblock %}
 
 {% block content %}
+{% set fallback_img = "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=75&w=900" %}
 
-<!-- Header Banner -->
-<section class="bg-brand-800 text-white py-12 px-6 text-center relative">
-    <div class="max-w-4xl mx-auto">
-        <span class="inline-block px-3 py-1 bg-white/10 text-pink-200 text-xs font-semibold rounded-full uppercase tracking-wider mb-3">
-            Community Dispatch
-        </span>
-        <h1 class="text-4xl md:text-5xl font-extrabold mb-3 tracking-tight">News & Stories</h1>
-        <p class="text-lg text-pink-100 max-w-2xl mx-auto">
-            Dated updates and milestones from community work in Kuils River and nearby areas.
+<section class="bg-white px-4 pb-12 pt-10 md:px-8 md:pb-16 md:pt-14">
+    <div class="mx-auto max-w-7xl">
+        <div class="grid gap-5 border-b border-gray-200 pb-8 md:grid-cols-[1fr_auto] md:items-end md:gap-10 md:pb-10">
+            <div>
+                <p class="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-brand-800">Aurorah CAN · Community journal</p>
+                <h1 class="max-w-3xl text-4xl font-extrabold leading-tight tracking-tight text-gray-900 md:text-5xl">
+                    Stories from our community
+                </h1>
+            </div>
+            <p class="max-w-md text-base leading-relaxed text-gray-600 md:text-right">
+                Updates, milestones and moments from our work in Kuils River and nearby communities.
+            </p>
+        </div>
+
+        <nav class="mt-6 flex flex-wrap gap-2" aria-label="Filter news by category">
+            <a href="/news"
+               {% if not active_category %}aria-current="page"{% endif %}
+               class="inline-flex min-h-10 items-center rounded-full border px-4 py-2 text-sm font-semibold transition {% if not active_category %}border-brand-800 bg-brand-800 text-white{% else %}border-gray-200 bg-white text-gray-700 hover:border-brand-700 hover:text-brand-800{% endif %}">
+                All stories
+            </a>
+            <a href="/news?category=Community Outreaches"
+               {% if active_category == 'Community Outreaches' %}aria-current="page"{% endif %}
+               class="inline-flex min-h-10 items-center rounded-full border px-4 py-2 text-sm font-semibold transition {% if active_category == 'Community Outreaches' %}border-brand-800 bg-brand-800 text-white{% else %}border-gray-200 bg-white text-gray-700 hover:border-brand-700 hover:text-brand-800{% endif %}">
+                Community outreaches
+            </a>
+            <a href="/news?category=Impact Update"
+               {% if active_category == 'Impact Update' %}aria-current="page"{% endif %}
+               class="inline-flex min-h-10 items-center rounded-full border px-4 py-2 text-sm font-semibold transition {% if active_category == 'Impact Update' %}border-brand-800 bg-brand-800 text-white{% else %}border-gray-200 bg-white text-gray-700 hover:border-brand-700 hover:text-brand-800{% endif %}">
+                Impact updates
+            </a>
+            <a href="/news?category=Announcements"
+               {% if active_category == 'Announcements' %}aria-current="page"{% endif %}
+               class="inline-flex min-h-10 items-center rounded-full border px-4 py-2 text-sm font-semibold transition {% if active_category == 'Announcements' %}border-brand-800 bg-brand-800 text-white{% else %}border-gray-200 bg-white text-gray-700 hover:border-brand-700 hover:text-brand-800{% endif %}">
+                Announcements
+            </a>
+        </nav>
+
+        <p class="mt-5 max-w-4xl border-l-2 border-brand-700 pl-4 text-xs leading-relaxed text-gray-600">
+            We share photos of identifiable community members, especially children, only with appropriate written media consent. Generic imagery is labelled as illustrative.
         </p>
     </div>
 </section>
 
-<!-- Main Gallery Section -->
-<section class="py-12 px-4 md:px-8 bg-gray-50 min-h-screen">
-    <div class="max-w-7xl mx-auto">
-        <p class="mx-auto mb-8 max-w-3xl border-l-4 border-brand-700 bg-white p-4 text-sm leading-relaxed text-gray-700">
-            Updates describe specific activities and milestones. Identifiable community members, especially children, should only appear in photos when appropriate written media consent is in place. Generic imagery is labelled as illustrative.
-        </p>
-
-        <!-- Category Filter Pills -->
-        <div class="flex flex-wrap items-center justify-center gap-2 mb-10">
-            <a href="/news" class="px-4 py-2 rounded-full text-sm font-semibold transition {% if not active_category %}bg-brand-800 text-white shadow{% else %}bg-white text-gray-700 hover:bg-gray-100 border border-gray-200{% endif %}">
-                All Stories
-            </a>
-            <a href="/news?category=Community Outreaches" class="px-4 py-2 rounded-full text-sm font-semibold transition {% if active_category == 'Community Outreaches' %}bg-brand-800 text-white shadow{% else %}bg-white text-gray-700 hover:bg-gray-100 border border-gray-200{% endif %}">
-                Community Outreaches
-            </a>
-            <a href="/news?category=Impact Update" class="px-4 py-2 rounded-full text-sm font-semibold transition {% if active_category == 'Impact Update' %}bg-brand-800 text-white shadow{% else %}bg-white text-gray-700 hover:bg-gray-100 border border-gray-200{% endif %}">
-                Impact Update
-            </a>
-            <a href="/news?category=Announcements" class="px-4 py-2 rounded-full text-sm font-semibold transition {% if active_category == 'Announcements' %}bg-brand-800 text-white shadow{% else %}bg-white text-gray-700 hover:bg-gray-100 border border-gray-200{% endif %}">
-                Announcements
-            </a>
-        </div>
-
-        {% set fallback_img = "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=75&w=720" %}
-
+<section class="min-h-screen bg-gray-50 px-4 py-10 md:px-8 md:py-14">
+    <div class="mx-auto max-w-7xl">
         {% if featured_article %}
-        <!-- COLLAGE HERO: TOP/BIG STORY -->
-        <div class="mb-12">
-            <article class="bg-white rounded-3xl border-4 border-brand-800 shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 transition duration-300 hover:shadow-2xl">
-                <!-- Image Side -->
-                <div class="lg:col-span-7 relative min-h-[320px] lg:min-h-[420px] bg-gray-900 overflow-hidden">
-                    <img src="{{ featured_article.image_url if featured_article.image_url else fallback_img }}" 
-                         alt="{{ featured_article.title }}" 
-                         onerror="this.onerror=null; this.src='{{ fallback_img }}';"
-                         loading="eager" fetchpriority="high" decoding="async"
-                         class="w-full h-full object-cover opacity-90 hover:scale-105 transition duration-500">
-                    {% if not featured_article.image_url %}
-                    <span class="absolute bottom-3 right-3 bg-gray-950/80 px-3 py-1.5 text-xs font-semibold text-white">Illustrative image — not actual project beneficiaries</span>
+        <article class="group mb-14 grid overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:grid-cols-2">
+            <a href="/news/{{ featured_article.slug or featured_article.id }}"
+               class="relative block min-h-[280px] overflow-hidden bg-gray-200 md:min-h-[440px]"
+               aria-label="Read {{ featured_article.title }}">
+                <img src="{{ featured_article.image_url if featured_article.image_url else fallback_img }}"
+                     alt="{{ featured_article.title }}"
+                     onerror="this.onerror=null; this.src='{{ fallback_img }}';"
+                     loading="eager" fetchpriority="high" decoding="async"
+                     class="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]">
+                {% if not featured_article.image_url %}
+                <span class="absolute bottom-3 left-3 rounded bg-gray-950/80 px-3 py-1.5 text-xs font-semibold text-white">
+                    Illustrative image — not actual project beneficiaries
+                </span>
+                {% endif %}
+            </a>
+
+            <div class="flex flex-col justify-center p-6 md:p-10 lg:p-14">
+                <div class="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-gray-500">
+                    <span class="uppercase tracking-wider text-brand-800">Featured story</span>
+                    <span aria-hidden="true">·</span>
+                    <span class="uppercase tracking-wider">{{ featured_article.category }}</span>
+                    <span aria-hidden="true">·</span>
+                    {% if featured_article.published_date %}
+                    <time datetime="{{ featured_article.published_date.isoformat() }}">{{ featured_article.published_date.strftime('%d %b %Y') }}</time>
+                    {% else %}
+                    <span>Date not provided</span>
                     {% endif %}
-                    <span class="absolute top-4 left-4 bg-brand-800 text-white text-xs font-bold uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow">
-                        Top Story ★
-                    </span>
                 </div>
 
-                <!-- Content Side -->
-                <div class="lg:col-span-5 p-8 lg:p-10 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center text-xs font-semibold text-gray-500 gap-3 mb-3">
-                            <span class="text-brand-800 font-bold uppercase tracking-wide">{{ featured_article.category }}</span>
-                            <span>•</span>
-                            <time datetime="{{ featured_article.created_at.isoformat() }}">{{ featured_article.created_at.strftime('%d %b %Y') }}</time>
-                        </div>
+                <h2 class="mb-4 text-3xl font-extrabold leading-tight tracking-tight text-gray-900 md:text-4xl">
+                    <a href="/news/{{ featured_article.slug or featured_article.id }}" class="transition hover:text-brand-800">
+                        {{ featured_article.title }}
+                    </a>
+                </h2>
 
-                        <h2 class="text-2xl lg:text-3xl font-extrabold text-gray-900 leading-tight mb-4 hover:text-brand-800 transition">
-                            <a href="/news/{{ featured_article.slug or featured_article.id }}">{{ featured_article.title }}</a>
-                        </h2>
+                <p class="mb-8 text-base leading-relaxed text-gray-600 md:text-lg">
+                    {{ featured_article.summary }}
+                </p>
 
-                        <p class="text-gray-600 text-sm md:text-base leading-relaxed mb-6 line-clamp-4">
-                            {{ featured_article.summary }}
-                        </p>
+                <div class="flex flex-wrap items-center justify-between gap-4 border-t border-gray-100 pt-5">
+                    <span class="text-sm text-gray-500">By {{ featured_article.author or 'Aurorah Team' }}</span>
+                    <a href="/news/{{ featured_article.slug or featured_article.id }}"
+                       class="inline-flex min-h-11 items-center font-bold text-brand-800 hover:text-brand-900">
+                        Read the story <span class="ml-2" aria-hidden="true">→</span>
+                    </a>
+                </div>
+            </div>
+        </article>
+        {% endif %}
+
+        {% if articles %}
+        <div class="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-gray-200 pb-4">
+            <div>
+                <p class="mb-1 text-xs font-bold uppercase tracking-[0.18em] text-brand-800">From the journal</p>
+                <h2 class="text-2xl font-extrabold tracking-tight text-gray-900">
+                    {% if active_category %}{{ active_category }}{% else %}Latest stories{% endif %}
+                </h2>
+            </div>
+            {% if total_pages > 1 %}
+            <p class="text-sm text-gray-500">Page {{ current_page }} of {{ total_pages }}</p>
+            {% endif %}
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {% for article in articles %}
+            <article class="group flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:-translate-y-1 hover:shadow-md">
+                <a href="/news/{{ article.slug or article.id }}"
+                   class="relative block aspect-[4/3] overflow-hidden bg-gray-200"
+                   aria-label="Read {{ article.title }}">
+                    <img src="{{ article.image_url if article.image_url else fallback_img }}"
+                         alt="{{ article.title }}"
+                         onerror="this.onerror=null; this.src='{{ fallback_img }}';"
+                         loading="lazy" decoding="async"
+                         class="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]">
+                    {% if not article.image_url %}
+                    <span class="absolute bottom-3 left-3 rounded bg-gray-950/80 px-2.5 py-1 text-[10px] font-semibold text-white">Illustrative image</span>
+                    {% endif %}
+                </a>
+
+                <div class="flex flex-1 flex-col p-5">
+                    <div class="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-gray-500">
+                        <span class="uppercase tracking-wider text-brand-800">{{ article.category }}</span>
+                        <span aria-hidden="true">·</span>
+                        {% if article.published_date %}
+                        <time datetime="{{ article.published_date.isoformat() }}">{{ article.published_date.strftime('%d %b %Y') }}</time>
+                        {% else %}
+                        <span>Date not provided</span>
+                        {% endif %}
                     </div>
-
-                    <div class="pt-4 border-t border-gray-100 flex items-center justify-between">
-                        <span class="text-xs text-gray-500 font-medium">By {{ featured_article.author or 'Aurorah Team' }}</span>
-                        <a href="/news/{{ featured_article.slug or featured_article.id }}" class="inline-flex items-center text-sm font-bold text-brand-800 hover:text-brand-900 group">
-                            <span>Read Full Story</span>
-                            <i class="fa-solid fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
+                    <h3 class="mb-3 text-xl font-bold leading-snug text-gray-900">
+                        <a href="/news/{{ article.slug or article.id }}" class="transition hover:text-brand-800">
+                            {{ article.title }}
+                        </a>
+                    </h3>
+                    <p class="mb-6 line-clamp-3 text-sm leading-relaxed text-gray-600">{{ article.summary }}</p>
+                    <div class="mt-auto flex items-center justify-between gap-3 border-t border-gray-100 pt-4">
+                        <span class="text-xs text-gray-500">By {{ article.author or 'Aurorah Team' }}</span>
+                        <a href="/news/{{ article.slug or article.id }}"
+                           class="inline-flex min-h-10 items-center text-sm font-bold text-brand-800 hover:text-brand-900">
+                            Read more <span class="ml-1.5" aria-hidden="true">→</span>
                         </a>
                     </div>
                 </div>
             </article>
+            {% endfor %}
+        </div>
+        {% elif not featured_article %}
+        <div class="rounded-2xl border border-gray-200 bg-white px-6 py-12 text-center text-gray-700">
+            <i class="fa-regular fa-newspaper mb-3 text-4xl text-gray-300" aria-hidden="true"></i>
+            <h2 class="mb-2 text-lg font-bold text-gray-900">
+                {% if active_category %}No active updates in this category.{% else %}No community updates have been published yet.{% endif %}
+            </h2>
+            <p class="mx-auto mb-6 max-w-xl text-sm leading-relaxed">Explore our community milestones when they are published, or find another way to connect with Aurorah CAN.</p>
+            <div class="flex flex-col justify-center gap-3 sm:flex-row">
+                <a href="/requestassistance" class="inline-flex min-h-11 items-center justify-center bg-brand-800 px-5 py-2 font-bold text-white hover:bg-brand-900">Get Help</a>
+                <a href="/donate" class="inline-flex min-h-11 items-center justify-center border border-brand-800 px-5 py-2 font-bold text-brand-800 hover:bg-brand-50">Make a Pledge</a>
+                <a href="/volunteer" class="inline-flex min-h-11 items-center justify-center border border-gray-300 px-5 py-2 font-bold text-gray-800 hover:bg-gray-50">Volunteer</a>
+            </div>
         </div>
         {% endif %}
 
-        <!-- SECONDARY STORIES LIST -->
-        <div class="max-w-4xl mx-auto flex flex-col gap-5">
-            {% for article in articles %}
-                {% if not featured_article or article.id != featured_article.id %}
-                <article class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row overflow-hidden hover:shadow-md transition duration-200 group">
-                    <!-- Left Image Side -->
-                    <div class="relative sm:w-1/3 lg:w-[260px] h-48 sm:h-auto bg-gray-100 flex-shrink-0 overflow-hidden">
-                        <a href="/news/{{ article.slug or article.id }}" class="block w-full h-full">
-                            <img src="{{ article.image_url if article.image_url else fallback_img }}" 
-                                 alt="{{ article.title }}" 
-                                 onerror="this.onerror=null; this.src='{{ fallback_img }}';"
-                                 loading="lazy" decoding="async"
-                                 class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
-                            {% if not article.image_url %}
-                            <span class="absolute bottom-2 left-2 bg-gray-950/80 px-2 py-1 text-[10px] font-semibold text-white">Illustrative image</span>
-                            {% endif %}
-                        </a>
-                    </div>
-
-                    <!-- Right Content Side -->
-                    <div class="p-5 md:p-6 flex-1 flex flex-col justify-between">
-                        <div>
-                            <!-- Date | Category -->
-                            <div class="flex items-center text-xs text-gray-500 font-medium mb-2">
-                                <time datetime="{{ article.created_at.isoformat() }}">{{ article.created_at.strftime('%d %b %Y') }}</time>
-                                <span class="mx-2">|</span>
-                                <span class="text-brand-800 font-bold uppercase tracking-wide">{{ article.category }}</span>
-                            </div>
-
-                            <h3 class="text-lg font-bold text-gray-900 mb-2 hover:text-brand-800 transition">
-                                <a href="/news/{{ article.slug or article.id }}">{{ article.title }}</a>
-                            </h3>
-
-                            <p class="text-gray-600 text-sm md:text-base line-clamp-2 mb-4">
-                                {{ article.summary }}
-                            </p>
-                        </div>
-
-                        <div class="pt-3 border-t border-gray-100 flex items-center justify-between">
-                            <span class="text-xs text-gray-500 font-medium">By {{ article.author or 'Aurorah Team' }}</span>
-                            <a href="/news/{{ article.slug or article.id }}" class="inline-flex items-center text-sm font-bold text-brand-800 hover:text-brand-900 group/link">
-                                <span>Read Full Story</span>
-                                <i class="fa-solid fa-arrow-right ml-2 group-hover/link:translate-x-1 transition-transform"></i>
-                            </a>
-                        </div>
-                    </div>
-                </article>
-                {% endif %}
+        {% if total_pages > 1 %}
+        <nav class="mt-10 flex items-center justify-center gap-2" aria-label="News pages">
+            {% if current_page > 1 %}
+            <a href="/news?page={{ current_page - 1 }}{% if active_category %}&category={{ active_category }}{% endif %}"
+               aria-label="Previous page"
+               class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 text-gray-700 transition hover:border-brand-700 hover:text-brand-800">‹</a>
             {% else %}
-                {% if not featured_article %}
-                <div class="border border-gray-200 bg-white px-6 py-12 text-center text-gray-700">
-                    <i class="fa-regular fa-newspaper mb-3 text-4xl text-gray-300" aria-hidden="true"></i>
-                    <h2 class="mb-2 text-lg font-bold text-gray-900">
-                        {% if active_category %}No active updates in this category.{% else %}No community updates have been published yet.{% endif %}
-                    </h2>
-                    <p class="mx-auto mb-6 max-w-xl text-sm leading-relaxed">Explore our community milestones when they are published, or find another way to connect with Aurorah CAN.</p>
-                    <div class="flex flex-col justify-center gap-3 sm:flex-row">
-                        <a href="/requestassistance" class="inline-flex min-h-11 items-center justify-center bg-brand-800 px-5 py-2 font-bold text-white hover:bg-brand-900">Get Help</a>
-                        <a href="/donate" class="inline-flex min-h-11 items-center justify-center border border-brand-800 px-5 py-2 font-bold text-brand-800 hover:bg-brand-50">Make a Pledge</a>
-                        <a href="/volunteer" class="inline-flex min-h-11 items-center justify-center border border-gray-300 px-5 py-2 font-bold text-gray-800 hover:bg-gray-50">Volunteer</a>
-                    </div>
-                </div>
+            <span aria-disabled="true" class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-gray-300">‹</span>
+            {% endif %}
+
+            {% for p in range(1, total_pages + 1) %}
+                {% if p == current_page %}
+                <span aria-current="page" class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-brand-800 bg-brand-800 px-3 text-sm font-semibold text-white">{{ p }}</span>
+                {% else %}
+                <a href="/news?page={{ p }}{% if active_category %}&category={{ active_category }}{% endif %}"
+                   aria-label="Page {{ p }}"
+                   class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 transition hover:border-brand-700 hover:text-brand-800">{{ p }}</a>
                 {% endif %}
             {% endfor %}
 
-            <!-- Dynamic Pagination UI -->
-            {% if total_pages > 1 %}
-            <div class="flex justify-center items-center gap-1.5 mt-8">
-                {% if current_page > 1 %}
-                <a href="/news?page={{ current_page - 1 }}{% if active_category %}&category={{ active_category }}{% endif %}" 
-                   class="w-8 h-8 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">&lsaquo;</a>
-                {% else %}
-                <span class="w-8 h-8 flex items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed">&lsaquo;</span>
-                {% endif %}
-
-                {% for p in range(1, total_pages + 1) %}
-                    {% if p == current_page %}
-                    <span class="w-8 h-8 flex items-center justify-center rounded border border-gray-200 bg-brand-800 text-white font-semibold text-sm">{{ p }}</span>
-                    {% else %}
-                    <a href="/news?page={{ p }}{% if active_category %}&category={{ active_category }}{% endif %}" 
-                       class="w-8 h-8 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition text-sm">{{ p }}</a>
-                    {% endif %}
-                {% endfor %}
-
-                {% if current_page < total_pages %}
-                <a href="/news?page={{ current_page + 1 }}{% if active_category %}&category={{ active_category }}{% endif %}" 
-                   class="w-8 h-8 flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition">&rsaquo;</a>
-                {% else %}
-                <span class="w-8 h-8 flex items-center justify-center rounded border border-gray-200 bg-gray-50 text-gray-300 cursor-not-allowed">&rsaquo;</span>
-                {% endif %}
-            </div>
+            {% if current_page < total_pages %}
+            <a href="/news?page={{ current_page + 1 }}{% if active_category %}&category={{ active_category }}{% endif %}"
+               aria-label="Next page"
+               class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-3 text-gray-700 transition hover:border-brand-700 hover:text-brand-800">›</a>
+            {% else %}
+            <span aria-disabled="true" class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-gray-300">›</span>
             {% endif %}
-        </div>
-
+        </nav>
+        {% endif %}
     </div>
 </section>
-
 {% endblock %}

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Optional, List
@@ -273,6 +273,7 @@ class NewsArticle(SQLModel, table=True):
     image_url: Optional[str] = None
     author: str = Field(default="Aurorah Team")
     is_featured: bool = Field(default=False)
+    published_date: Optional[date] = Field(default=None)
     status: str = Field(default=NewsStatus.DRAFT.value, index=True)
     archived_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(

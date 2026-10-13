@@ -108,8 +108,8 @@ http://127.0.0.1:8000
 ```
 
 The app creates the SQLite database and required tables if they do not already exist.
-Startup also removes only the four legacy seeded-news slugs and converts old internal-need placeholder contact values to empty values.
-Back up an existing `aurorah.db` before the first upgraded launch; startup applies the additive schema and the narrowly scoped legacy-data cleanup.
+Startup adds five supplied Aurorah community stories when their slugs are not already present, attaches their supplied local images, removes the duplicate “A Win Worth Celebrating” story, preserves missing original publication dates, and converts old internal-need placeholder contact values to empty values. Older news records keep their existing creation date as the publication date.
+Back up an existing `aurorah.db` before the first upgraded launch; startup applies additive schema changes and a narrowly scoped legacy-data cleanup.
 
 ### Website accounts
 
@@ -156,9 +156,9 @@ MSSQL_PASSWORD=your-website-database-password
 MSSQL_DRIVER=ODBC Driver 18 for SQL Server
 ```
 
-For a new, empty database, initialize the tables once with a schema-provisioning login: temporarily set `DATABASE_AUTO_CREATE_SCHEMA=true`, run `python -c "from app.db.session import create_db_and_tables; create_db_and_tables()"`, then switch it back to `false` and configure the restricted website login. The website login should have only the data permissions it needs; keep schema-owner/admin credentials out of the running website. Schema initialization does not migrate records from `aurorah.db` or alter an existing SQL Server schema.
+For a new, empty database, initialize the tables once with a schema-provisioning login: temporarily set `DATABASE_AUTO_CREATE_SCHEMA=true`, run `python -c "from app.db.session import create_db_and_tables; create_db_and_tables()"`, then switch it back to `false` and configure the restricted website login. The website login should have only the data permissions it needs; keep schema-owner/admin credentials out of the running website. Schema initialization does not migrate records from `aurorah.db`.
 
-When upgrading an existing SQL Server database to a version that adds tables, rerun the one-time schema setup with `DATABASE_AUTO_CREATE_SCHEMA=true` and a schema-provisioning login before starting the app with the restricted website login. This creates missing tables such as `VolunteerOffer`; it does not alter existing tables or migrate SQLite records.
+When upgrading an existing SQL Server database, rerun the one-time schema setup with `DATABASE_AUTO_CREATE_SCHEMA=true` and a schema-provisioning login before starting the app with the restricted website login. This creates missing tables and applies additive schema updates, including the news publication-date field; it does not migrate SQLite records.
 
 Allow the app machine's outbound IP address in the Azure SQL firewall. The IP auto-added when connecting through SSMS is your workstation's IP; it does not automatically allow a separately hosted website. Keep all database credentials in `.env` or a hosting secret store—never in templates, frontend JavaScript, or Git.
 
@@ -305,6 +305,8 @@ The donation flow supports:
 - in-kind donations
 - targeted funding toward a specific need
 - optional tax certificate requests
+
+Monetary donations are pledges only; this project does not process payments. Requested certificates are downloaded as clearly marked demo documents and are not valid proof of payment or for tax purposes.
 
 Example API-style flow:
 

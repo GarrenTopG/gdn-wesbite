@@ -5,13 +5,12 @@ from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine, URL
 from sqlmodel import SQLModel, Session, create_engine
 
+from app.news_content import seed_community_stories
+
 load_dotenv()
 
 LEGACY_SEEDED_NEWS_SLUGS = (
-    "another-big-win-for-our-youth-financial-literacy-employment-milestones",
-    "a-win-worth-celebrating-3-more-youth-secure-full-time-contracts",
     "shifting-mindsets-financial-skills-training-program-with-avo-vision",
-    "serving-hope-and-warmth-community-cook-off-supports-over-400-residents",
 )
 
 def _create_engine() -> Engine:
@@ -94,6 +93,23 @@ def create_db_and_tables():
                     "SQL Server schema is not initialized. Run the documented "
                     "one-time schema setup before starting the website."
                 )
+        news_columns = {
+            column["name"] for column in inspect(engine).get_columns("newsarticle")
+        }
+        if "published_date" not in news_columns:
+            with engine.begin() as connection:
+                connection.execute(
+                    text("ALTER TABLE newsarticle ADD published_date DATE NULL")
+                )
+                connection.execute(
+                    text(
+                        "UPDATE newsarticle SET published_date = "
+                        "CAST(created_at AS DATE) WHERE published_date IS NULL"
+                    )
+                )
+        with Session(engine) as session:
+            seed_community_stories(session)
+            session.commit()
         return
 
     SQLModel.metadata.create_all(engine)
@@ -112,6 +128,16 @@ def create_db_and_tables():
         column["name"] for column in inspector.get_columns("newsarticle")
     }
     with engine.begin() as connection:
+        if "published_date" not in news_columns:
+            connection.execute(
+                text("ALTER TABLE newsarticle ADD COLUMN published_date DATE")
+            )
+            connection.execute(
+                text(
+                    "UPDATE newsarticle SET published_date = date(created_at) "
+                    "WHERE published_date IS NULL"
+                )
+            )
         if "request_details" not in columns:
             connection.execute(
                 text("ALTER TABLE beneficiaryneed ADD COLUMN request_details TEXT")
@@ -273,16 +299,11 @@ def create_db_and_tables():
                 "SELECT RAISE(ABORT, 'record history is immutable'); END"
             )
         )
-        connection.execute(
-            text(
-                "DELETE FROM newsarticle WHERE slug IN "
-                "(:slug0, :slug1, :slug2, :slug3)"
-            ),
-            {
-                f"slug{index}": slug
-                for index, slug in enumerate(LEGACY_SEEDED_NEWS_SLUGS)
-            },
-        )
+        for slug in LEGACY_SEEDED_NEWS_SLUGS:
+            connection.execute(
+                text("DELETE FROM newsarticle WHERE slug = :slug"),
+                {"slug": slug},
+            )
         connection.execute(
             text(
                 "UPDATE beneficiaryneed "
@@ -292,6 +313,10 @@ def create_db_and_tables():
                 "OR full_address = 'Admin Direct Entry'"
             )
         )
+
+    with Session(engine) as session:
+        seed_community_stories(session)
+        session.commit()
 
 # Dependency injector for database sessions in FastAPI endpoints
 def get_session():
