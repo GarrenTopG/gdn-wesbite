@@ -76,6 +76,7 @@ def _create_sqlserver_audit_triggers():
 # Create the database and tables if they don't exist
 def create_db_and_tables():
     """Initializes and creates all database tables."""
+    import app.models.entities  # noqa: F401 - ensure all tables are registered with SQLModel.metadata
     if engine.dialect.name == "mssql":
         auto_create_schema = os.getenv(
             "DATABASE_AUTO_CREATE_SCHEMA", "false"

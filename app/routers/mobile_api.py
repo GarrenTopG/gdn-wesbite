@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import true
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -19,11 +20,14 @@ from app.models.entities import (
     Donation,
     DonationStatus,
     NeedStatus,
+    NeedUrgency,
     NewsArticle,
     NewsStatus,
     User,
     UserRole,
+    Volunteer,
     VolunteerOffer,
+    VolunteerStatus,
 )
 from app.security import (
     STAFF_SESSION_TTL_SECONDS,
@@ -343,7 +347,7 @@ async def get_needs(session: Session = Depends(get_session)):
     needs = session.exec(
         select(BeneficiaryNeed)
         .where(
-            BeneficiaryNeed.is_community_need.is_(True),
+            BeneficiaryNeed.is_community_need == true(),
             BeneficiaryNeed.status.notin_([NeedStatus.FULFILLED, NeedStatus.REJECTED]),
             BeneficiaryNeed.archived_at.is_(None),
         )
@@ -405,6 +409,102 @@ async def offer_assistance(
     )
     session.commit()
     return {"success": True, "message": "Your offer to help has been submitted."}
+
+
+class VolunteerSignupRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    full_name: str = Field(alias="fullName", min_length=1, max_length=200)
+    phone: str = Field(default="", max_length=50)
+    skills: str = Field(default="", max_length=500)
+    location: str = Field(default="", max_length=200)
+    availability: str = Field(default="Flexible", max_length=200)
+
+
+class AssistanceRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    contact_name: str = Field(alias="contactName", min_length=1, max_length=200)
+    contact_phone: str = Field(alias="contactPhone", default="", max_length=50)
+    area: str = Field(default="", max_length=200)
+    category: str = Field(min_length=1, max_length=200)
+    request_details: str = Field(alias="requestDetails", default="", max_length=2000)
+    urgency: str = "Medium"
+
+
+@router.post(
+    "/volunteers",
+    dependencies=[Depends(_rate_limit("mobile-volunteer", 10, 3600))],
+)
+async def submit_volunteer(
+    body: VolunteerSignupRequest,
+    request: Request,
+    user: User = Depends(require_mobile_user),
+    session: Session = Depends(get_session),
+):
+    days = [d.strip() for d in body.availability.split(",") if d.strip()]
+    volunteer = Volunteer(
+        full_name=body.full_name.strip(),
+        phone=body.phone.strip(),
+        email=user.email,
+        skills=body.skills.strip(),
+        location=body.location.strip(),
+        availability=body.availability.strip() or "Flexible / Not Specified",
+        available_days=days,
+        status=VolunteerStatus.ACTIVE,
+    )
+    session.add(volunteer)
+    session.flush()
+    add_record_history(
+        session,
+        request,
+        "volunteer",
+        volunteer.id,
+        "submitted",
+        {"source": "mobile", "onboarding_status": volunteer.onboarding_status},
+    )
+    session.commit()
+    return {"success": True, "message": "Volunteer registration submitted."}
+
+
+@router.post(
+    "/assistance-requests",
+    dependencies=[Depends(_rate_limit("mobile-assistance", 10, 3600))],
+)
+async def submit_assistance_request(
+    body: AssistanceRequest,
+    request: Request,
+    user: User = Depends(require_mobile_user),
+    session: Session = Depends(get_session),
+):
+    try:
+        urgency = NeedUrgency(body.urgency.strip().capitalize())
+    except ValueError:
+        urgency = NeedUrgency.MEDIUM
+    category = body.category.strip()
+    need = BeneficiaryNeed(
+        contact_name=body.contact_name.strip(),
+        contact_phone=body.contact_phone.strip(),
+        full_address=body.area.strip(),
+        anonymised_title=f"{category} assistance request",
+        area=body.area.strip(),
+        category=category,
+        request_details=body.request_details.strip(),
+        urgency=urgency,
+        status=NeedStatus.PENDING,
+    )
+    session.add(need)
+    session.flush()
+    add_record_history(
+        session,
+        request,
+        "beneficiary_need",
+        need.id,
+        "submitted",
+        {"source": "mobile", "status": NeedStatus.PENDING.value},
+    )
+    session.commit()
+    return {"success": True, "message": "Assistance request submitted.", "needId": need.id}
 
 
 @router.post(

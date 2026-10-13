@@ -54,7 +54,7 @@ class VolunteerStatus(str, Enum):
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     full_name: str
-    email: str = Field(unique=True, index=True)
+    email: str = Field(max_length=255, unique=True, index=True)
     hashed_password: str
     role: UserRole = Field(default=UserRole.USER)
     is_active: bool = Field(default=True)
@@ -67,7 +67,7 @@ class User(SQLModel, table=True):
 
 class AuthSession(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    token_hash: str = Field(unique=True, index=True)
+    token_hash: str = Field(max_length=255, unique=True, index=True)
     user_id: int = Field(foreign_key="user.id", index=True)
     expires_at: datetime = Field(index=True)
     mfa_verified: bool = Field(default=False, index=True)
@@ -82,7 +82,7 @@ class StaffNotificationRead(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     staff_user_id: int = Field(foreign_key="user.id", index=True)
-    notification_key: str = Field(index=True)
+    notification_key: str = Field(max_length=255, index=True)
     fingerprint: str
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -90,10 +90,10 @@ class StaffNotificationRead(SQLModel, table=True):
 class AuditLog(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     actor_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
-    actor_identity: str = Field(index=True)
-    action: str = Field(index=True)
-    target_type: str = Field(index=True)
-    target_id: Optional[str] = Field(default=None, index=True)
+    actor_identity: str = Field(max_length=255, index=True)
+    action: str = Field(max_length=100, index=True)
+    target_type: str = Field(max_length=100, index=True)
+    target_id: Optional[str] = Field(default=None, max_length=100, index=True)
     occurred_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc), index=True
     )
@@ -103,14 +103,14 @@ class AuditLog(SQLModel, table=True):
 class ReceiptAccess(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     donation_id: int = Field(foreign_key="donation.id", index=True)
-    token_hash: str = Field(unique=True, index=True)
+    token_hash: str = Field(max_length=255, unique=True, index=True)
     expires_at: datetime = Field(index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class RateLimitHit(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    bucket_key: str = Field(index=True)
+    bucket_key: str = Field(max_length=255, index=True)
     occurred_at: int = Field(index=True)
 
 
@@ -119,7 +119,7 @@ class Volunteer(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     full_name: str
     phone: str
-    email: str = Field(index=True)
+    email: str = Field(max_length=255, index=True)
     skills: str  # Comma-separated (e.g., "Food Dist, Logistics, Medical")
     location: str  # Suburb / Area
     availability: str = Field(default="Anytime")  # e.g., "Weekdays", "Weekends", "Anytime"
@@ -129,7 +129,7 @@ class Volunteer(SQLModel, table=True):
     assigned_day: Optional[str] = Field(default="Inactive")  # "Inactive" by default or chosen day
     
     status: VolunteerStatus = Field(default=VolunteerStatus.ACTIVE)
-    onboarding_status: str = Field(default="Pending", index=True)
+    onboarding_status: str = Field(default="Pending", max_length=50, index=True)
     next_assignment_at: Optional[datetime] = Field(default=None, index=True)
     archived_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(
@@ -182,13 +182,13 @@ def set_need_status(need: BeneficiaryNeed, status: NeedStatus) -> None:
 class Donation(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     donor_name: str
-    donor_email: Optional[str] = Field(default=None, index=True)
+    donor_email: Optional[str] = Field(default=None, max_length=255, index=True)
     donor_phone: Optional[str] = None
 
     cause: Optional[str] = Field(default="General Fund (Where Most Needed)")
 
     # Monetary vs In-Kind Classification
-    donation_type: str = Field(default="monetary", index=True)  # 'monetary' or 'inkind'
+    donation_type: str = Field(default="monetary", max_length=50, index=True)  # 'monetary' or 'inkind'
     amount: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
     allocated_amount: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
 
@@ -202,7 +202,7 @@ class Donation(SQLModel, table=True):
     request_tax_certificate: bool = Field(default=False)
     tax_id_number: Optional[str] = None
     tax_address: Optional[str] = None
-    pending_receipt_token_hash: Optional[str] = Field(default=None, index=True)
+    pending_receipt_token_hash: Optional[str] = Field(default=None, max_length=255, index=True)
 
     # Verification & Payment Tracking
     payment_method: str = Field(default="Gateway")
@@ -210,7 +210,7 @@ class Donation(SQLModel, table=True):
     message: Optional[str] = None
     is_anonymous: bool = Field(default=False)
     is_verified: bool = Field(default=False, index=True)
-    status: str = Field(default=DonationStatus.SUBMITTED.value, index=True)
+    status: str = Field(default=DonationStatus.SUBMITTED.value, max_length=50, index=True)
     archived_at: Optional[datetime] = Field(default=None, index=True)
 
     need_id: Optional[int] = Field(
@@ -256,7 +256,7 @@ class VolunteerOffer(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id", index=True)
     volunteer_skill: str
     notes: str = Field(default="")
-    status: str = Field(default="Pending", index=True)
+    status: str = Field(default="Pending", max_length=50, index=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
@@ -266,7 +266,7 @@ class VolunteerOffer(SQLModel, table=True):
 class NewsArticle(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str
-    slug: str = Field(index=True, unique=True)
+    slug: str = Field(max_length=255, index=True, unique=True)
     category: str = Field(default="Community")
     summary: str
     content: str
@@ -274,7 +274,7 @@ class NewsArticle(SQLModel, table=True):
     author: str = Field(default="Aurorah Team")
     is_featured: bool = Field(default=False)
     published_date: Optional[date] = Field(default=None)
-    status: str = Field(default=NewsStatus.DRAFT.value, index=True)
+    status: str = Field(default=NewsStatus.DRAFT.value, max_length=50, index=True)
     archived_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
@@ -283,10 +283,10 @@ class NewsArticle(SQLModel, table=True):
 
 class RecordHistory(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    record_type: str = Field(index=True)
+    record_type: str = Field(max_length=100, index=True)
     record_id: int = Field(index=True)
     actor_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
-    action: str = Field(index=True)
+    action: str = Field(max_length=100, index=True)
     details: Optional[str] = None
     occurred_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc), index=True
