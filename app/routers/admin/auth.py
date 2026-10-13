@@ -1014,7 +1014,7 @@ async def update_need_status(
 
 
 @protected_router.get(
-    "/beneficiaries/{need_id}",
+    "/beneficiaries/{need_id:int}",
     response_class=HTMLResponse,
     dependencies=[Depends(permission_required("beneficiaries.read"))],
 )
