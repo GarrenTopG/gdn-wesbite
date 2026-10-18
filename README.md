@@ -136,6 +136,8 @@ Google sign-in accepts a **Firebase ID token** in the JSON field `idToken` (not 
 
 Mobile donation submissions are **pledges only**. The website currently has no online payment processor: `paymentMethod` is not used to charge or verify a payment, and the API response explicitly says no payment was processed. Donations remain unverified until staff handle them through the existing admin workflow. Offers to help are saved with `Pending` status; staff with community-needs access can review them in Admin → Needs and mark them reviewed.
 
+The API enables CORS for the Android emulator origin `http://10.0.2.2:8000`, private IPv4 development hosts, and `https://aurorahcan.org.za` / `https://www.aurorahcan.org.za`. Set `CORS_ALLOWED_ORIGINS` to a comma-separated list of additional exact origins for a different production app domain; do not use `*` for production. SQLAlchemy connection failures on API requests are logged server-side and return a generic JSON `503` response.
+
 ### Connect to Azure SQL Server
 
 The website connects to its database from the FastAPI backend; `base.html` must not connect directly to SQL Server. SQLite remains the default for local development. To use the Azure database, install the SQL Server adapter and the Microsoft ODBC Driver 18 for SQL Server on the machine running the app:

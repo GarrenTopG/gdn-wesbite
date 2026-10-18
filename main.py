@@ -1,9 +1,13 @@
 from contextlib import asynccontextmanager
+import logging
+import os
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import SQLAlchemyError
 load_dotenv()
 
 from app.db.session import create_db_and_tables, get_session
@@ -26,6 +30,46 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Aurorah CAN Digital Hub", lifespan=lifespan)
+
+logger = logging.getLogger(__name__)
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+CORS_ALLOWED_ORIGINS.extend(
+    [
+        "http://10.0.2.2:8000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "https://aurorahcan.org.za",
+        "https://www.aurorahcan.org.za",
+    ]
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=list(dict.fromkeys(CORS_ALLOWED_ORIGINS)),
+    allow_origin_regex=(
+        r"^https?://(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
+        r"192\.168\.\d{1,3}\.\d{1,3}|"
+        r"172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})"
+        r"(?::\d{1,5})?$"
+    ),
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+
+
+@app.exception_handler(SQLAlchemyError)
+async def handle_database_error(request: Request, exc: SQLAlchemyError):
+    if not request.url.path.startswith("/api/"):
+        raise exc
+    logger.exception("Database operation failed for %s", request.url.path)
+    return JSONResponse(
+        {"detail": "Database temporarily unavailable."},
+        status_code=503,
+    )
 
 
 @app.exception_handler(HTTPException)

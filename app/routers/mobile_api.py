@@ -89,6 +89,54 @@ class DonationRequest(BaseModel):
     user_email: str = Field(alias="userEmail")
 
 
+class MobileUserResponse(BaseModel):
+    user_id: int = Field(alias="userId")
+    full_name: str = Field(alias="fullName")
+    email: str
+    role: str
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class AuthResponse(BaseModel):
+    success: bool
+    message: str
+    token: str
+    user: MobileUserResponse
+
+
+class SuccessResponse(BaseModel):
+    success: bool
+    message: str
+
+
+class DonationResponse(SuccessResponse):
+    transaction_ref: str = Field(alias="transactionRef")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class NewsItemResponse(BaseModel):
+    id: int
+    title: str
+    summary: str
+    timestamp: str
+    category: str
+
+
+class NeedResponse(BaseModel):
+    need_id: int = Field(alias="needId")
+    title: str
+    description: str
+    location: str
+    priority: str
+    category: str
+    status: str
+    created_at: str = Field(alias="createdAt")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 def _session_digest(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
@@ -163,7 +211,11 @@ def _rate_limit(bucket: str, limit: int, window_seconds: int):
     return check
 
 
-@router.post("/auth/register", dependencies=[Depends(_rate_limit("mobile-register", 5, 3600))])
+@router.post(
+    "/auth/register",
+    dependencies=[Depends(_rate_limit("mobile-register", 5, 3600))],
+    response_model=AuthResponse,
+)
 async def register(
     body: RegisterRequest,
     request: Request,
@@ -201,7 +253,11 @@ async def register(
     return _auth_response(session, user, "Account created.")
 
 
-@router.post("/auth/login", dependencies=[Depends(_rate_limit("mobile-login", 5, 900))])
+@router.post(
+    "/auth/login",
+    dependencies=[Depends(_rate_limit("mobile-login", 5, 900))],
+    response_model=AuthResponse,
+)
 async def login(
     body: LoginRequest,
     request: Request,
@@ -224,7 +280,11 @@ async def login(
     return _auth_response(session, user, "Signed in.")
 
 
-@router.post("/auth/google-sso", dependencies=[Depends(_rate_limit("mobile-google-sso", 5, 900))])
+@router.post(
+    "/auth/google-sso",
+    dependencies=[Depends(_rate_limit("mobile-google-sso", 5, 900))],
+    response_model=AuthResponse,
+)
 async def google_sso(
     body: GoogleSsoRequest,
     request: Request,
@@ -289,6 +349,7 @@ async def google_sso(
 @router.post(
     "/auth/change-password",
     dependencies=[Depends(_rate_limit("mobile-change-password", 5, 3600))],
+    response_model=SuccessResponse,
 )
 async def change_password(
     body: ChangePasswordRequest,
@@ -320,7 +381,7 @@ async def change_password(
     return {"success": True, "message": "Password changed."}
 
 
-@router.get("/news")
+@router.get("/news", response_model=list[NewsItemResponse])
 async def get_news(session: Session = Depends(get_session)):
     articles = session.exec(
         select(NewsArticle)
@@ -342,7 +403,7 @@ async def get_news(session: Session = Depends(get_session)):
     ]
 
 
-@router.get("/needs")
+@router.get("/needs", response_model=list[NeedResponse])
 async def get_needs(session: Session = Depends(get_session)):
     needs = session.exec(
         select(BeneficiaryNeed)
@@ -371,6 +432,7 @@ async def get_needs(session: Session = Depends(get_session)):
 @router.post(
     "/needs/offer-assistance",
     dependencies=[Depends(_rate_limit("mobile-offer-assistance", 5, 3600))],
+    response_model=SuccessResponse,
 )
 async def offer_assistance(
     body: OfferAssistanceRequest,
@@ -510,6 +572,7 @@ async def submit_assistance_request(
 @router.post(
     "/donations",
     dependencies=[Depends(_rate_limit("mobile-donation", 5, 3600))],
+    response_model=DonationResponse,
 )
 async def submit_donation(
     body: DonationRequest,

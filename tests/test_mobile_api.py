@@ -5,6 +5,8 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
+from sqlalchemy.exc import SQLAlchemyError
+
 os.environ.setdefault("APP_SECRET_KEY", "test-mobile-api-key-not-for-production-000000")
 os.environ["DATABASE_BACKEND"] = "sqlite"
 os.environ["SQLITE_FILE_NAME"] = "mobile_api_test_unused.db"
@@ -62,7 +64,57 @@ class MobileApiTests(unittest.TestCase):
             },
         )
         self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            set(response.json()),
+            {"success", "message", "token", "user"},
+        )
+        self.assertEqual(
+            set(response.json()["user"]),
+            {"userId", "fullName", "email", "role"},
+        )
         return response.json()
+
+    def test_cors_allows_emulator_lan_and_production_origins(self):
+        for origin in (
+            "http://10.0.2.2:8000",
+            "http://192.168.1.27:8080",
+            "https://aurorahcan.org.za",
+        ):
+            with self.subTest(origin=origin):
+                response = self.client.options(
+                    "/api/news",
+                    headers={
+                        "Origin": origin,
+                        "Access-Control-Request-Method": "GET",
+                        "Access-Control-Request-Headers": "authorization",
+                    },
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response.headers["access-control-allow-origin"], origin
+                )
+
+        denied = self.client.options(
+            "/api/news",
+            headers={
+                "Origin": "https://untrusted.example",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        self.assertNotIn("access-control-allow-origin", denied.headers)
+
+    def test_mobile_api_returns_json_when_database_fails(self):
+        def failing_session():
+            raise SQLAlchemyError("test database unavailable")
+            yield
+
+        app.dependency_overrides[get_session] = failing_session
+        response = self.client.get("/api/news")
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json(),
+            {"detail": "Database temporarily unavailable."},
+        )
 
     def test_registration_login_and_password_change(self):
         account = self.register()
@@ -89,6 +141,10 @@ class MobileApiTests(unittest.TestCase):
             },
         )
         self.assertEqual(changed.status_code, 200, changed.text)
+        self.assertEqual(
+            changed.json(),
+            {"success": True, "message": "Password changed."},
+        )
         login = self.client.post(
             "/api/auth/login",
             json={
@@ -143,9 +199,26 @@ class MobileApiTests(unittest.TestCase):
 
         needs = self.client.get("/api/needs").json()
         self.assertEqual(len(needs), 1)
+        self.assertEqual(
+            set(needs[0]),
+            {
+                "needId",
+                "title",
+                "description",
+                "location",
+                "priority",
+                "category",
+                "status",
+                "createdAt",
+            },
+        )
         self.assertEqual(needs[0]["title"], "Food support")
         self.assertNotIn("contact_name", needs[0])
         news = self.client.get("/api/news").json()
+        self.assertEqual(
+            set(news[0]),
+            {"id", "title", "summary", "timestamp", "category"},
+        )
         self.assertEqual([article["title"] for article in news], ["Published update"])
 
     def test_offers_and_donations_require_the_account_identity(self):
@@ -188,6 +261,13 @@ class MobileApiTests(unittest.TestCase):
             },
         )
         self.assertEqual(offer.status_code, 200, offer.text)
+        self.assertEqual(
+            offer.json(),
+            {
+                "success": True,
+                "message": "Your offer to help has been submitted.",
+            },
+        )
 
         donation = self.client.post(
             "/api/donations",
@@ -200,6 +280,10 @@ class MobileApiTests(unittest.TestCase):
             },
         )
         self.assertEqual(donation.status_code, 200, donation.text)
+        self.assertEqual(
+            set(donation.json()),
+            {"success", "transactionRef", "message"},
+        )
         self.assertIn("No payment was processed", donation.json()["message"])
         with Session(self.engine) as session:
             self.assertEqual(len(session.exec(select(VolunteerOffer)).all()), 1)
