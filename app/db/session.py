@@ -108,6 +108,29 @@ def create_db_and_tables():
                         "CAST(created_at AS DATE) WHERE published_date IS NULL"
                     )
                 )
+        user_columns = {
+            column["name"] for column in inspect(engine).get_columns("user")
+        }
+        need_columns = {
+            column["name"]
+            for column in inspect(engine).get_columns("beneficiaryneed")
+        }
+        with engine.begin() as connection:
+            if "phone_number" not in user_columns:
+                connection.execute(
+                    text("ALTER TABLE [user] ADD phone_number NVARCHAR(50) NULL")
+                )
+            if "preferences" not in user_columns:
+                connection.execute(
+                    text("ALTER TABLE [user] ADD preferences NVARCHAR(MAX) NULL")
+                )
+            if "user_id" not in need_columns:
+                connection.execute(
+                    text(
+                        "ALTER TABLE beneficiaryneed "
+                        "ADD user_id INT NULL"
+                    )
+                )
         with Session(engine) as session:
             seed_community_stories(session)
             session.commit()
@@ -230,6 +253,18 @@ def create_db_and_tables():
         if "mfa_last_counter" not in user_columns:
             connection.execute(
                 text("ALTER TABLE user ADD COLUMN mfa_last_counter INTEGER")
+            )
+        if "phone_number" not in user_columns:
+            connection.execute(
+                text("ALTER TABLE user ADD COLUMN phone_number VARCHAR(50)")
+            )
+        if "preferences" not in user_columns:
+            connection.execute(
+                text("ALTER TABLE user ADD COLUMN preferences JSON")
+            )
+        if "user_id" not in columns:
+            connection.execute(
+                text("ALTER TABLE beneficiaryneed ADD COLUMN user_id INTEGER")
             )
         auth_session_columns = {
             column["name"] for column in inspect(engine).get_columns("authsession")

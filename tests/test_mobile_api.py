@@ -155,6 +155,96 @@ class MobileApiTests(unittest.TestCase):
         self.assertEqual(login.status_code, 200, login.text)
         self.assertEqual(login.headers["cache-control"], "no-store")
 
+    def test_profile_update_requires_authentication_and_persists_changes(self):
+        account = self.register()
+        body = {
+            "full_name": "Updated Mobile User",
+            "phone_number": "+27 82 123 4567",
+            "preferences": {"notifications": True, "language": "en"},
+        }
+
+        unauthorized = self.client.put("/api/auth/profile", json=body)
+        self.assertEqual(unauthorized.status_code, 401)
+
+        response = self.client.put(
+            "/api/auth/profile",
+            headers={"Authorization": f"Bearer {account['token']}"},
+            json=body,
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            response.json(),
+            {
+                "userId": account["user"]["userId"],
+                "fullName": "Updated Mobile User",
+                "email": "volunteer@example.org",
+                "role": "Volunteer",
+                "phoneNumber": "+27 82 123 4567",
+                "preferences": {"notifications": True, "language": "en"},
+            },
+        )
+        with Session(self.engine) as session:
+            user = session.get(User, account["user"]["userId"])
+            self.assertEqual(user.full_name, "Updated Mobile User")
+            self.assertEqual(user.phone_number, "+27 82 123 4567")
+            self.assertEqual(
+                user.preferences, {"notifications": True, "language": "en"}
+            )
+
+    def test_assistance_request_requires_authentication_and_links_account(self):
+        account = self.register()
+        body = {
+            "category": "Food",
+            "description": "Need groceries for the week",
+            "urgency": "High",
+            "location": "Kuils River",
+            "contact_phone": "+27 82 123 4567",
+        }
+
+        unauthorized = self.client.post("/api/assistance-requests", json=body)
+        self.assertEqual(unauthorized.status_code, 401)
+
+        response = self.client.post(
+            "/api/assistance-requests",
+            headers={"Authorization": f"Bearer {account['token']}"},
+            json=body,
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["success"], True)
+        self.assertIn("needId", response.json())
+        with Session(self.engine) as session:
+            need = session.get(BeneficiaryNeed, response.json()["needId"])
+            self.assertEqual(need.user_id, account["user"]["userId"])
+            self.assertEqual(need.contact_name, "Mobile Volunteer")
+            self.assertEqual(need.contact_phone, "+27 82 123 4567")
+            self.assertEqual(need.category, "Food")
+            self.assertEqual(need.request_details, "Need groceries for the week")
+            self.assertEqual(need.area, "Kuils River")
+            self.assertEqual(need.urgency, NeedUrgency.HIGH)
+            self.assertFalse(need.is_community_need)
+
+    def test_mobile_donation_accepts_in_kind_offers(self):
+        account = self.register()
+        response = self.client.post(
+            "/api/donations",
+            headers={"Authorization": f"Bearer {account['token']}"},
+            json={
+                "donation_type": "inkind",
+                "item_category": "Blankets & Bedding",
+                "item_description": "Three clean blankets",
+                "drop_off_option": "dropoff",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIn("in-kind donation offer", response.json()["message"])
+        with Session(self.engine) as session:
+            donation = session.exec(select(Donation)).one()
+            self.assertEqual(donation.donation_type, "inkind")
+            self.assertEqual(donation.item_category, "Blankets & Bedding")
+            self.assertEqual(donation.item_description, "Three clean blankets")
+            self.assertEqual(donation.logistics_type, "dropoff")
+            self.assertEqual(donation.amount, 0)
+
     def test_public_feeds_return_only_public_records(self):
         with Session(self.engine) as session:
             session.add_all(

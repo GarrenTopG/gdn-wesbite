@@ -83,10 +83,47 @@ class OfferAssistanceRequest(BaseModel):
 class DonationRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    category: str = Field(min_length=1, max_length=200)
-    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
-    payment_method: str = Field(alias="paymentMethod", min_length=1, max_length=100)
-    user_email: str = Field(alias="userEmail")
+    donation_type: str = Field(default="monetary", alias="donationType", max_length=50)
+    category: Optional[str] = Field(default=None, max_length=200)
+    amount: Optional[Decimal] = Field(default=None, max_digits=12, decimal_places=2)
+    payment_method: Optional[str] = Field(
+        default=None, alias="paymentMethod", max_length=100
+    )
+    user_email: Optional[str] = Field(default=None, alias="userEmail", max_length=320)
+    item_category: Optional[str] = Field(
+        default=None, alias="itemCategory", max_length=200
+    )
+    item_description: Optional[str] = Field(
+        default=None, alias="itemDescription", max_length=2000
+    )
+    drop_off_option: Optional[str] = Field(
+        default=None, alias="dropOffOption", max_length=50
+    )
+    logistics_type: Optional[str] = Field(
+        default=None, alias="logisticsType", max_length=50
+    )
+    pickup_address: Optional[str] = Field(
+        default=None, alias="pickupAddress", max_length=1000
+    )
+
+
+class ProfileUpdateRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    full_name: str = Field(alias="fullName", min_length=1, max_length=200)
+    phone_number: str = Field(alias="phoneNumber", max_length=50)
+    preferences: Optional[dict[str, object]] = None
+
+
+class ProfileUserResponse(BaseModel):
+    user_id: int = Field(alias="userId")
+    full_name: str = Field(alias="fullName")
+    email: str
+    role: str
+    phone_number: Optional[str] = Field(alias="phoneNumber")
+    preferences: Optional[dict[str, object]]
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MobileUserResponse(BaseModel):
@@ -486,12 +523,46 @@ class VolunteerSignupRequest(BaseModel):
 class AssistanceRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    contact_name: str = Field(alias="contactName", min_length=1, max_length=200)
-    contact_phone: str = Field(alias="contactPhone", default="", max_length=50)
-    area: str = Field(default="", max_length=200)
+    description: Optional[str] = Field(default=None, max_length=2000)
+    request_details: Optional[str] = Field(
+        default=None, alias="requestDetails", max_length=2000
+    )
+    location: Optional[str] = Field(default=None, max_length=200)
+    area: Optional[str] = Field(default=None, max_length=200)
+    contact_name: Optional[str] = Field(
+        default=None, alias="contactName", max_length=200
+    )
+    contact_phone: str = Field(default="", alias="contactPhone", max_length=50)
     category: str = Field(min_length=1, max_length=200)
-    request_details: str = Field(alias="requestDetails", default="", max_length=2000)
-    urgency: str = "Medium"
+    urgency: str = Field(default="Medium", max_length=50)
+
+
+@router.put("/auth/profile", response_model=ProfileUserResponse)
+async def update_profile(
+    body: ProfileUpdateRequest,
+    request: Request,
+    user: User = Depends(require_mobile_user),
+    session: Session = Depends(get_session),
+):
+    full_name = body.full_name.strip()
+    if not full_name:
+        raise HTTPException(status_code=400, detail="Full name is required.")
+    user.full_name = full_name
+    user.phone_number = body.phone_number.strip()
+    if "preferences" in body.model_fields_set:
+        user.preferences = body.preferences
+    session.add(user)
+    add_record_history(session, request, "user", user.id, "mobile_profile_updated")
+    session.commit()
+    session.refresh(user)
+    return {
+        "userId": user.id,
+        "fullName": user.full_name,
+        "email": user.email,
+        "role": "Volunteer",
+        "phoneNumber": user.phone_number,
+        "preferences": user.preferences,
+    }
 
 
 @router.post(
@@ -541,17 +612,26 @@ async def submit_assistance_request(
 ):
     try:
         urgency = NeedUrgency(body.urgency.strip().capitalize())
-    except ValueError:
-        urgency = NeedUrgency.MEDIUM
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid assistance urgency.") from exc
     category = body.category.strip()
+    if not category:
+        raise HTTPException(status_code=400, detail="Assistance category is required.")
+    location = (body.location if body.location is not None else body.area or "").strip()
+    description = (
+        body.description
+        if body.description is not None
+        else body.request_details or ""
+    ).strip()
     need = BeneficiaryNeed(
-        contact_name=body.contact_name.strip(),
-        contact_phone=body.contact_phone.strip(),
-        full_address=body.area.strip(),
+        user_id=user.id,
+        contact_name=user.full_name,
+        contact_phone=body.contact_phone.strip() or user.phone_number or "",
+        full_address=location,
         anonymised_title=f"{category} assistance request",
-        area=body.area.strip(),
+        area=location,
         category=category,
-        request_details=body.request_details.strip(),
+        request_details=description,
         urgency=urgency,
         status=NeedStatus.PENDING,
     )
@@ -580,24 +660,65 @@ async def submit_donation(
     user: User = Depends(require_mobile_user),
     session: Session = Depends(get_session),
 ):
-    if body.user_email.strip().lower() != user.email:
+    if body.user_email and body.user_email.strip().lower() != user.email:
         raise HTTPException(status_code=403, detail="You can only donate using your own account.")
-    category = body.category.strip()
-    if not category:
-        raise HTTPException(status_code=400, detail="Donation category is required.")
-    try:
-        amount = body.amount.quantize(Decimal("0.01"))
-    except InvalidOperation as exc:
-        raise HTTPException(status_code=400, detail="Invalid donation amount.") from exc
-    if amount != body.amount or not amount.is_finite() or amount <= 0:
-        raise HTTPException(status_code=400, detail="Donation amount must be positive and use at most two decimals.")
+    donation_type = body.donation_type.strip().lower().replace("-", "").replace("_", "")
+    if donation_type not in {"monetary", "inkind"}:
+        raise HTTPException(status_code=400, detail="Invalid donation type.")
+    category = (body.category or "").strip()
+    item_category = (body.item_category or "").strip()
+    item_description = (body.item_description or "").strip()
+
+    amount = Decimal("0.00")
+    if donation_type == "monetary":
+        if body.amount is None:
+            raise HTTPException(status_code=400, detail="Donation amount is required.")
+        category = category or "General Fund (Where Most Needed)"
+        try:
+            amount = body.amount.quantize(Decimal("0.01"))
+        except InvalidOperation as exc:
+            raise HTTPException(status_code=400, detail="Invalid donation amount.") from exc
+        if amount != body.amount or not amount.is_finite() or amount <= 0:
+            raise HTTPException(status_code=400, detail="Donation amount must be positive and use at most two decimals.")
+        payment_method = "Pledge - No Online Payment"
+    else:
+        if not item_category or not item_description:
+            raise HTTPException(
+                status_code=400,
+                detail="Item category and description are required for in-kind donations.",
+            )
+        category = category or item_category
+        logistics_type = (
+            body.drop_off_option or body.logistics_type or "dropoff"
+        ).strip().lower().replace("_", "")
+        if logistics_type not in {"dropoff", "pickup"}:
+            raise HTTPException(status_code=400, detail="Invalid in-kind drop-off option.")
+        if logistics_type == "pickup" and not (body.pickup_address or "").strip():
+            raise HTTPException(
+                status_code=400,
+                detail="A collection address is required for pickup.",
+            )
+        payment_method = "In-Kind Delivery"
+
     donation = Donation(
         donor_name=user.full_name,
         donor_email=user.email,
         cause=category,
-        donation_type="monetary",
+        donation_type=donation_type,
         amount=amount,
-        payment_method="Pledge - No Online Payment",
+        item_category=item_category or None,
+        item_description=item_description or None,
+        logistics_type=(
+            logistics_type if donation_type == "inkind" else None
+        ),
+        pickup_address=(
+            body.pickup_address.strip()
+            if donation_type == "inkind"
+            and logistics_type == "pickup"
+            and body.pickup_address
+            else None
+        ),
+        payment_method=payment_method,
         status=DonationStatus.SUBMITTED.value,
         is_verified=False,
     )
@@ -615,5 +736,9 @@ async def submit_donation(
     return {
         "success": True,
         "transactionRef": f"AC-{donation.id:06d}",
-        "message": "Your donation pledge has been recorded. No payment was processed.",
+        "message": (
+            "Your donation pledge has been recorded. No payment was processed."
+            if donation_type == "monetary"
+            else "Your in-kind donation offer has been recorded."
+        ),
     }

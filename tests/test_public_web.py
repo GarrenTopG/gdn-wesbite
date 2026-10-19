@@ -9,12 +9,14 @@ os.environ["DATABASE_BACKEND"] = "sqlite"
 os.environ["SQLITE_FILE_NAME"] = "public_web_test_unused.db"
 
 from fastapi.testclient import TestClient
+from sqlalchemy.dialects import mssql
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.db.session import get_session
 from app.models.entities import Donation, DonationStatus, ReceiptAccess, User, UserRole
 from app.manage_staff import hash_password
+from app.routers.donations import _active_community_needs_statement
 from main import app
 
 
@@ -307,6 +309,13 @@ class PublicWebTests(unittest.TestCase):
         library_photo = self.client.get("/static/images/aurora-public-library.webp")
         self.assertEqual(library_photo.status_code, 200)
         self.assertEqual(library_photo.headers["content-type"], "image/webp")
+
+    def test_donation_needs_query_uses_sql_server_bit_comparison(self):
+        query = str(
+            _active_community_needs_statement().compile(dialect=mssql.dialect())
+        )
+        self.assertIn("beneficiaryneed.is_community_need = 1", query)
+        self.assertNotIn("beneficiaryneed.is_community_need IS 1", query)
 
 
 if __name__ == "__main__":

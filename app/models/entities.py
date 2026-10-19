@@ -54,6 +54,10 @@ class VolunteerStatus(str, Enum):
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     full_name: str
+    phone_number: Optional[str] = Field(default=None, max_length=50)
+    preferences: Optional[dict[str, object]] = Field(
+        default=None, sa_column=Column(JSON)
+    )
     email: str = Field(max_length=255, unique=True, index=True)
     hashed_password: str
     role: UserRole = Field(default=UserRole.USER)
@@ -141,6 +145,7 @@ class Volunteer(SQLModel, table=True):
 class BeneficiaryNeed(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     is_community_need: bool = Field(default=False, index=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
 
     # Restricted POPIA Personal Data (Admin/Internal Route Access Only)
     contact_name: str

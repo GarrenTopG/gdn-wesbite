@@ -124,17 +124,19 @@ The Android app and website use this FastAPI service and the same configured dat
 | `POST /api/auth/register` | Public | Create a regular user account (`fullName`, `email`, `password`; password minimum 12 characters). Any submitted `role` is ignored. |
 | `POST /api/auth/login` | Public | Sign in with email and password. |
 | `POST /api/auth/google-sso` | Public | Verify a Firebase ID token and sign in or create a regular user account. |
+| `PUT /api/auth/profile` | Bearer token | Update the signed-in user's `full_name`, `phone_number`, and optional `preferences`. |
 | `POST /api/auth/change-password` | Bearer token | Change the signed-in user's password (`email`, `oldPassword`, `newPassword`). |
 | `GET /api/news` | Public | Return published news items. |
 | `GET /api/needs` | Public | Return open, public community needs without beneficiary contact details. |
 | `POST /api/needs/offer-assistance` | Bearer token | Submit an offer for an open community need (`needId`, `userEmail`, `volunteerSkill`, `notes`). |
-| `POST /api/donations` | Bearer token | Record a monetary donation pledge (`category`, `amount`, `paymentMethod`, `userEmail`). |
+| `POST /api/assistance-requests` | Bearer token | Submit a request (`category`, `description`, `urgency`, `location`, `contact_phone`) as the signed-in user. |
+| `POST /api/donations` | Bearer token | Record a monetary pledge (`category`, `amount`) or in-kind offer (`item_category`, `item_description`, `drop_off_option`). |
 
 Successful sign-in and registration responses include `success`, `message`, `token`, and a `user` object. Send the token on protected requests as `Authorization: Bearer <token>`; mobile sessions expire after 12 hours. Account roles are assigned by the server, never trusted from the app. Failed or malformed requests return HTTP error responses.
 
 Google sign-in accepts a **Firebase ID token** in the JSON field `idToken` (not a raw Google ID token). Set `FIREBASE_PROJECT_ID` to the Firebase project used by Android, and configure Application Default Credentials for the website process. In local development, this can be done with `GOOGLE_APPLICATION_CREDENTIALS` pointing to a private service-account JSON file; in production, prefer the hosting platform's attached service identity. Keep credential files outside Git and never put credentials in Android, website JavaScript, or chat. Google sign-in returns a clear service-unavailable error until this configuration and the `firebase-admin` dependency are available.
 
-Mobile donation submissions are **pledges only**. The website currently has no online payment processor: `paymentMethod` is not used to charge or verify a payment, and the API response explicitly says no payment was processed. Donations remain unverified until staff handle them through the existing admin workflow. Offers to help are saved with `Pending` status; staff with community-needs access can review them in Admin → Needs and mark them reviewed.
+Mobile monetary donation submissions are **pledges only**. The website currently has no online payment processor: `paymentMethod` is not used to charge or verify a payment, and the API response explicitly says no payment was processed. Donations remain unverified until staff handle them through the existing admin workflow. In-kind submissions record the item details and whether the donor will drop off or requests pickup. Assistance requests are stored as private beneficiary needs and linked to the authenticated account. Offers to help are saved with `Pending` status; staff with community-needs access can review them in Admin → Needs and mark them reviewed.
 
 The API enables CORS for the Android emulator origin `http://10.0.2.2:8000`, private IPv4 development hosts, and `https://aurorahcan.org.za` / `https://www.aurorahcan.org.za`. Set `CORS_ALLOWED_ORIGINS` to a comma-separated list of additional exact origins for a different production app domain; do not use `*` for production. SQLAlchemy connection failures on API requests are logged server-side and return a generic JSON `503` response.
 
@@ -160,7 +162,7 @@ MSSQL_DRIVER=ODBC Driver 18 for SQL Server
 
 For a new, empty database, initialize the tables once with a schema-provisioning login: temporarily set `DATABASE_AUTO_CREATE_SCHEMA=true`, run `python -c "from app.db.session import create_db_and_tables; create_db_and_tables()"`, then switch it back to `false` and configure the restricted website login. The website login should have only the data permissions it needs; keep schema-owner/admin credentials out of the running website. Schema initialization does not migrate records from `aurorah.db`.
 
-When upgrading an existing SQL Server database, rerun the one-time schema setup with `DATABASE_AUTO_CREATE_SCHEMA=true` and a schema-provisioning login before starting the app with the restricted website login. This creates missing tables and applies additive schema updates, including the news publication-date field; it does not migrate SQLite records.
+When upgrading an existing SQL Server database, rerun the one-time schema setup with `DATABASE_AUTO_CREATE_SCHEMA=true` and a schema-provisioning login before starting the app with the restricted website login. This creates missing tables and applies additive schema updates, including the news publication-date field and mobile profile/assistance fields; it does not migrate SQLite records.
 
 Allow the app machine's outbound IP address in the Azure SQL firewall. The IP auto-added when connecting through SSMS is your workstation's IP; it does not automatically allow a separately hosted website. Keep all database credentials in `.env` or a hosting secret store—never in templates, frontend JavaScript, or Git.
 

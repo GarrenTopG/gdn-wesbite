@@ -3,6 +3,7 @@ from io import BytesIO
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, StreamingResponse
+from sqlalchemy import true
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from sqlmodel import Session, select
@@ -45,6 +46,13 @@ SUPPORT_AREAS = {
 }
 
 
+def _active_community_needs_statement():
+    return select(BeneficiaryNeed).where(
+        BeneficiaryNeed.is_community_need == true(),
+        BeneficiaryNeed.status != NeedStatus.FULFILLED,
+    )
+
+
 # Donation route to render the donation page
 @router.get("", response_class=HTMLResponse)
 async def get_donate_page(
@@ -52,12 +60,7 @@ async def get_donate_page(
     need_id: Optional[int] = None,
     session: Session = Depends(get_session),
 ):
-    active_needs = session.exec(
-        select(BeneficiaryNeed).where(
-            BeneficiaryNeed.is_community_need.is_(True),
-            BeneficiaryNeed.status != NeedStatus.FULFILLED,
-        )
-    ).all()
+    active_needs = session.exec(_active_community_needs_statement()).all()
 
     return templates.TemplateResponse(
         request=request,
@@ -75,12 +78,7 @@ async def submit_donation_form(
     request: Request,
     session: Session = Depends(get_session),
 ):
-    active_needs = session.exec(
-        select(BeneficiaryNeed).where(
-            BeneficiaryNeed.is_community_need.is_(True),
-            BeneficiaryNeed.status != NeedStatus.FULFILLED,
-        )
-    ).all()
+    active_needs = session.exec(_active_community_needs_statement()).all()
     request.state.donation_active_needs = active_needs
     form_data = await request.form()
     request.state.donation_form_values = {
