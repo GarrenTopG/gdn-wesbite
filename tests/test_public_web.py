@@ -14,7 +14,11 @@ from sqlalchemy.dialects import mssql
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from app.db.session import _normalize_volunteer_available_days, get_session
+from app.db.session import (
+    _normalize_volunteer_available_days,
+    _normalize_volunteer_status,
+    get_session,
+)
 from app.models.entities import (
     BeneficiaryNeed,
     Donation,
@@ -24,6 +28,7 @@ from app.models.entities import (
     User,
     UserRole,
     Volunteer,
+    VolunteerStatus,
 )
 from app.manage_staff import hash_password
 from app.routers.donations import _active_community_needs_statement
@@ -269,6 +274,49 @@ class PublicWebTests(unittest.TestCase):
         with Session(self.engine) as session:
             volunteer = session.exec(select(Volunteer)).one()
         self.assertEqual(volunteer.available_days, [])
+
+    def test_dashboard_recovers_from_legacy_volunteer_status_values(self):
+        with Session(self.engine) as session:
+            session.add(
+                User(
+                    full_name="Administrator",
+                    email="admin@example.org",
+                    hashed_password=hash_password("CorrectHorseBatteryStaple1!"),
+                    role=UserRole.ADMINISTRATOR,
+                )
+            )
+            session.add(
+                Volunteer(
+                    full_name="Test Volunteer",
+                    phone="555-0100",
+                    email="volunteer@example.org",
+                    skills="Community support",
+                    location="Cape Town",
+                )
+            )
+            session.commit()
+
+        with self.engine.begin() as connection:
+            connection.execute(text("UPDATE volunteer SET status = 'Active'"))
+
+        _normalize_volunteer_status(self.engine)
+
+        login = self.client.post(
+            "/admin/login",
+            data={
+                "csrf_token": self.csrf_token(),
+                "email": "admin@example.org",
+                "password": "CorrectHorseBatteryStaple1!",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(login.status_code, 303, login.text)
+        dashboard = self.client.get("/admin/dashboard")
+        self.assertEqual(dashboard.status_code, 200, dashboard.text[:1000])
+
+        with Session(self.engine) as session:
+            volunteer = session.exec(select(Volunteer)).one()
+        self.assertEqual(volunteer.status, VolunteerStatus.ACTIVE)
 
     def test_staff_session_cookie_matches_server_session_lifetime(self):
         with Session(self.engine) as session:

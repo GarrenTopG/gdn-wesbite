@@ -52,6 +52,44 @@ def _normalize_volunteer_available_days(database_engine: Engine) -> None:
             )
 
 
+def _normalize_volunteer_status(database_engine: Engine) -> None:
+    from app.models.entities import VolunteerStatus
+
+    status_lookup = {
+        candidate.casefold(): member.name
+        for member in VolunteerStatus
+        for candidate in (member.name, member.value)
+    }
+    with database_engine.begin() as connection:
+        rows = connection.execute(text("SELECT id, status FROM volunteer"))
+        updates = []
+        for volunteer_id, current_status in rows:
+            normalized_status = status_lookup.get(
+                current_status.strip().casefold()
+                if isinstance(current_status, str)
+                else ""
+            )
+            if normalized_status is None:
+                normalized_status = VolunteerStatus.ACTIVE.name
+            if current_status != normalized_status:
+                updates.append(
+                    {
+                        "volunteer_id": volunteer_id,
+                        "status": normalized_status,
+                    }
+                )
+
+        if updates:
+            connection.execute(
+                text("UPDATE volunteer SET status = :status WHERE id = :volunteer_id"),
+                updates,
+            )
+            logger.warning(
+                "Normalized invalid volunteer.status values for %d records",
+                len(updates),
+            )
+
+
 def _create_engine() -> Engine:
     backend = os.getenv("DATABASE_BACKEND", "sqlite").strip().lower()
     if backend == "sqlite":
@@ -174,6 +212,7 @@ def create_db_and_tables():
             seed_community_stories(session)
             session.commit()
         _normalize_volunteer_available_days(engine)
+        _normalize_volunteer_status(engine)
         return
 
     SQLModel.metadata.create_all(engine)
@@ -391,6 +430,7 @@ def create_db_and_tables():
         )
 
     _normalize_volunteer_available_days(engine)
+    _normalize_volunteer_status(engine)
     with Session(engine) as session:
         seed_community_stories(session)
         session.commit()
