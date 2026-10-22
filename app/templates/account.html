@@ -12,7 +12,7 @@
             {% if mode == 'register' %}
             Create an account to request help or apply to volunteer. You can browse the site and make a donation pledge without signing in.
             {% else %}
-            Sign in to continue to the page you requested. You can browse the site and make a donation pledge without signing in.
+            Sign in to continue to the page you requested. Staff accounts will be taken to the administration dashboard.
             {% endif %}
         </p>
 
@@ -60,6 +60,9 @@
             New here? <a class="font-semibold text-brand-800 underline" href="/account/register?next_path={{ next_path|urlencode }}">Create an account</a>
             {% endif %}
         </p>
+        {% if mode == 'login' %}
+        <p class="mt-4 text-center text-xs text-gray-500">You can browse the site and make a donation pledge without signing in.</p>
+        {% endif %}
     </div>
 </section>
 {% endblock %}

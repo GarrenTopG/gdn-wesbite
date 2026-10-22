@@ -14,7 +14,15 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.db.session import get_session
-from app.models.entities import Donation, DonationStatus, ReceiptAccess, User, UserRole
+from app.models.entities import (
+    BeneficiaryNeed,
+    Donation,
+    DonationStatus,
+    NeedStatus,
+    ReceiptAccess,
+    User,
+    UserRole,
+)
 from app.manage_staff import hash_password
 from app.routers.donations import _active_community_needs_statement
 from main import app
@@ -291,6 +299,58 @@ class PublicWebTests(unittest.TestCase):
         security = self.client.get("/admin/security")
         self.assertEqual(security.status_code, 200, security.text[:1000])
         self.assertIn("class=\"admin-workspace\"", security.text)
+
+    def test_shared_login_routes_staff_to_admin_dashboard(self):
+        with Session(self.engine) as session:
+            session.add(
+                User(
+                    full_name="Administrator",
+                    email="shared-admin@example.org",
+                    hashed_password=hash_password("CorrectHorseBatteryStaple1!"),
+                    role=UserRole.ADMINISTRATOR,
+                )
+            )
+            session.commit()
+
+        response = self.client.get("/admin/login", follow_redirects=False)
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.headers["location"], "/account/login")
+
+        response = self.client.post(
+            "/account/login",
+            data={
+                "csrf_token": self.csrf_token(),
+                "email": "shared-admin@example.org",
+                "password": "CorrectHorseBatteryStaple1!",
+                "next_path": "/",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303, response.text)
+        self.assertEqual(response.headers["location"], "/admin/dashboard")
+        self.assertTrue(self.client.cookies.get("staff_session"))
+        self.assertFalse(self.client.cookies.get("user_session"))
+        self.assertEqual(self.client.get("/admin/dashboard").status_code, 200)
+
+    def test_donate_page_reads_legacy_open_need_status(self):
+        with Session(self.engine) as session:
+            session.add(
+                BeneficiaryNeed(
+                    is_community_need=True,
+                    contact_name="Private Contact",
+                    contact_phone="555-0100",
+                    full_address="Private Address",
+                    anonymised_title="Community food parcels",
+                    area="Kuils River",
+                    category="Food",
+                    status=NeedStatus.Open,
+                )
+            )
+            session.commit()
+
+        response = self.client.get("/donate")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIn("Community food parcels", response.text)
 
     def test_public_browse_pages_render(self):
         for path in ("/", "/about", "/donate", "/account/register"):

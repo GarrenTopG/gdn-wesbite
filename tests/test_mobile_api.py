@@ -157,6 +157,15 @@ class MobileApiTests(unittest.TestCase):
 
     def test_profile_update_requires_authentication_and_persists_changes(self):
         account = self.register()
+        initial_profile = self.client.get("/api/auth/profile")
+        self.assertEqual(initial_profile.status_code, 401)
+        initial_profile = self.client.get(
+            "/api/auth/profile",
+            headers={"Authorization": f"Bearer {account['token']}"},
+        )
+        self.assertEqual(initial_profile.status_code, 200, initial_profile.text)
+        self.assertEqual(initial_profile.json()["fullName"], "Mobile Volunteer")
+
         body = {
             "full_name": "Updated Mobile User",
             "phone_number": "+27 82 123 4567",
@@ -172,6 +181,13 @@ class MobileApiTests(unittest.TestCase):
             json=body,
         )
         self.assertEqual(response.status_code, 200, response.text)
+        fetched = self.client.get(
+            "/api/auth/profile",
+            headers={"Authorization": f"Bearer {account['token']}"},
+        )
+        self.assertEqual(fetched.status_code, 200, fetched.text)
+        self.assertEqual(fetched.json()["fullName"], "Updated Mobile User")
+        self.assertEqual(fetched.json()["phoneNumber"], "+27 82 123 4567")
         self.assertEqual(
             response.json(),
             {
@@ -190,6 +206,31 @@ class MobileApiTests(unittest.TestCase):
             self.assertEqual(
                 user.preferences, {"notifications": True, "language": "en"}
             )
+
+    def test_logout_revokes_current_mobile_session(self):
+        account = self.register()
+        headers = {"Authorization": f"Bearer {account['token']}"}
+
+        response = self.client.post("/api/auth/logout", headers=headers)
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json(), {"success": True, "message": "Signed out."})
+        protected = self.client.post(
+            "/api/assistance-requests",
+            headers=headers,
+            json={
+                "category": "Food",
+                "description": "Need groceries",
+                "location": "Kuils River",
+                "contactPhone": "+27 82 123 4567",
+            },
+        )
+        self.assertEqual(protected.status_code, 401)
+        with Session(self.engine) as session:
+            auth_session = session.exec(
+                select(AuthSession).where(AuthSession.user_id == account["user"]["userId"])
+            ).first()
+            self.assertIsNone(auth_session)
 
     def test_assistance_request_requires_authentication_and_links_account(self):
         account = self.register()

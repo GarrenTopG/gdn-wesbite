@@ -10,8 +10,9 @@ from sqlmodel import Session, select
 
 from app.db.session import get_session
 from app.manage_staff import hash_password, verify_password
-from app.models.entities import AuthSession, User, UserRole
+from app.models.entities import AuditLog, AuthSession, User, UserRole
 from app.security import (
+    STAFF_COOKIE_NAME,
     STAFF_SESSION_TTL_SECONDS,
     add_record_history,
     enforce_rate_limit,
@@ -100,10 +101,35 @@ async def account_login_page(
     next_path: str = "/",
     session: Session = Depends(get_session),
 ):
+    staff_user = _get_staff_user(request, session)
+    if staff_user:
+        return RedirectResponse("/admin/dashboard", status_code=303)
     user = get_public_user(request, session)
     if user:
         return RedirectResponse(_safe_next_path(next_path), status_code=303)
     return _render_account(request, mode="login", next_path=next_path)
+
+
+def _get_staff_user(request: Request, session: Session) -> Optional[User]:
+    token = request.cookies.get(STAFF_COOKIE_NAME)
+    if not token:
+        return None
+
+    auth_session = session.exec(
+        select(AuthSession).where(AuthSession.token_hash == _session_digest(token))
+    ).first()
+    if not auth_session:
+        return None
+    expires_at = auth_session.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=now_utc().tzinfo)
+    if expires_at <= now_utc():
+        return None
+
+    user = session.get(User, auth_session.user_id)
+    if not user or not user.is_active or user.role == UserRole.USER:
+        return None
+    return user
 
 
 @router.post(
@@ -123,7 +149,16 @@ async def account_login(
     valid_password = verify_password(
         password, user.hashed_password if user else DUMMY_PASSWORD_HASH
     )
-    if not user or user.role != UserRole.USER or not user.is_active or not valid_password:
+    if not user or not user.is_active or not valid_password:
+        session.add(
+            AuditLog(
+                actor_identity=user.email if user else "unknown",
+                action="auth.login_failed",
+                target_type="user" if user else "authentication",
+                target_id=str(user.id) if user else None,
+            )
+        )
+        session.commit()
         return _render_account(
             request,
             mode="login",
@@ -133,6 +168,7 @@ async def account_login(
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
 
+    is_staff = user.role != UserRole.USER
     token = secrets.token_urlsafe(32)
     session.add(
         AuthSession(
@@ -142,11 +178,25 @@ async def account_login(
             mfa_verified=True,
         )
     )
-    add_record_history(session, request, "user", user.id, "web_login")
+    if is_staff:
+        session.add(
+            AuditLog(
+                actor_id=user.id,
+                actor_identity=user.email,
+                action="auth.login_success",
+                target_type="user",
+                target_id=str(user.id),
+            )
+        )
+    else:
+        add_record_history(session, request, "user", user.id, "web_login")
     session.commit()
-    response = RedirectResponse(_safe_next_path(next_path), status_code=303)
+    response = RedirectResponse(
+        "/admin/dashboard" if is_staff else _safe_next_path(next_path),
+        status_code=303,
+    )
     response.set_cookie(
-        key=USER_COOKIE_NAME,
+        key=STAFF_COOKIE_NAME if is_staff else USER_COOKIE_NAME,
         value=token,
         max_age=STAFF_SESSION_TTL_SECONDS,
         httponly=True,

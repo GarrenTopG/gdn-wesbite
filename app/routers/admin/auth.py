@@ -142,14 +142,8 @@ def get_pending_auth_session(request: Request, session: Session) -> Optional[Aut
 
 
 @router.get("/login", response_class=HTMLResponse)
-async def get_admin_login(request: Request, session: Session = Depends(get_session)):
-    if get_staff_user(request, session):
-        return RedirectResponse(url="/admin/dashboard", status_code=303)
-    return templates.TemplateResponse(
-        request=request,
-        name="adminlogin.html",
-        context={"active_page": "admin"},
-    )
+async def get_admin_login():
+    return RedirectResponse(url="/account/login", status_code=303)
 
 
 @router.post("/login", response_class=HTMLResponse)

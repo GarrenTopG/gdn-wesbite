@@ -24,6 +24,7 @@ class NeedUrgency(str, Enum):
 
 # ENUMS FOR NEED STATUS AND VOLUNTEER STATUS
 class NeedStatus(str, Enum):
+    Open = "Open"
     PENDING = "Pending"
     IN_PROGRESS = "In Progress"
     MATCHED = "Matched"

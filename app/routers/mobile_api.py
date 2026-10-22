@@ -418,6 +418,29 @@ async def change_password(
     return {"success": True, "message": "Password changed."}
 
 
+@router.post("/auth/logout", response_model=SuccessResponse)
+async def logout(
+    request: Request,
+    user: User = Depends(require_mobile_user),
+    session: Session = Depends(get_session),
+):
+    authorization = request.headers.get("Authorization", "")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Sign-in required.")
+    auth_session = session.exec(
+        select(AuthSession).where(
+            AuthSession.token_hash == _session_digest(token.strip()),
+            AuthSession.user_id == user.id,
+        )
+    ).first()
+    if auth_session:
+        session.delete(auth_session)
+        add_record_history(session, request, "user", user.id, "mobile_logout")
+        session.commit()
+    return {"success": True, "message": "Signed out."}
+
+
 @router.get("/news", response_model=list[NewsItemResponse])
 async def get_news(session: Session = Depends(get_session)):
     articles = session.exec(
@@ -535,6 +558,18 @@ class AssistanceRequest(BaseModel):
     contact_phone: str = Field(default="", alias="contactPhone", max_length=50)
     category: str = Field(min_length=1, max_length=200)
     urgency: str = Field(default="Medium", max_length=50)
+
+
+@router.get("/auth/profile", response_model=ProfileUserResponse)
+async def get_mobile_profile(user: User = Depends(require_mobile_user)):
+    return {
+        "userId": user.id,
+        "fullName": user.full_name,
+        "email": user.email,
+        "role": "Volunteer",
+        "phoneNumber": user.phone_number,
+        "preferences": user.preferences,
+    }
 
 
 @router.put("/auth/profile", response_model=ProfileUserResponse)
