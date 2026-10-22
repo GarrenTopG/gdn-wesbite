@@ -1,3 +1,5 @@
+import json
+import logging
 import os
 
 from dotenv import load_dotenv
@@ -9,9 +11,46 @@ from app.news_content import seed_community_stories
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 LEGACY_SEEDED_NEWS_SLUGS = (
     "shifting-mindsets-financial-skills-training-program-with-avo-vision",
 )
+
+
+def _normalize_volunteer_available_days(database_engine: Engine) -> None:
+    with database_engine.begin() as connection:
+        rows = connection.execute(
+            text(
+                "SELECT id, available_days FROM volunteer "
+                "WHERE available_days IS NOT NULL"
+            )
+        )
+        invalid_ids = []
+        for volunteer_id, available_days in rows:
+            try:
+                parsed_days = json.loads(available_days)
+            except (json.JSONDecodeError, TypeError):
+                invalid_ids.append(volunteer_id)
+                continue
+            if not isinstance(parsed_days, list) or any(
+                not isinstance(day, str) for day in parsed_days
+            ):
+                invalid_ids.append(volunteer_id)
+
+        if invalid_ids:
+            connection.execute(
+                text(
+                    "UPDATE volunteer SET available_days = '[]' "
+                    "WHERE id = :volunteer_id"
+                ),
+                [{"volunteer_id": volunteer_id} for volunteer_id in invalid_ids],
+            )
+            logger.warning(
+                "Reset invalid volunteer.available_days values for %d records",
+                len(invalid_ids),
+            )
+
 
 def _create_engine() -> Engine:
     backend = os.getenv("DATABASE_BACKEND", "sqlite").strip().lower()
@@ -134,6 +173,7 @@ def create_db_and_tables():
         with Session(engine) as session:
             seed_community_stories(session)
             session.commit()
+        _normalize_volunteer_available_days(engine)
         return
 
     SQLModel.metadata.create_all(engine)
@@ -350,6 +390,7 @@ def create_db_and_tables():
             )
         )
 
+    _normalize_volunteer_available_days(engine)
     with Session(engine) as session:
         seed_community_stories(session)
         session.commit()
