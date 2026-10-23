@@ -315,6 +315,7 @@ class MobileApiTests(unittest.TestCase):
                         slug="published-update",
                         summary="Public summary",
                         content="Public story",
+                        image_url="/static/images/news/community-cook-off.png",
                         status=NewsStatus.PUBLISHED.value,
                     ),
                     NewsArticle(
@@ -348,9 +349,13 @@ class MobileApiTests(unittest.TestCase):
         news = self.client.get("/api/news").json()
         self.assertEqual(
             set(news[0]),
-            {"id", "title", "summary", "timestamp", "category"},
+            {"id", "title", "summary", "image_url", "timestamp", "category"},
         )
         self.assertEqual([article["title"] for article in news], ["Published update"])
+        self.assertEqual(
+            news[0]["image_url"],
+            "/static/images/news/community-cook-off.png",
+        )
 
     def test_offers_and_donations_require_the_account_identity(self):
         account = self.register()

@@ -156,7 +156,7 @@ async def update_news_article(
     article_id: int,
     request: Request,
     title: str = Form(...),
-    category: str = Form(...),
+    category: Optional[str] = Form(None),
     summary: str = Form(...),
     content: str = Form(...),
     image_url: Optional[str] = Form(None),
@@ -168,7 +168,7 @@ async def update_news_article(
     article = session.get(NewsArticle, article_id)
     if article and article.archived_at is None:
         article.title = title
-        article.category = category
+        article.category = category or article.category
         article.summary = summary
         article.content = content
         article.image_url = image_url

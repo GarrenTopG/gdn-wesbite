@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -58,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -66,6 +68,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImagePainter
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -129,7 +134,8 @@ private data class Story(
     val title: String,
     val summary: String,
     val category: String,
-    val timestamp: String
+    val timestamp: String,
+    val imageUrl: String? = null
 )
 
 private data class CommunityNeed(
@@ -140,6 +146,18 @@ private data class CommunityNeed(
     val priority: String,
     val category: String
 )
+
+private fun resolveImageUrl(imageUrl: String?): String? {
+    val candidate = imageUrl?.trim()?.takeIf { it.isNotEmpty() && it != "null" } ?: return null
+    return when {
+        candidate.startsWith("//") -> "https:$candidate"
+        candidate.startsWith("/", ignoreCase = false) -> "$SITE_BASE_URL$candidate"
+        candidate.startsWith("http://", ignoreCase = true) ->
+            "https://${candidate.substringAfter("://")}"
+        candidate.startsWith("https://", ignoreCase = true) -> candidate
+        else -> "$SITE_BASE_URL/${candidate.trimStart('/')}"
+    }
+}
 
 @Composable
 private fun AurorahApp() {
@@ -691,6 +709,10 @@ private fun StoriesScreen(modifier: Modifier, onOpenWebsite: (String) -> Unit) {
             TextButton(onClick = { selectedStory = null }) { Text("← All stories", color = Brand) }
             SectionTitle(selectedStory!!.title)
             BodyText(listOf(selectedStory!!.category, selectedStory!!.timestamp.take(10)).filter { it.isNotBlank() }.joinToString(" · "))
+            StoryImage(
+                selectedStory!!,
+                Modifier.fillMaxWidth().height(220.dp)
+            )
             BodyText(selectedStory!!.summary)
             Notice("This app feed provides a short summary. Open the website for the full article.", BrandPale, Brand)
             PrimaryButton("Open full story on website", false) { onOpenWebsite("/news") }
@@ -1029,12 +1051,51 @@ private fun StoryCard(story: Story, onClick: () -> Unit) {
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Text(listOf(story.category, story.timestamp.take(10)).filter { it.isNotBlank() }.joinToString(" · ").uppercase(), color = BrandMid, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Text(story.title, color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            BodyText(story.summary)
-            Text("Read story  →", color = Brand, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Column {
+            StoryImage(story, Modifier.fillMaxWidth().height(190.dp))
+            Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text(listOf(story.category, story.timestamp.take(10)).filter { it.isNotBlank() }.joinToString(" · ").uppercase(), color = BrandMid, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(story.title, color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                BodyText(story.summary)
+                Text("Read story  →", color = Brand, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
         }
+    }
+}
+
+@Composable
+private fun StoryImage(story: Story, modifier: Modifier = Modifier) {
+    val imageUrl = story.imageUrl
+    if (imageUrl.isNullOrBlank()) {
+        StoryImagePlaceholder(modifier)
+    } else {
+        SubcomposeAsyncImage(
+            model = imageUrl,
+            contentDescription = "Image for ${story.title}",
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+        ) {
+            when (painter.state) {
+                is AsyncImagePainter.State.Loading,
+                is AsyncImagePainter.State.Error -> StoryImagePlaceholder(Modifier.fillMaxSize())
+                else -> SubcomposeAsyncImageContent()
+            }
+        }
+    }
+}
+
+@Composable
+private fun StoryImagePlaceholder(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.background(BrandPale),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            Icons.Filled.Article,
+            contentDescription = null,
+            tint = BrandMid,
+            modifier = Modifier.size(48.dp)
+        )
     }
 }
 
@@ -1068,7 +1129,8 @@ private object Api {
             val title = item.optString("title").trim()
             if (title.isBlank()) null else Story(
                 item.optInt("id"), title, item.optString("summary"),
-                item.optString("category"), item.optString("timestamp")
+                item.optString("category"), item.optString("timestamp"),
+                resolveImageUrl(item.optString("image_url"))
             )
         }
     }

@@ -157,6 +157,7 @@ class NewsItemResponse(BaseModel):
     id: int
     title: str
     summary: str
+    image_url: Optional[str] = None
     timestamp: str
     category: str
 
@@ -456,6 +457,7 @@ async def get_news(session: Session = Depends(get_session)):
             "id": article.id,
             "title": article.title,
             "summary": article.summary,
+            "image_url": article.image_url,
             "timestamp": article.created_at.isoformat(),
             "category": article.category,
         }

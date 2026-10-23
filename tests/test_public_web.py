@@ -26,6 +26,7 @@ from app.models.entities import (
     Donation,
     DonationStatus,
     NeedStatus,
+    NewsArticle,
     ReceiptAccess,
     User,
     UserRole,
@@ -231,6 +232,59 @@ class PublicWebTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 303)
         self.assertEqual(response.headers["location"], "/admin/login")
+
+    def test_news_image_can_be_updated_when_category_is_omitted(self):
+        with Session(self.engine) as session:
+            session.add(
+                User(
+                    full_name="Administrator",
+                    email="admin@example.org",
+                    hashed_password=hash_password("CorrectHorseBatteryStaple1!"),
+                    role=UserRole.ADMINISTRATOR,
+                )
+            )
+            session.add(
+                NewsArticle(
+                    title="Story to update",
+                    slug="story-to-update",
+                    category="Youth",
+                    summary="A short summary",
+                    content="Full story content",
+                )
+            )
+            session.commit()
+
+        login = self.client.post(
+            "/admin/login",
+            data={
+                "csrf_token": self.csrf_token(),
+                "email": "admin@example.org",
+                "password": "CorrectHorseBatteryStaple1!",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(login.status_code, 303, login.text)
+
+        response = self.client.post(
+            "/admin/news/1/edit",
+            data={
+                "csrf_token": self.client.cookies.get("csrf_token"),
+                "title": "Story to update",
+                "summary": "A short summary",
+                "content": "Full story content",
+                "image_url": "/static/images/news/community-cook-off.png",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303, response.text)
+
+        with Session(self.engine) as session:
+            article = session.get(NewsArticle, 1)
+        self.assertEqual(article.category, "Youth")
+        self.assertEqual(
+            article.image_url,
+            "/static/images/news/community-cook-off.png",
+        )
 
     def test_dashboard_recovers_from_invalid_volunteer_availability_json(self):
         with Session(self.engine) as session:

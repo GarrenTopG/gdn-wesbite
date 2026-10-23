@@ -16,6 +16,7 @@ This folder contains a Jetpack Compose Android app screen implementation. It is 
    ```kotlin
    implementation("androidx.compose.material:material-icons-extended")
    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+   implementation("io.coil-kt:coil-compose:2.7.0")
    ```
 
    Click **Sync Now** and wait for Gradle sync to finish.
@@ -38,14 +39,14 @@ The local backend must be running and include this repository's mobile API route
 - **Home**: existing action-led dashboard, latest story, community needs, and location/contact information.
 - **Get Help**: eligibility, emergency notice, privacy context, and a three-step assistance request form.
 - **Get Involved**: community needs feed, offer-to-help flow, donation pledge flow, and volunteer roles/application.
-- **Stories**: category-filtered public news feed, summary detail, and a link to the website article.
+- **Stories**: category-filtered public news feed with article images, summary detail, and a link to the website article.
 - **Profile**: sign-in/register, editable name and phone, contact preference, sign-out, and links to About, Contact, and Privacy.
 
 The bottom navigation labels remain visible with their icons. Browsing stories and learning about Aurorah CAN do not require an account; sign-in is requested only when submitting a task that requires it.
 
 ## API limits and behavior
 
-- Home, Stories, and current community needs use the public `/api/news` and `/api/needs` feeds. Article detail is limited to the summary returned by the API; there is no mobile article-detail endpoint.
+- Home, Stories, and current community needs use the public `/api/news` and `/api/needs` feeds. News responses include an optional `image_url`, which the app loads over HTTPS. Article detail is limited to the summary returned by the API; there is no mobile article-detail endpoint.
 - Assistance requests, volunteer applications, donation pledges, and offers to help require sign-in and are submitted to the existing mobile API.
 - A donation is a pledge only: the app does not process payments. The mobile API does not collect Section 18A tax-receipt information, so the app links to the website for that flow.
 - The API does not expose request, donation, or volunteer submission history/status. The app does not show tracking or application-history features.
