@@ -75,6 +75,8 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+The site uses precompiled local Tailwind stylesheets rather than compiling styles in the visitor's browser. If you change Tailwind classes or either theme, install the frontend build dependency with `npm install` and regenerate both stylesheets with `npm run build:css`.
+
 ### 4. Run the application
 
 Create a local `.env` file with a randomly generated application secret:

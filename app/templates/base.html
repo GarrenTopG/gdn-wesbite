@@ -8,47 +8,9 @@
     <meta property="og:title" content="{% block og_title %}Aurorah CAN{% endblock %}">
     <meta property="og:description" content="{% block og_description %}Community development, food relief and educational support in Kuils River and nearby Cape Flats communities.{% endblock %}">
     
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/tailwind.css">
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <script>
-        // Custom Tailwind Theme Configuration
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        brand: {
-                            50: '#fdf2f8',
-                            100: '#fce7f3',
-                            500: '#d5105c',
-                            700: '#a33957', 
-                            800: '#943d56', // Deep mauve/burgundy
-                            900: '#752d42',
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['Segoe UI', 'Roboto', 'Helvetica Neue', 'sans-serif'],
-                    },
-                    keyframes: {
-                        pulseHeart: {
-                            '0%, 100%': { transform: 'scale(1)' },
-                            '50%': { transform: 'scale(1.15)' }
-                        },
-                        floatSlow: {
-                            '0%, 100%': { transform: 'translateY(0px)' },
-                            '50%': { transform: 'translateY(-8px)' }
-                        }
-                    },
-                    animation: {
-                        'pulse-heart': 'pulseHeart 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        'float': 'floatSlow 4s ease-in-out infinite'
-                    }
-                }
-            }
-        }
-    </script>
     <link rel="stylesheet" href="/static/css/modern.css">
 </head>
 {% macro public_account_menu(user, mobile=false) %}

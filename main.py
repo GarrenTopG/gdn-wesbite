@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 import logging
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
@@ -148,7 +149,11 @@ async def add_csrf_cookie(request: Request, call_next):
     return response
 
 # Mount static files
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount(
+    "/static",
+    StaticFiles(directory=Path(__file__).resolve().parent / "app" / "static"),
+    name="static",
+)
 
 # Include Modular Routers
 app.include_router(volunteers.router)

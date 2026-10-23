@@ -555,6 +555,15 @@ class PublicWebTests(unittest.TestCase):
         for path in ("/", "/about", "/donate", "/account/register"):
             response = self.client.get(path)
             self.assertEqual(response.status_code, 200, f"{path}: {response.text[:500]}")
+            self.assertIn('href="/static/css/tailwind.css"', response.text)
+            self.assertNotIn("cdn.tailwindcss.com", response.text)
+        stylesheet = self.client.get("/static/css/tailwind.css")
+        self.assertEqual(stylesheet.status_code, 200)
+        self.assertIn(".bg-brand-800", stylesheet.text)
+        self.assertIn(".animate-pulse-heart", stylesheet.text)
+        admin_stylesheet = self.client.get("/static/css/admin-tailwind.css")
+        self.assertEqual(admin_stylesheet.status_code, 200)
+        self.assertIn(".bg-brand-900", admin_stylesheet.text)
         about = self.client.get("/about")
         self.assertIn("Latifah Jacobs", about.text)
         self.assertIn("tel:+27715893409", about.text)
@@ -568,6 +577,17 @@ class PublicWebTests(unittest.TestCase):
         library_photo = self.client.get("/static/images/aurora-public-library.webp")
         self.assertEqual(library_photo.status_code, 200)
         self.assertEqual(library_photo.headers["content-type"], "image/webp")
+        for image_name in (
+            "community-cook-off.png",
+            "financial-literacy.png",
+            "mandela-day-and-youth-clean-up.png",
+            "youth-employment.png",
+        ):
+            with self.subTest(image_name=image_name):
+                image = self.client.get(f"/static/images/news/{image_name}")
+                self.assertEqual(image.status_code, 200)
+                self.assertEqual(image.headers["content-type"], "image/png")
+                self.assertTrue(image.content)
 
     def test_donation_needs_query_uses_sql_server_bit_comparison(self):
         query = str(
