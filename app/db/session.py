@@ -90,6 +90,42 @@ def _normalize_volunteer_status(database_engine: Engine) -> None:
             )
 
 
+def _normalize_user_roles(database_engine: Engine) -> None:
+    from app.models.entities import UserRole
+
+    role_lookup = {
+        candidate.casefold(): role.name
+        for role in UserRole
+        for candidate in (role.name, role.value)
+    }
+    role_lookup["admin"] = UserRole.ADMINISTRATOR.name
+    role_lookup["volunteer"] = UserRole.USER.name
+
+    with database_engine.begin() as connection:
+        rows = connection.execute(text("SELECT id, role FROM [user]"))
+        updates = []
+        for user_id, current_role in rows:
+            normalized_role = role_lookup.get(
+                current_role.strip().casefold()
+                if isinstance(current_role, str)
+                else ""
+            )
+            if normalized_role is None:
+                normalized_role = UserRole.USER.name
+            if current_role != normalized_role:
+                updates.append({"user_id": user_id, "role": normalized_role})
+
+        if updates:
+            connection.execute(
+                text("UPDATE [user] SET role = :role WHERE id = :user_id"),
+                updates,
+            )
+            logger.warning(
+                "Normalized legacy or invalid user.role values for %d records",
+                len(updates),
+            )
+
+
 def _create_engine() -> Engine:
     backend = os.getenv("DATABASE_BACKEND", "sqlite").strip().lower()
     if backend == "sqlite":
@@ -211,6 +247,7 @@ def create_db_and_tables():
         with Session(engine) as session:
             seed_community_stories(session)
             session.commit()
+        _normalize_user_roles(engine)
         _normalize_volunteer_available_days(engine)
         _normalize_volunteer_status(engine)
         return
@@ -382,12 +419,6 @@ def create_db_and_tables():
             )
         connection.execute(
             text(
-                "UPDATE user SET role = 'ADMINISTRATOR' "
-                "WHERE role IN ('ADMIN', 'admin')"
-            )
-        )
-        connection.execute(
-            text(
                 "CREATE TRIGGER IF NOT EXISTS auditlog_no_update "
                 "BEFORE UPDATE ON auditlog BEGIN "
                 "SELECT RAISE(ABORT, 'audit log is immutable'); END"
@@ -429,6 +460,7 @@ def create_db_and_tables():
             )
         )
 
+    _normalize_user_roles(engine)
     _normalize_volunteer_available_days(engine)
     _normalize_volunteer_status(engine)
     with Session(engine) as session:

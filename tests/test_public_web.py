@@ -16,6 +16,7 @@ from sqlalchemy import true
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.db.session import (
+    _normalize_user_roles,
     _normalize_volunteer_available_days,
     _normalize_volunteer_status,
     get_session,
@@ -318,6 +319,54 @@ class PublicWebTests(unittest.TestCase):
         with Session(self.engine) as session:
             volunteer = session.exec(select(Volunteer)).one()
         self.assertEqual(volunteer.status, VolunteerStatus.ACTIVE)
+
+    def test_security_page_recovers_from_legacy_volunteer_user_role(self):
+        with Session(self.engine) as session:
+            session.add_all(
+                [
+                    User(
+                        full_name="Administrator",
+                        email="admin@example.org",
+                        hashed_password=hash_password("CorrectHorseBatteryStaple1!"),
+                        role=UserRole.ADMINISTRATOR,
+                    ),
+                    User(
+                        full_name="Legacy Volunteer",
+                        email="volunteer@example.org",
+                        hashed_password=hash_password("CorrectHorseBatteryStaple1!"),
+                        role=UserRole.USER,
+                    ),
+                ]
+            )
+            session.commit()
+
+        with self.engine.begin() as connection:
+            connection.execute(
+                text("UPDATE [user] SET role = 'Volunteer' WHERE email = :email"),
+                {"email": "volunteer@example.org"},
+            )
+
+        _normalize_user_roles(self.engine)
+
+        with Session(self.engine) as session:
+            legacy_user = session.exec(
+                select(User).where(User.email == "volunteer@example.org")
+            ).one()
+        self.assertEqual(legacy_user.role, UserRole.USER)
+
+        login = self.client.post(
+            "/admin/login",
+            data={
+                "csrf_token": self.csrf_token(),
+                "email": "admin@example.org",
+                "password": "CorrectHorseBatteryStaple1!",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(login.status_code, 303, login.text)
+        security = self.client.get("/admin/security")
+        self.assertEqual(security.status_code, 200, security.text[:1000])
+        self.assertNotIn("volunteer@example.org", security.text)
 
     def test_staff_session_cookie_matches_server_session_lifetime(self):
         with Session(self.engine) as session:

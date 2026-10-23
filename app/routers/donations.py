@@ -311,7 +311,7 @@ async def download_tax_certificate(
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=letter, pageCompression=0)
     is_demo_receipt = donation.payment_method == "Pledge - No Online Payment"
-    
+
     # Document Header
     p.setFont("Helvetica-Bold", 18)
     title = "SECTION 18A DONATION CERTIFICATE" if is_demo_receipt else "SECTION 18A TAX DEDUCTION RECEIPT"
@@ -330,6 +330,14 @@ async def download_tax_certificate(
         p.drawCentredString(300, 694, "PLEDGE RECORD - PAYMENT NOT YET RECEIVED")
         p.setFillColorRGB(0, 0, 0)
         details_y = 660
+
+    if is_demo_receipt:
+        p.setFont("Helvetica-Bold", 12)
+        p.setFillColorRGB(0.75, 0.0, 0.0)
+        p.drawString(100, 610, "DEMO ONLY - NOT VALID FOR TAX PURPOSES")
+        p.setFillColorRGB(0, 0, 0)
+        p.setFont("Helvetica", 10)
+        p.drawString(100, 595, "No payment was processed or received.")
 
     # Details Grid - All dynamic parameters explicitly wrapped as str()
     p.setFont("Helvetica-Bold", 12)
@@ -360,13 +368,16 @@ async def download_tax_certificate(
     p.save()
     buffer.seek(0)
 
+    filename = (
+        f"DEMO_Section18A_Receipt_{donation.id}.pdf"
+        if is_demo_receipt
+        else f"Section18A_Receipt_{donation.id}.pdf"
+    )
     return StreamingResponse(
         buffer,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": (
-                f'attachment; filename="Section18A_Receipt_{donation.id}.pdf"'
-            ),
+            "Content-Disposition": f'attachment; filename="{filename}"',
             "Cache-Control": "no-store",
             "Referrer-Policy": "no-referrer",
         },
