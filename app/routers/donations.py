@@ -3,7 +3,7 @@ from io import BytesIO
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, StreamingResponse
-from sqlalchemy import true
+from sqlalchemy import false, true
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from sqlmodel import Session, select
@@ -265,8 +265,8 @@ async def download_tax_certificate(
         pending_donation = session.exec(
             select(Donation).where(
                 Donation.pending_receipt_token_hash == token_hash,
-                Donation.request_tax_certificate.is_(True),
-                Donation.is_verified.is_(False),
+                Donation.request_tax_certificate == true(),
+                Donation.is_verified == false(),
             )
         ).first()
         if pending_donation:

@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy import true
 from sqlmodel import Session, select
 
 from app.db.session import get_session
@@ -41,7 +42,7 @@ def recalculate_need_status(
         .join(Donation, Donation.id == DonationAllocation.donation_id)
         .where(
             DonationAllocation.need_id == need_id,
-            Donation.is_verified.is_(True),
+            Donation.is_verified == true(),
             Donation.status != DonationStatus.REFUNDED.value,
         )
     ).all()

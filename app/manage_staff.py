@@ -4,6 +4,7 @@ import hashlib
 import secrets
 import sys
 
+from sqlalchemy import true
 from sqlmodel import Session, func, select
 
 from app.db.session import create_db_and_tables, engine
@@ -149,7 +150,7 @@ def main() -> int:
                 and session.exec(
                     select(func.count(User.id)).where(
                         User.role == UserRole.ADMINISTRATOR,
-                        User.is_active.is_(True),
+                        User.is_active == true(),
                     )
                 ).one()
                 <= 1
@@ -181,7 +182,7 @@ def main() -> int:
                     and session.exec(
                         select(func.count(User.id)).where(
                             User.role == UserRole.ADMINISTRATOR,
-                            User.is_active.is_(True),
+                            User.is_active == true(),
                         )
                     ).one()
                     <= 1

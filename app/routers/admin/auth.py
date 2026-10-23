@@ -6,6 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from sqlalchemy import false, true
 from sqlmodel import Session, func, select
 
 from app.db.session import get_session
@@ -351,7 +352,7 @@ async def get_admin_dashboard(
                 BeneficiaryNeed.current_amount,
                 BeneficiaryNeed.created_at,
             ).where(
-                BeneficiaryNeed.is_community_need.is_(True),
+                BeneficiaryNeed.is_community_need == true(),
                 True if include_archived else BeneficiaryNeed.archived_at.is_(None),
             )
         ).all()
@@ -504,7 +505,7 @@ async def get_admin_dashboard(
         donation_date = func.date(Donation.created_at)
         total_donation_amount = session.exec(
             select(func.coalesce(func.sum(Donation.amount), 0)).where(
-                Donation.is_verified.is_(True),
+                Donation.is_verified == true(),
                 Donation.status != DonationStatus.REFUNDED.value,
                 Donation.donation_type == "monetary",
                 donation_date >= date_from.isoformat(),
@@ -514,7 +515,7 @@ async def get_admin_dashboard(
         request_date = func.date(BeneficiaryNeed.created_at)
         total_requests = session.exec(
             select(func.count(BeneficiaryNeed.id)).where(
-                BeneficiaryNeed.is_community_need.is_(False),
+                BeneficiaryNeed.is_community_need == false(),
                 BeneficiaryNeed.archived_at.is_(None),
                 request_date >= date_from.isoformat(),
                 request_date <= date_to.isoformat(),
@@ -546,7 +547,7 @@ async def get_admin_dashboard(
             .join(Donation, Donation.id == DonationAllocation.donation_id)
             .where(
                 DonationAllocation.need_id.in_(funding_need_ids),
-                Donation.is_verified.is_(True),
+                Donation.is_verified == true(),
                 Donation.status != DonationStatus.REFUNDED.value,
             )
             .group_by(DonationAllocation.need_id)
@@ -1035,7 +1036,7 @@ async def get_beneficiary_detail(
     staff = session.exec(
         select(User)
         .where(
-            User.is_active.is_(True),
+            User.is_active == true(),
             User.role.in_([UserRole.ADMINISTRATOR, UserRole.CASE_WORKER]),
         )
         .order_by(User.full_name)
@@ -1396,7 +1397,7 @@ async def change_staff_role(
         and session.exec(
             select(func.count(User.id)).where(
                 User.role == UserRole.ADMINISTRATOR,
-                User.is_active.is_(True),
+                User.is_active == true(),
             )
         ).one()
         <= 1
@@ -1470,7 +1471,7 @@ async def deactivate_staff(
         and session.exec(
             select(func.count(User.id)).where(
                 User.role == UserRole.ADMINISTRATOR,
-                User.is_active.is_(True),
+                User.is_active == true(),
             )
         ).one()
         <= 1

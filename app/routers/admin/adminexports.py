@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from sqlalchemy import true
 from sqlmodel import Session, select
 
 from app.db.session import get_session
@@ -206,7 +207,7 @@ async def export_needs_pdf(
                 BeneficiaryNeed.target_amount,
                 BeneficiaryNeed.urgency,
                 BeneficiaryNeed.status,
-            ).where(BeneficiaryNeed.is_community_need.is_(True))
+            ).where(BeneficiaryNeed.is_community_need == true())
         ).all()
         needs = [
             SimpleNamespace(

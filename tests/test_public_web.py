@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.dialects import mssql
 from sqlalchemy.pool import StaticPool
+from sqlalchemy import true
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.db.session import (
@@ -471,6 +472,15 @@ class PublicWebTests(unittest.TestCase):
         )
         self.assertIn("beneficiaryneed.is_community_need = 1", query)
         self.assertNotIn("beneficiaryneed.is_community_need IS 1", query)
+
+    def test_verified_donation_query_uses_sql_server_bit_comparison(self):
+        query = str(
+            select(Donation).where(Donation.is_verified == true()).compile(
+                dialect=mssql.dialect()
+            )
+        )
+        self.assertIn("donation.is_verified = 1", query)
+        self.assertNotIn("donation.is_verified IS 1", query)
 
 
 if __name__ == "__main__":
