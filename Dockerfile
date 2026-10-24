@@ -15,8 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Install Python packages
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt requirements-migrations.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-migrations.txt
 
 # Copy application files
 COPY . .

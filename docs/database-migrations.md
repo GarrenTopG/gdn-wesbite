@@ -57,6 +57,17 @@ revision; it never runs schema changes automatically.
    traffic stopped and restore the verified backup. The legacy data migration is
    intentionally irreversible; do not use `alembic downgrade` as a production rollback.
 
+For a Render Docker web service, the image includes the migration dependency. After
+backing up the configured database, set the service's **Pre-Deploy Command** to:
+
+```text
+python -m alembic upgrade head
+```
+
+The pre-deploy command and web process must use the same database environment settings.
+Review and back up the database before each deployment that may apply a new revision;
+the application startup itself does not run migrations.
+
 For future schema work, add a new revision, review and test its generated operations
 against both SQLite and SQL Server, and include any required data backfill in that
 revision. Do not edit an already-applied revision or use `metadata.create_all()` as a
