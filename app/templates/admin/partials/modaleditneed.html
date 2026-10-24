@@ -1,0 +1,119 @@
+<div id="editNeedModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+  onclick="if (event.target === this) closeEditNeedModal()">
+  <section role="dialog" aria-modal="true" aria-labelledby="editNeedHeading"
+    class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-[#121215] p-6 text-white shadow-2xl">
+    <div class="mb-5 flex items-start justify-between gap-4 border-b border-white/10 pb-4">
+      <div>
+        <h2 id="editNeedHeading" class="text-lg font-bold">Edit community need</h2>
+        <p class="mt-1 text-xs text-zinc-400">Update the need information shown to staff and the community.</p>
+      </div>
+      <button type="button" onclick="closeEditNeedModal()" aria-label="Close edit need dialog"
+        class="rounded-lg px-2 py-1 text-zinc-400 hover:bg-white/5 hover:text-white">
+        <i class="fa-solid fa-xmark text-lg" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <form id="editNeedForm" action="" method="POST" class="space-y-5">
+      {{ csrf_input(request) }}
+      <div>
+        <h3 class="mb-3 text-xs font-bold uppercase tracking-wider text-pink-200">Need details</h3>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label class="text-xs font-semibold text-zinc-300 sm:col-span-2">Title
+            <input id="edit_need_title" name="anonymised_title" maxlength="255" required
+              class="mt-1.5 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-400">
+          </label>
+          <label class="text-xs font-semibold text-zinc-300">Area
+            <input id="edit_need_area" name="area" maxlength="255" required
+              class="mt-1.5 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-400">
+          </label>
+          <label class="text-xs font-semibold text-zinc-300">Category
+            <input id="edit_need_category" name="category" maxlength="100" required
+              class="mt-1.5 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-400">
+          </label>
+          <label class="text-xs font-semibold text-zinc-300">Urgency
+            <select id="edit_need_urgency" name="urgency"
+              class="mt-1.5 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-400">
+              {% for urgency_option in ['Low', 'Medium', 'High', 'Critical'] %}
+              <option value="{{ urgency_option }}">{{ urgency_option }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="text-xs font-semibold text-zinc-300">Target amount (ZAR)
+            <input id="edit_need_target" type="number" name="target_amount" min="0" step="0.01" required
+              class="mt-1.5 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-400">
+          </label>
+          <label class="text-xs font-semibold text-zinc-300">Deadline
+            <input id="edit_need_deadline" type="date" name="deadline"
+              class="mt-1.5 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-400">
+          </label>
+        </div>
+      </div>
+
+      <div class="border-t border-white/10 pt-4">
+        <h3 class="mb-3 text-xs font-bold uppercase tracking-wider text-pink-200">Image and story</h3>
+        <div class="space-y-4">
+          <label class="block text-xs font-semibold text-zinc-300">Image URL
+            <input id="edit_need_image_url" type="url" name="image_url" maxlength="2048" placeholder="https://example.org/image.jpg"
+              class="mt-1.5 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-400">
+          </label>
+          <label class="block text-xs font-semibold text-zinc-300">Image description / alt text
+            <input id="edit_need_image_alt" name="image_alt" maxlength="500"
+              class="mt-1.5 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-400">
+          </label>
+          <label class="block text-xs font-semibold text-zinc-300">Article
+            <textarea id="edit_need_article" name="article" rows="7" maxlength="20000"
+              placeholder="Write paragraphs as plain text; separate them with a blank line."
+              class="mt-1.5 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-sm leading-relaxed text-white focus:border-pink-400 focus:outline-none focus:ring-1 focus:ring-pink-400"></textarea>
+          </label>
+        </div>
+      </div>
+
+      <div class="flex flex-col-reverse justify-end gap-2 border-t border-white/10 pt-4 sm:flex-row">
+        <button type="button" onclick="closeEditNeedModal()" class="admin-action-button admin-action-secondary">Cancel</button>
+        <button type="submit" class="admin-action-button admin-action-primary">
+          <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+          Save need
+        </button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<script>
+  let editNeedTrigger = null;
+
+  function handleEditNeedClick(button) {
+    const form = document.getElementById('editNeedForm');
+    if (!form) return;
+
+    editNeedTrigger = button;
+    form.action = `/admin/needs/${button.dataset.id}/edit`;
+    document.getElementById('edit_need_title').value = button.dataset.title || '';
+    document.getElementById('edit_need_area').value = button.dataset.area || '';
+    document.getElementById('edit_need_category').value = button.dataset.category || '';
+    document.getElementById('edit_need_urgency').value = button.dataset.urgency || 'Medium';
+    document.getElementById('edit_need_target').value = button.dataset.target || '0';
+    document.getElementById('edit_need_deadline').value = button.dataset.deadline || '';
+    document.getElementById('edit_need_image_url').value = button.dataset.imageUrl || '';
+    document.getElementById('edit_need_image_alt').value = button.dataset.imageAlt || '';
+    document.getElementById('edit_need_article').value = button.dataset.article || '';
+
+    toggleModal('editNeedModal');
+    document.getElementById('edit_need_title').focus();
+  }
+
+  function closeEditNeedModal() {
+    const modal = document.getElementById('editNeedModal');
+    if (modal && !modal.classList.contains('hidden')) {
+      toggleModal('editNeedModal');
+      if (editNeedTrigger) editNeedTrigger.focus();
+    }
+  }
+
+  document.addEventListener('keydown', event => {
+    const modal = document.getElementById('editNeedModal');
+    if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+      closeEditNeedModal();
+    }
+  });
+</script>

@@ -38,6 +38,7 @@ def get_news(session: Session = Depends(get_session)):
             "id": article.id,
             "title": article.title,
             "summary": article.summary,
+            "content": article.content,
             "image_url": article.image_url,
             "timestamp": article.created_at.isoformat(),
             "category": article.category,

@@ -156,7 +156,10 @@
   {% include "admin/partials/modaladdnews.html" %}
   {% include "admin/partials/modaleditnews.html" %}
 {% endif %}
-{% if can_write_needs %}{% include "admin/partials/modaladdneed.html" %}{% endif %}
+{% if can_write_needs %}
+  {% include "admin/partials/modaladdneed.html" %}
+  {% include "admin/partials/modaleditneed.html" %}
+{% endif %}
 {% if can_write_campaigns %}{% include "admin/partials/modaladdcampaign.html" %}{% endif %}
 
 <!-- Dashboard Scripts -->

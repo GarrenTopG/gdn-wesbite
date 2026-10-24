@@ -133,6 +133,7 @@ private data class Story(
     val id: Int,
     val title: String,
     val summary: String,
+    val content: String,
     val category: String,
     val timestamp: String,
     val imageUrl: String? = null
@@ -291,6 +292,7 @@ private fun HomeScreen(
             newsError != null -> RetryRow("The latest story could not be loaded.") { refreshKey++ }
             else -> StoryCard(
                 Story(0, "A place for young readers in Sunbird Park",
+                    "Aurorah CAN established a community mini-library in July 2022 as part of Nelson Mandela Day.",
                     "Aurorah CAN established a community mini-library in July 2022 as part of Nelson Mandela Day.",
                     "Community milestone", ""),
                 onClick = { onOpenWebsite("/news") }
@@ -713,9 +715,13 @@ private fun StoriesScreen(modifier: Modifier, onOpenWebsite: (String) -> Unit) {
                 selectedStory!!,
                 Modifier.fillMaxWidth().height(220.dp)
             )
-            BodyText(selectedStory!!.summary)
-            Notice("This app feed provides a short summary. Open the website for the full article.", BrandPale, Brand)
-            PrimaryButton("Open full story on website", false) { onOpenWebsite("/news") }
+            BodyText(selectedStory!!.content.ifBlank { selectedStory!!.summary })
+            if (selectedStory!!.content.isBlank()) {
+                Notice("The full article is unavailable in this feed. Open the website to read it.", BrandPale, Brand)
+            }
+            PrimaryButton("Open full story on website", false) {
+                onOpenWebsite("/news/${selectedStory!!.id}")
+            }
         } else {
             BodyText("Updates and milestones from Aurorah CAN’s community work.")
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1128,7 +1134,7 @@ private object Api {
             val item = json.optJSONObject(index) ?: return@mapNotNull null
             val title = item.optString("title").trim()
             if (title.isBlank()) null else Story(
-                item.optInt("id"), title, item.optString("summary"),
+                item.optInt("id"), title, item.optString("summary"), item.optString("content"),
                 item.optString("category"), item.optString("timestamp"),
                 resolveImageUrl(item.optString("image_url"))
             )

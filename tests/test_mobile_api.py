@@ -302,7 +302,7 @@ class MobileApiTests(DatabaseTestCase):
                         title="Published update",
                         slug="published-update",
                         summary="Public summary",
-                        content="Public story",
+                        content="First article paragraph.\n\nSecond article paragraph.",
                         image_url="/static/images/news/community-cook-off.png",
                         status=NewsStatus.PUBLISHED.value,
                     ),
@@ -337,9 +337,20 @@ class MobileApiTests(DatabaseTestCase):
         news = self.client.get("/api/news").json()
         self.assertEqual(
             set(news[0]),
-            {"id", "title", "summary", "image_url", "timestamp", "category"},
+            {
+                "id",
+                "title",
+                "summary",
+                "content",
+                "image_url",
+                "timestamp",
+                "category",
+            },
         )
         self.assertEqual([article["title"] for article in news], ["Published update"])
+        self.assertEqual(
+            news[0]["content"], "First article paragraph.\n\nSecond article paragraph."
+        )
         self.assertEqual(
             news[0]["image_url"],
             "/static/images/news/community-cook-off.png",

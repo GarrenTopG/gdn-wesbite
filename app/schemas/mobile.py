@@ -120,6 +120,7 @@ class NewsItemResponse(BaseModel):
     id: int
     title: str
     summary: str
+    content: str
     image_url: Optional[str] = None
     timestamp: str
     category: str

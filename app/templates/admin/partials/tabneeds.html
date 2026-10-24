@@ -117,48 +117,18 @@
             </td>
             <td data-label="Details" class="py-4 px-4">
               {% if can_write_needs and not need.archived_at %}
-              <details>
-                <summary class="admin-action-button admin-action-secondary cursor-pointer">Edit need</summary>
-                <form action="/admin/needs/{{ need.id }}/edit" method="post" class="mt-3 w-[min(32rem,80vw)] space-y-3 rounded-xl border border-white/10 bg-[#09090B] p-4">
-                  {{ csrf_input(request) }}
-                  <label class="block text-xs text-zinc-300">Title
-                    <input name="anonymised_title" maxlength="255" required value="{{ need.anonymised_title }}" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">
-                  </label>
-                  <div class="grid grid-cols-2 gap-2">
-                    <label class="block text-xs text-zinc-300">Area
-                      <input name="area" maxlength="255" required value="{{ need.area }}" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">
-                    </label>
-                    <label class="block text-xs text-zinc-300">Category
-                      <input name="category" maxlength="100" required value="{{ need.category }}" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">
-                    </label>
-                  </div>
-                  <div class="grid grid-cols-2 gap-2">
-                    <label class="block text-xs text-zinc-300">Urgency
-                      <select name="urgency" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">
-                        {% for urgency_option in ['Low', 'Medium', 'High', 'Critical'] %}
-                        <option value="{{ urgency_option }}" {% if urgency_str == urgency_option %}selected{% endif %}>{{ urgency_option }}</option>
-                        {% endfor %}
-                      </select>
-                    </label>
-                    <label class="block text-xs text-zinc-300">Target (ZAR)
-                      <input type="number" name="target_amount" min="0" step="0.01" required value="{{ target }}" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">
-                    </label>
-                  </div>
-                  <label class="block text-xs text-zinc-300">Deadline
-                    <input type="date" name="deadline" value="{{ need.deadline.strftime('%Y-%m-%d') if need.deadline else '' }}" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">
-                  </label>
-                  <label class="block text-xs text-zinc-300">Image URL
-                    <input type="url" name="image_url" maxlength="2048" value="{{ need.image_url or '' }}" placeholder="https://example.org/image.jpg" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">
-                  </label>
-                  <label class="block text-xs text-zinc-300">Image description / alt text
-                    <input name="image_alt" maxlength="500" value="{{ need.image_alt or '' }}" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">
-                  </label>
-                  <label class="block text-xs text-zinc-300">Article
-                    <textarea name="article" rows="8" maxlength="20000" placeholder="Write paragraphs as plain text; separate them with a blank line." class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">{{ need.article or '' }}</textarea>
-                  </label>
-                  <button type="submit" class="admin-action-button admin-action-primary">Save need</button>
-                </form>
-              </details>
+              <button type="button" class="admin-action-button admin-action-secondary"
+                aria-haspopup="dialog" onclick="handleEditNeedClick(this)"
+                data-id="{{ need.id }}"
+                data-title="{{ need.anonymised_title }}"
+                data-area="{{ need.area }}"
+                data-category="{{ need.category }}"
+                data-urgency="{{ urgency_str }}"
+                data-target="{{ target }}"
+                data-deadline="{{ need.deadline.strftime('%Y-%m-%d') if need.deadline else '' }}"
+                data-image-url="{{ need.image_url or '' }}"
+                data-image-alt="{{ need.image_alt or '' }}"
+                data-article="{{ need.article or '' }}">Edit need</button>
               {% else %}
               <span class="text-xs text-zinc-500">—</span>
               {% endif %}

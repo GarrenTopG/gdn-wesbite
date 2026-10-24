@@ -186,7 +186,7 @@ The Android app and website use this FastAPI service and the same configured dat
 | `POST /api/auth/google-sso` | Public | Verify a Firebase ID token and sign in or create a regular user account. |
 | `PUT /api/auth/profile` | Bearer token | Update the signed-in user's `full_name`, `phone_number`, and optional `preferences`. |
 | `POST /api/auth/change-password` | Bearer token | Change the signed-in user's password (`email`, `oldPassword`, `newPassword`). |
-| `GET /api/news` | Public | Return published news items. |
+| `GET /api/news` | Public | Return published news items, including each article's summary and full content. |
 | `GET /api/needs` | Public | Return open, public community needs without beneficiary contact details. |
 | `POST /api/needs/offer-assistance` | Bearer token | Submit an offer for an open community need (`needId`, `userEmail`, `volunteerSkill`, `notes`). |
 | `POST /api/assistance-requests` | Bearer token | Submit a request (`category`, `description`, `urgency`, `location`, `contact_phone`) as the signed-in user. |

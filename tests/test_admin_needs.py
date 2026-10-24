@@ -56,6 +56,9 @@ class CommunityNeedAdminTests(DatabaseTestCase):
         self.assertIn("Winter clothing support", dashboard.text)
         self.assertIn("Read article", dashboard.text)
         self.assertIn("A pile of warm winter clothing", dashboard.text)
+        self.assertIn('id="editNeedModal"', dashboard.text)
+        self.assertIn('id="editNeedForm"', dashboard.text)
+        self.assertIn('data-title="Winter clothing support"', dashboard.text)
 
         edit_response = self.client.post(
             f"/admin/needs/{need_id}/edit",
