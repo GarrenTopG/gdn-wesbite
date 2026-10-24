@@ -147,9 +147,11 @@ python -m pip install -r requirements-migrations.txt
 python -m alembic upgrade head
 ```
 
-The migration command uses the same database settings as the application. Startup validates
-database connectivity and the current migration revision; it does not create tables, run
-migrations, or seed content.
+The migration command uses the same database settings as the application. The FastAPI
+startup check validates database connectivity and the current migration revision; it does
+not create tables, run migrations, or seed content. The Docker image runs
+`python -m alembic upgrade head` before starting the web server, so Docker deployments
+apply pending migrations automatically.
 
 ```bash
 uvicorn main:app --reload

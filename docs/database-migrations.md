@@ -57,16 +57,21 @@ revision; it never runs schema changes automatically.
    traffic stopped and restore the verified backup. The legacy data migration is
    intentionally irreversible; do not use `alembic downgrade` as a production rollback.
 
-For a Render Docker web service, the image includes the migration dependency. After
-backing up the configured database, set the service's **Pre-Deploy Command** to:
+For a Render Docker web service, the image includes the migration dependency and its
+default start command runs `python -m alembic upgrade head` before starting Uvicorn.
+This works without a separate Pre-Deploy Command. If you set a custom Render **Start
+Command**, include the migration before the server command:
 
 ```text
-python -m alembic upgrade head
+sh -c "python -m alembic upgrade head && exec uvicorn main:app --host 0.0.0.0 --port 10000"
 ```
 
-The pre-deploy command and web process must use the same database environment settings.
-Review and back up the database before each deployment that may apply a new revision;
-the application startup itself does not run migrations.
+The migration and web process must use the same database environment settings. Back up
+the database before deploying a revision that may change its schema. Keep the service at
+a single instance while a migration is running; scale out only after the migration has
+completed, since simultaneous container startups can race to apply the same migration.
+Alembic does nothing when the database is already at the latest revision. The FastAPI
+application itself still only validates the schema and does not run migrations.
 
 For future schema work, add a new revision, review and test its generated operations
 against both SQLite and SQL Server, and include any required data backfill in that
