@@ -171,14 +171,19 @@ def upgrade() -> None:
     existing_slugs = {
         row[0] for row in connection.execute(sa.text("SELECT slug FROM campaign"))
     }
-    needs = connection.execute(
-        sa.text(
-            "SELECT id, anonymised_title, area, category, request_details, "
-            "target_amount, current_amount, status, deadline, created_at, "
-            "closed_at, archived_at FROM beneficiaryneed "
-            "WHERE is_community_need = 1"
-        )
-    ).mappings()
+    # Materialize the result set before issuing any additional commands on the
+    # same connection. SQL Server ODBC rejects a second statement while a
+    # previous result set is still open.
+    needs = list(
+        connection.execute(
+            sa.text(
+                "SELECT id, anonymised_title, area, category, request_details, "
+                "target_amount, current_amount, status, deadline, created_at, "
+                "closed_at, archived_at FROM beneficiaryneed "
+                "WHERE is_community_need = 1"
+            )
+        ).mappings()
+    )
     campaign_table = sa.Table(
         "campaign",
         sa.MetaData(),
