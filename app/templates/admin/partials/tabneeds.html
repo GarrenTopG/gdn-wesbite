@@ -3,8 +3,8 @@
   <div class="rounded-2xl border border-white/5 bg-[#121215] shadow-sm p-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-white/10 gap-4">
       <div>
-        <h2 class="text-xl font-bold text-white">Community Needs Tracking</h2>
-        <p class="text-xs text-zinc-400 mt-0.5">Track urgent local community requirements and target funding amounts.</p>
+        <h2 class="text-xl font-bold text-white">Operational needs tracking</h2>
+        <p class="text-xs text-zinc-400 mt-0.5">Internal records used for staff and volunteer coordination. Public fundraising stories are managed as campaigns below.</p>
       </div>
       <div class="flex items-center space-x-3">
         <a href="/admin/needs/export-pdf" target="_blank" rel="noopener" class="admin-action-button admin-action-secondary">
@@ -13,7 +13,7 @@
         </a>
         {% if can_write_needs %}<button type="button" onclick="toggleModal('addNeedModal')" class="admin-action-button admin-action-primary">
           <i class="fa-solid fa-plus"></i>
-          Add New Need
+          Add Internal Need
         </button>{% endif %}
       </div>
     </div>
@@ -115,6 +115,103 @@
       </table>
     </div>
   </div>
+
+  {% if can_view_campaigns %}
+  <div id="campaigns" class="rounded-2xl border border-white/5 bg-[#121215] shadow-sm p-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
+      <div>
+        <h2 class="text-xl font-bold text-white">Public fundraising campaigns</h2>
+        <p class="mt-1 text-xs text-zinc-400">Campaigns are public stories. Progress includes approved simulated contributions only.</p>
+      </div>
+      {% if can_write_campaigns %}
+      <button type="button" onclick="toggleModal('addCampaignModal')" class="admin-action-button admin-action-primary">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+        Create campaign
+      </button>
+      {% endif %}
+    </div>
+    <div class="admin-table-wrap mt-4">
+      <table class="admin-record-table w-full text-left border-collapse text-sm">
+        <thead>
+          <tr class="border-b border-white/10 text-zinc-400 font-semibold text-xs tracking-wider uppercase">
+            <th class="py-3 px-4">Campaign</th>
+            <th class="py-3 px-4">Verified demo progress</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-white/10">
+          {% for campaign in campaigns %}
+          {% set raised = campaign_progress.get(campaign.id, campaign.legacy_raised_amount or 0) %}
+          {% set target = campaign.target_amount or 0 %}
+          {% set percent = (raised / target * 100) if target else 0 %}
+          {% set campaign_status = campaign.status.value if campaign.status.value is defined else campaign.status %}
+          <tr data-search-row>
+            <td data-label="Campaign" class="py-4 px-4 text-white">
+              <strong>{{ campaign.title }}</strong>
+              <span class="block text-xs font-normal text-zinc-400">{{ campaign.area }} · {{ campaign.category }}</span>
+              {% if campaign.archived_at %}<span class="mt-1 inline-block rounded bg-white/5 px-2 py-1 text-[10px] font-bold text-zinc-300">ARCHIVED</span>{% endif %}
+            </td>
+            <td data-label="Verified demo progress" class="py-4 px-4 text-white">
+              <strong>R{{ "%.2f"|format(raised) }} / R{{ "%.2f"|format(target) }}</strong>
+              <div class="mt-1.5 h-1.5 max-w-44 overflow-hidden rounded-full bg-white/10" role="progressbar"
+                   aria-label="Verified simulated contribution progress for {{ campaign.title }}"
+                   aria-valuenow="{{ [percent, 100]|min|round|int }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="h-full rounded-full bg-[#FF2E93]" style="width: {{ [percent, 100]|min }}%"></div>
+              </div>
+              <span class="mt-1 block text-[10px] text-zinc-500">Simulated contributions; no funds received</span>
+            </td>
+            <td data-label="Status" class="py-4 px-4">
+              <span class="admin-status-pill {% if campaign_status == 'Published' %}admin-status-success{% elif campaign_status == 'Completed' %}admin-status-success{% elif campaign_status == 'Archived' %}admin-status-neutral{% else %}admin-status-warning{% endif %}">{{ campaign_status }}</span>
+              {% if campaign.deadline %}<span class="mt-1 block text-xs text-zinc-400">Deadline {{ campaign.deadline.strftime('%d %b %Y') }}</span>{% endif %}
+            </td>
+            <td data-label="Actions" class="py-4 px-4 text-right">
+              {% if can_write_campaigns and not campaign.archived_at %}
+              <details class="inline-block text-left">
+                <summary class="admin-action-button admin-action-secondary cursor-pointer">Edit details</summary>
+                <form action="/admin/campaigns/{{ campaign.id }}/edit" method="post" class="mt-3 w-[min(28rem,80vw)] space-y-2 rounded-xl border border-white/10 bg-[#09090B] p-4">
+                  {{ csrf_input(request) }}
+                  <label class="block text-xs text-zinc-300">Title<input name="title" maxlength="255" required value="{{ campaign.title }}" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"></label>
+                  <label class="block text-xs text-zinc-300">Short summary<textarea name="summary" required rows="2" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">{{ campaign.summary }}</textarea></label>
+                  <label class="block text-xs text-zinc-300">Full story<textarea name="story" required rows="5" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white">{{ campaign.story }}</textarea></label>
+                  <div class="grid grid-cols-2 gap-2">
+                    <label class="block text-xs text-zinc-300">Area<input name="area" required maxlength="255" value="{{ campaign.area }}" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"></label>
+                    <label class="block text-xs text-zinc-300">Category<input name="category" required maxlength="100" value="{{ campaign.category }}" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"></label>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <label class="block text-xs text-zinc-300">Target (R)<input type="number" name="target_amount" required min="0.01" step="0.01" value="{{ campaign.target_amount }}" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"></label>
+                    <label class="block text-xs text-zinc-300">Deadline<input type="date" name="deadline" value="{{ campaign.deadline.isoformat() if campaign.deadline else '' }}" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"></label>
+                  </div>
+                  <label class="block text-xs text-zinc-300">Image URL (optional; uploads are not enabled on Render yet)<input type="url" name="image_url" maxlength="2048" value="{{ campaign.image_url or '' }}" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"></label>
+                  <label class="block text-xs text-zinc-300">Image description / alt text<input name="image_alt" maxlength="500" value="{{ campaign.image_alt or '' }}" class="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"></label>
+                  <button type="submit" class="admin-action-button admin-action-primary">Save campaign</button>
+                </form>
+              </details>
+              <form action="/admin/campaigns/{{ campaign.id }}/status" method="post" class="mt-2">
+                {{ csrf_input(request) }}
+                {% if campaign_status == 'Draft' %}
+                <button name="status" value="Published" class="admin-action-button admin-action-primary">Publish</button>
+                {% elif campaign_status == 'Published' %}
+                <button name="status" value="Paused" class="admin-action-button admin-action-secondary">Pause</button>
+                {% elif campaign_status == 'Paused' %}
+                <button name="status" value="Published" class="admin-action-button admin-action-primary">Resume</button>
+                {% endif %}
+                {% if campaign_status != 'Archived' %}
+                <button name="status" value="Archived" class="admin-action-button admin-action-danger">Archive</button>
+                {% endif %}
+              </form>
+              {% endif %}
+              <a href="/campaigns/{{ campaign.slug }}" class="mt-2 inline-block text-xs text-pink-200 underline">View public page</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr class="admin-table-empty"><td colspan="4" class="py-8 text-center text-zinc-500">No campaigns have been created yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
 
   <div class="rounded-2xl border border-white/5 bg-[#121215] shadow-sm p-6">
     <div class="pb-4 border-b border-white/10">

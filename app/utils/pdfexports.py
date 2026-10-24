@@ -130,8 +130,8 @@ def generate_donations_pdf(donations: List[Donation]) -> io.BytesIO:
     buffer = io.BytesIO()
     doc, story, styles = _create_base_document(
         buffer,
-        "Donations Ledger",
-        "Record of monetary contributions and in-kind donation submissions.",
+        "General Donation Ledger",
+        "Record of general monetary pledges and in-kind submissions. Simulated campaign contributions are excluded.",
     )
 
     table_data = [

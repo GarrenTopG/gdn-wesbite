@@ -23,6 +23,10 @@
     <div class="account-menu-popover">
         <p class="account-menu-fullname">{{ user.full_name }}</p>
         <p class="account-menu-email">{{ user.email }}</p>
+        <a href="/account/notifications" {% if active_page == 'notifications' %}aria-current="page"{% endif %} class="account-menu-link">
+            <i class="fa-regular fa-bell" aria-hidden="true"></i>
+            My notifications
+        </a>
         <form action="/account/logout" method="post">
             {{ csrf_input(request) }}
             <button type="submit">

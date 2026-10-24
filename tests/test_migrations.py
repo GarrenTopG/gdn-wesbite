@@ -11,6 +11,8 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from app.db.session import DATABASE_SCHEMA_REVISION, validate_database_ready
 from app.models.entities import (
     BeneficiaryNeed,
+    Campaign,
+    CampaignStatus,
     Donation,
     DonationAllocation,
     NewsArticle,
@@ -67,7 +69,20 @@ class DatabaseMigrationTests(unittest.TestCase):
                 area="",
                 category="Food",
             )
-            session.add(need)
+            public_campaign_need = BeneficiaryNeed(
+                is_community_need=True,
+                contact_name="Admin Internal",
+                contact_phone="555-0199",
+                full_address="Admin Direct Entry",
+                anonymised_title="Legacy winter supplies campaign",
+                area="Kuils River",
+                category="Clothing",
+                request_details="Provide warm clothing for neighbours.",
+                target_amount=Decimal("500.00"),
+                current_amount=Decimal("125.00"),
+                status="In Progress",
+            )
+            session.add_all([need, public_campaign_need])
             session.flush()
             session.add(
                 Donation(
@@ -143,7 +158,14 @@ class DatabaseMigrationTests(unittest.TestCase):
 
         with Session(self.engine) as session:
             need = session.exec(
-                select(BeneficiaryNeed).where(BeneficiaryNeed.contact_name == "")
+                select(BeneficiaryNeed).where(
+                    BeneficiaryNeed.anonymised_title == "Internal need"
+                )
+            ).one()
+            migrated_campaign = session.exec(
+                select(Campaign).where(
+                    Campaign.title == "Legacy winter supplies campaign"
+                )
             ).one()
             donation = session.exec(select(Donation)).one()
             article = session.exec(
@@ -161,6 +183,10 @@ class DatabaseMigrationTests(unittest.TestCase):
 
         self.assertTrue(need.is_community_need)
         self.assertEqual(need.full_address, "")
+        self.assertEqual(migrated_campaign.status, CampaignStatus.PUBLISHED)
+        self.assertEqual(migrated_campaign.legacy_raised_amount, Decimal("125.00"))
+        self.assertIn("Legacy winter supplies campaign", migrated_campaign.story)
+        self.assertIsNotNone(migrated_campaign.legacy_need_id)
         self.assertEqual(donation.status, "Allocated")
         self.assertEqual(len(allocations), 1)
         self.assertEqual(article.published_date.isoformat(), "2024-01-02")

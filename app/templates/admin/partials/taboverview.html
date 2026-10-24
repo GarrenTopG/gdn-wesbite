@@ -12,7 +12,7 @@
     </div>{% endif %}
     {% if can_view_donations or is_read_only %}<div class="admin-metric-card flex items-center justify-between">
       <div>
-        <p class="text-xs font-bold uppercase tracking-wider">Verified donations</p>
+        <p class="text-xs font-bold uppercase tracking-wider">Verified general pledges</p>
         <p class="text-3xl font-extrabold mt-1">R {{ "%.2f"|format(total_donation_amount|float) }}</p>
       </div>
       <div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl" style="background: rgba(255, 46, 147, 0.12); color: #FF2E93;">
@@ -124,8 +124,8 @@
     {% if can_view_donations %}
     {% if has_verified_donation_activity %}
     <div class="bg-white p-5 rounded-xl border border-gray-200/80 shadow-sm">
-      <h3 class="text-sm font-bold text-gray-900 mb-4">Verified monetary donations (ZAR)</h3>
-      <div class="h-64"><canvas id="donationChart" role="img" aria-label="Verified monetary donation totals per month"></canvas></div>
+      <h3 class="text-sm font-bold text-gray-900 mb-4">Verified general monetary pledges (ZAR)</h3>
+      <div class="h-64"><canvas id="donationChart" role="img" aria-label="Verified general monetary pledge totals per month"></canvas></div>
     </div>
     {% else %}
     <div class="admin-chart-state" role="status">No verified monetary donations in the selected date range. No chart is shown.</div>

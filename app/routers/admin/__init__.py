@@ -6,6 +6,7 @@ from app.routers.admin.auth import (
     router as auth_router,
 )
 from app.routers.admin.admindonations import router as donations_router
+from app.routers.admin.admincampaigns import router as campaigns_router
 from app.routers.admin.admincases import router as cases_router
 from app.routers.admin.adminexports import router as exports_router
 from app.routers.admin.adminneeds import router as needs_router
@@ -24,6 +25,7 @@ router.include_router(dashboard_router, dependencies=[Depends(require_staff)])
 router.include_router(cases_router, dependencies=[Depends(require_staff)])
 router.include_router(staff_router, dependencies=[Depends(require_staff)])
 router.include_router(donations_router, dependencies=[Depends(require_staff)])
+router.include_router(campaigns_router, dependencies=[Depends(require_staff)])
 router.include_router(needs_router, dependencies=[Depends(require_staff)])
 router.include_router(news_router, dependencies=[Depends(require_staff)])
 router.include_router(exports_router, dependencies=[Depends(require_staff)])

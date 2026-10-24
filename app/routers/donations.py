@@ -1,6 +1,5 @@
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy import false, true
@@ -8,14 +7,15 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from sqlmodel import Session, select
 from starlette.datastructures import FormData
-from datetime import timezone
+from datetime import date, timezone
 import hashlib
 import secrets
 
 from app.db.session import get_session
 from app.routers.form_data import parse_form_data
 from app.services.donations import create_donation_with_history
-from app.models.entities import BeneficiaryNeed, Donation, NeedStatus, ReceiptAccess
+from app.models.entities import Campaign, CampaignStatus, Donation, ReceiptAccess
+from app.services.campaigns import campaign_progress_by_id
 from app.security import (
     enforce_receipt_rate_limit,
     enforce_public_form_rate_limit,
@@ -48,10 +48,20 @@ SUPPORT_AREAS = {
 }
 
 
-def _active_community_needs_statement():
-    return select(BeneficiaryNeed).where(
-        BeneficiaryNeed.is_community_need == true(),
-        BeneficiaryNeed.status != NeedStatus.FULFILLED,
+def _public_campaigns_statement():
+    return (
+        select(Campaign)
+        .where(
+            Campaign.archived_at.is_(None),
+            Campaign.status.in_(
+                (
+                    CampaignStatus.PUBLISHED,
+                    CampaignStatus.PAUSED,
+                    CampaignStatus.COMPLETED,
+                )
+            ),
+        )
+        .order_by(Campaign.created_at.desc())
     )
 
 
@@ -59,18 +69,28 @@ def _active_community_needs_statement():
 @router.get("", response_class=HTMLResponse)
 def get_donate_page(
     request: Request,
-    need_id: Optional[int] = None,
     session: Session = Depends(get_session),
 ):
-    active_needs = session.exec(_active_community_needs_statement()).all()
-
+    campaigns = session.exec(_public_campaigns_statement()).all()
+    campaigns.sort(
+        key=lambda campaign: (
+            {
+                CampaignStatus.PUBLISHED: 0,
+                CampaignStatus.PAUSED: 1,
+                CampaignStatus.COMPLETED: 2,
+            }.get(campaign.status, 3),
+            -campaign.created_at.timestamp(),
+        )
+    )
     return templates.TemplateResponse(
         request=request,
         name="donate.html",
         context={
             "active_page": "donate",
-            "active_needs": active_needs,
-            "selected_need_id": need_id,
+            "campaigns": campaigns,
+            "campaign_progress": campaign_progress_by_id(session, campaigns),
+            "today": date.today(),
+            "selected_need_id": None,
         },
     )
 
@@ -82,8 +102,21 @@ def submit_donation_form(
     form_data: FormData = Depends(parse_form_data),
     session: Session = Depends(get_session),
 ):
-    active_needs = session.exec(_active_community_needs_statement()).all()
-    request.state.donation_active_needs = active_needs
+    campaigns = session.exec(_public_campaigns_statement()).all()
+    campaigns.sort(
+        key=lambda campaign: (
+            {
+                CampaignStatus.PUBLISHED: 0,
+                CampaignStatus.PAUSED: 1,
+                CampaignStatus.COMPLETED: 2,
+            }.get(campaign.status, 3),
+            -campaign.created_at.timestamp(),
+        )
+    )
+    request.state.donation_campaigns = campaigns
+    request.state.donation_campaign_progress = campaign_progress_by_id(
+        session, campaigns
+    )
     request.state.donation_form_values = {
         key: str(form_data.get(key, "")).strip()
         for key in (
@@ -144,7 +177,6 @@ def submit_donation_form(
 
     amount_val = Decimal("0.00")
     cause_val = None
-    target_need_id = None
 
     if donation_type == "monetary":
         raw_amount = form_data.get("amount", "0")
@@ -173,20 +205,7 @@ def submit_donation_form(
 
         if raw_need_id and isinstance(raw_need_id, str):
             cleaned_need_id = raw_need_id.strip()
-            if cleaned_need_id.isdigit():
-                target_need_id = int(cleaned_need_id)
-                linked_need = session.get(BeneficiaryNeed, target_need_id)
-                if (
-                    not linked_need
-                    or not linked_need.is_community_need
-                    or linked_need.status == NeedStatus.FULFILLED
-                ):
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Selected community need is unavailable.",
-                    )
-                cause_val = f"Targeted: {linked_need.anonymised_title}"
-            elif cleaned_need_id in SUPPORT_AREAS:
+            if cleaned_need_id in SUPPORT_AREAS:
                 cause_val = SUPPORT_AREAS[cleaned_need_id]
             else:
                 raise HTTPException(
@@ -222,7 +241,7 @@ def submit_donation_form(
         donation_type=donation_type,
         amount=amount_val,
         cause=cause_val,
-        need_id=target_need_id,
+        need_id=None,
         item_category=item_category,
         item_description=item_description,
         logistics_type=logistics_type,
@@ -264,7 +283,9 @@ def submit_donation_form(
             "receipt_token": receipt_token,
             "request_tax": req_tax,
             "amount": f"{amount_val:.2f}",
-            "active_needs": active_needs,
+            "campaigns": campaigns,
+            "campaign_progress": request.state.donation_campaign_progress,
+            "today": date.today(),
         },
     )
 

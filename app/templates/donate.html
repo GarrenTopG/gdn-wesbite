@@ -1,29 +1,115 @@
 {% extends "base.html" %}
 
-{% block title %}Donation Pledge | Aurorah CAN{% endblock %}
-{% block meta_description %}Submit a monetary or in-kind donation pledge to support local work by Aurorah CAN in Kuils River. This project does not process payments online.{% endblock %}
-{% block og_title %}Make a Donation Pledge | Aurorah CAN{% endblock %}
-{% block og_description %}Record a monetary pledge or offer goods to support community work in Kuils River and nearby communities.{% endblock %}
+{% block title %}Support Community Campaigns | Aurorah CAN{% endblock %}
+{% block meta_description %}Explore staff-created community campaigns and submit a simulated contribution. No real payments are processed.{% endblock %}
+{% block og_title %}Support Community Campaigns | Aurorah CAN{% endblock %}
+{% block og_description %}See community campaigns, verified demo progress, and other ways to support Aurorah CAN.{% endblock %}
 
 {% block content %}
 {% set form = donation_form_values|default({}) %}
 
-<!-- Header Banner -->
 <section class="bg-brand-800 text-white py-20 px-6 text-center relative overflow-hidden">
     <div class="max-w-4xl mx-auto relative z-10">
         <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
             <i class="fa-solid fa-heart"></i>
         </div>
-        <h1 class="text-4xl md:text-5xl font-extrabold mb-2 tracking-tight">Make a Donation Pledge</h1>
+        <h1 class="text-4xl md:text-5xl font-extrabold mb-2 tracking-tight">Community Campaigns</h1>
         <p class="text-lg text-pink-100 max-w-xl mx-auto">
-            Record an intended monetary contribution or offer goods for local community work
+            See what our community is working toward, follow each campaign’s progress, and choose how you would like to help.
         </p>
+    </div>
+</section>
+
+<section class="bg-white px-4 py-12 sm:px-6" aria-labelledby="campaign-list-heading">
+    <div class="mx-auto max-w-7xl">
+        <div class="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+                <p class="text-sm font-bold uppercase tracking-widest text-brand-700">Community-led change</p>
+                <h2 id="campaign-list-heading" class="mt-1 text-3xl font-extrabold text-gray-900">Current campaigns</h2>
+            </div>
+            <p class="max-w-xl text-sm leading-relaxed text-gray-600">
+                Campaign contributions are simulated for this project. No money is taken; only admin-approved demo contributions count toward the progress shown.
+            </p>
+        </div>
+
+        {% if campaigns %}
+        <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {% for campaign in campaigns %}
+            {% set raised = campaign_progress.get(campaign.id, campaign.legacy_raised_amount or 0) %}
+            {% set target = campaign.target_amount or 0 %}
+            {% set percent = (raised / target * 100) if target else 0 %}
+            {% set campaign_status = campaign.status.value if campaign.status.value is defined else campaign.status %}
+            {% set can_contribute = campaign_status == 'Published' and (not campaign.deadline or campaign.deadline >= today) %}
+            <article class="flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+                {% if campaign.image_url %}
+                <img src="{{ campaign.image_url }}" alt="{{ campaign.image_alt or campaign.title }}" loading="lazy" class="h-56 w-full object-cover">
+                {% else %}
+                <div class="flex h-56 items-center justify-center bg-gradient-to-br from-brand-800 to-brand-600 text-white" role="img" aria-label="No campaign image provided">
+                    <div class="text-center">
+                        <i class="fa-regular fa-image text-4xl" aria-hidden="true"></i>
+                        <p class="mt-2 text-sm font-semibold">Campaign image coming soon</p>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="flex flex-1 flex-col p-6">
+                    <div class="mb-3 flex flex-wrap items-center gap-2">
+                        <span class="rounded-full bg-pink-50 px-3 py-1 text-xs font-bold text-brand-800">{{ campaign.category }}</span>
+                        <span class="text-xs text-gray-500"><i class="fa-solid fa-location-dot mr-1" aria-hidden="true"></i>{{ campaign.area }}</span>
+                    </div>
+                    <h3 class="text-xl font-extrabold leading-snug text-gray-900">
+                        <a href="/campaigns/{{ campaign.slug }}" class="hover:text-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-800">{{ campaign.title }}</a>
+                    </h3>
+                    <p class="mt-3 flex-1 text-sm leading-relaxed text-gray-600">{{ campaign.summary }}</p>
+                    <div class="mt-6">
+                        <div class="flex items-baseline justify-between gap-2 text-sm">
+                            <span class="font-extrabold text-gray-900">R{{ "%.2f"|format(raised) }}</span>
+                            <span class="text-gray-600">of R{{ "%.2f"|format(target) }} target</span>
+                        </div>
+                        <div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-100" role="progressbar"
+                             aria-label="Verified simulated contribution progress for {{ campaign.title }}"
+                             aria-valuenow="{{ [percent, 100]|min|round|int }}" aria-valuemin="0" aria-valuemax="100">
+                            <div class="h-full rounded-full bg-brand-700 transition-all" style="width: {{ [percent, 100]|min }}%"></div>
+                        </div>
+                        <p class="mt-2 text-xs text-gray-500">Verified simulated contributions · no real funds received</p>
+                    </div>
+                    <div class="mt-5 flex items-center justify-between gap-3">
+                        {% if campaign_status == 'Completed' or raised >= target %}
+                        <span class="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800"><i class="fa-solid fa-circle-check" aria-hidden="true"></i>Goal reached</span>
+                        {% elif campaign_status == 'Paused' %}
+                        <span class="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800">Temporarily paused</span>
+                        {% elif not can_contribute %}
+                        <span class="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700">Campaign closed</span>
+                        {% else %}
+                        <span class="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">Open</span>
+                        {% endif %}
+                        <a href="/campaigns/{{ campaign.slug }}" class="inline-flex items-center gap-2 rounded-lg bg-brand-800 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-brand-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-800 focus-visible:ring-offset-2">
+                            {% if can_contribute %}View &amp; support{% else %}Read story{% endif %}
+                            <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                        </a>
+                    </div>
+                    {% if campaign.deadline %}<p class="mt-3 text-xs text-gray-500">Campaign deadline: <time datetime="{{ campaign.deadline.isoformat() }}">{{ campaign.deadline.strftime('%d %b %Y') }}</time></p>{% endif %}
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-6 py-12 text-center">
+            <i class="fa-regular fa-newspaper text-4xl text-gray-300" aria-hidden="true"></i>
+            <h3 class="mt-3 text-lg font-bold text-gray-900">No campaigns are open right now</h3>
+            <p class="mt-1 text-sm text-gray-600">You can still support the general fund or offer in-kind goods below.</p>
+        </div>
+        {% endif %}
     </div>
 </section>
 
 <!-- Form Section -->
 <section class="py-12 px-4 bg-gray-50 min-h-screen">
     <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200/80 p-8 md:p-12">
+        <div class="mb-8">
+            <p class="text-sm font-bold uppercase tracking-widest text-brand-700">Other ways to give</p>
+            <h2 class="mt-1 text-3xl font-extrabold text-gray-900">General donation or in-kind offer</h2>
+            <p class="mt-2 text-sm leading-relaxed text-gray-600">General monetary pledges and goods offers continue to use the existing review process. No online payment is processed.</p>
+        </div>
 
         {% if error %}
         <div class="mb-6 rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-900" role="alert">
@@ -135,16 +221,8 @@
                         <option value="youth_learning" {% if selected_need_id == 'youth_learning' %}selected{% endif %}>Youth and learning</option>
                         <option value="community_library" {% if selected_need_id == 'community_library' %}selected{% endif %}>Community library</option>
                         <option value="community_development" {% if selected_need_id == 'community_development' %}selected{% endif %}>Community development</option>
-                        {% if active_needs %}
-                            <optgroup label="Direct Community Needs">
-                                {% for need in active_needs %}
-                                    <option value="{{ need.id }}" {% if selected_need_id|string == need.id|string %}selected{% endif %}>
-                                        Targeted pledge: {{ need.anonymised_title }} ({{ need.area }})
-                                    </option>
-                                {% endfor %}
-                            </optgroup>
-                        {% endif %}
                     </select>
+                    <p class="mt-2 text-xs text-gray-500">To support a specific campaign, choose it from the campaign cards above. Campaign contributions are simulated and require an account.</p>
                 </div>
 
             </div>

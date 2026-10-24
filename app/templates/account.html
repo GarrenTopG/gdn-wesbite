@@ -10,9 +10,9 @@
         </h1>
         <p class="mt-2 text-gray-600">
             {% if mode == 'register' %}
-            Create an account to request help or apply to volunteer. You can browse the site and make a donation pledge without signing in.
+            Create an account to request help, apply to volunteer, and follow simulated campaign contributions. General pledges and in-kind offers remain available without signing in.
             {% else %}
-            Sign in to continue to the page you requested. Staff accounts will be taken to the administration dashboard.
+            Sign in to continue, follow your campaign contribution updates, or manage your account. Staff accounts will be taken to the administration dashboard.
             {% endif %}
         </p>
 
@@ -61,7 +61,7 @@
             {% endif %}
         </p>
         {% if mode == 'login' %}
-        <p class="mt-4 text-center text-xs text-gray-500">You can browse the site and make a donation pledge without signing in.</p>
+        <p class="mt-4 text-center text-xs text-gray-500">Campaign contributions require an account so you can see private review updates. General pledges and in-kind offers do not.</p>
         {% endif %}
     </div>
 </section>

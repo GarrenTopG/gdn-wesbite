@@ -26,7 +26,7 @@ from app.models.entities import (
 )
 from app.manage_staff import hash_password
 from app.security import STAFF_COOKIE_NAME
-from app.routers.donations import _active_community_needs_statement
+from app.routers.donations import _public_campaigns_statement
 from tests.migration_support import (
     normalize_user_roles as _normalize_user_roles,
     normalize_volunteer_available_days as _normalize_volunteer_available_days,
@@ -717,7 +717,7 @@ class PublicWebTests(DatabaseTestCase):
         )
         self.assertEqual(limited.status_code, 429)
 
-    def test_donate_page_reads_legacy_open_need_status(self):
+    def test_donate_page_does_not_expose_legacy_assistance_need_as_campaign(self):
         with Session(self.engine) as session:
             session.add(
                 BeneficiaryNeed(
@@ -735,7 +735,7 @@ class PublicWebTests(DatabaseTestCase):
 
         response = self.client.get("/donate")
         self.assertEqual(response.status_code, 200, response.text)
-        self.assertIn("Community food parcels", response.text)
+        self.assertNotIn("Community food parcels", response.text)
 
     def test_public_browse_pages_render(self):
         for path in ("/", "/about", "/donate", "/account/register"):
@@ -777,12 +777,10 @@ class PublicWebTests(DatabaseTestCase):
                 self.assertEqual(image.headers["content-type"], "image/png")
                 self.assertTrue(image.content)
 
-    def test_donation_needs_query_uses_sql_server_bit_comparison(self):
-        query = str(
-            _active_community_needs_statement().compile(dialect=mssql.dialect())
-        )
-        self.assertIn("beneficiaryneed.is_community_need = 1", query)
-        self.assertNotIn("beneficiaryneed.is_community_need IS 1", query)
+    def test_public_campaign_query_compiles_for_sql_server(self):
+        query = str(_public_campaigns_statement().compile(dialect=mssql.dialect()))
+        self.assertIn("campaign.status IN", query)
+        self.assertIn("campaign.archived_at IS NULL", query)
 
     def test_verified_donation_query_uses_sql_server_bit_comparison(self):
         query = str(

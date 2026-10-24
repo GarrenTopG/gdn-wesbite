@@ -35,10 +35,14 @@ Initialize it before starting the application:
 python -m alembic upgrade head
 ```
 
-The initial revision creates the current schema for an empty database. The next revision
+The initial revision creates the base schema for an empty database. The next revision
 also upgrades supported pre-migration SQLite and SQL Server schemas, applies required
 legacy data normalization, backfills allocation and publication data, and seeds the
-supplied community stories. The migration version is stored in `alembic_version`.
+supplied community stories. The campaign revision adds a dedicated public `campaign`
+table, links simulated campaign contributions and user notifications, and carries
+existing staff-created community needs into campaigns without copying beneficiary
+contact details. Existing campaign progress is retained as a legacy baseline. The
+migration version is stored in `alembic_version`.
 Application startup only checks connectivity and that the database is at the supported
 revision; it never runs schema changes automatically.
 
@@ -72,6 +76,17 @@ a single instance while a migration is running; scale out only after the migrati
 completed, since simultaneous container startups can race to apply the same migration.
 Alembic does nothing when the database is already at the latest revision. The FastAPI
 application itself still only validates the schema and does not run migrations.
+
+Campaign imagery currently uses an administrator-provided image URL. Do not enable
+server-side image uploads on Render until a durable shared storage destination (such as
+an attached persistent disk or object storage) has been configured and tested; container
+filesystem uploads may disappear on deploy or restart.
+
+Before upgrading a hosted database, confirm the application is connected to the intended
+schema and that its table names match the app's migration history. In particular, an
+Azure portal table named `CommunityNeeds` is not by itself evidence that it is the
+application's SQLModel table; this code maps the beneficiary/operational records to
+`beneficiaryneed`.
 
 For future schema work, add a new revision, review and test its generated operations
 against both SQLite and SQL Server, and include any required data backfill in that

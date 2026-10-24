@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import date
 import logging
 import os
 from pathlib import Path
@@ -23,9 +24,11 @@ from app.routers import (
     accounts,
     admin,
     assistance,
+    campaigns,
     donations,
     mobile_api,
     news,
+    user_notifications,
     volunteers,
 )
 from app.security import (
@@ -131,13 +134,39 @@ def create_app(
                 status_code=exc.status_code,
                 context={
                     "active_page": "donate",
-                    "active_needs": getattr(request.state, "donation_active_needs", []),
+                    "campaigns": getattr(request.state, "donation_campaigns", []),
+                    "campaign_progress": getattr(
+                        request.state, "donation_campaign_progress", {}
+                    ),
+                    "today": date.today(),
                     "donation_form_values": getattr(
                         request.state, "donation_form_values", {}
                     ),
                     "selected_need_id": getattr(
                         request.state, "donation_form_values", {}
                     ).get("need_id"),
+                    "error": exc.detail,
+                },
+                headers={
+                    "Cache-Control": "no-store",
+                    "Referrer-Policy": "no-referrer",
+                },
+            )
+
+        if (
+            request.method == "POST"
+            and request.url.path.startswith("/campaigns/")
+            and request.url.path.endswith("/contribute")
+            and getattr(request.state, "campaign_submission", None)
+        ):
+            return templates.TemplateResponse(
+                request=request,
+                name="campaigndetail.html",
+                status_code=exc.status_code,
+                context={
+                    "active_page": "donate",
+                    **request.state.campaign_submission,
+                    "public_user": request.state.public_user,
                     "error": exc.detail,
                 },
                 headers={
@@ -193,6 +222,8 @@ def create_app(
             request.url.path.startswith("/admin/")
             or request.url.path.startswith("/api/auth/")
             or request.url.path == "/donate/tax-certificate"
+            or request.url.path.startswith("/campaigns/")
+            or request.url.path.startswith("/account/notifications")
             or (request.url.path == "/donate" and request.method == "POST")
         ):
             response.headers.setdefault("Cache-Control", "no-store")
@@ -208,8 +239,10 @@ def create_app(
     application.include_router(volunteers.router)
     application.include_router(assistance.router)
     application.include_router(donations.router)
+    application.include_router(campaigns.router)
     application.include_router(donations.receipt_router)
     application.include_router(accounts.router)
+    application.include_router(user_notifications.router)
     application.include_router(mobile_api.router)
     application.include_router(news.router)
     application.include_router(admin.router)

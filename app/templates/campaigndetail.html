@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}{{ campaign.title }} | Community Campaign | Aurorah CAN{% endblock %}
+{% block meta_description %}{{ campaign.summary }} Simulated campaign contributions only; no real payments are processed.{% endblock %}
+{% block og_title %}{{ campaign.title }} | Aurorah CAN{% endblock %}
+{% block og_description %}{{ campaign.summary }}{% endblock %}
+
+{% block content %}
+<section class="bg-brand-800 px-4 py-10 text-white sm:px-6">
+    <div class="mx-auto max-w-6xl">
+        <a href="/donate" class="inline-flex items-center gap-2 text-sm font-semibold text-pink-100 hover:text-white">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All campaigns
+        </a>
+        <p class="mt-8 text-sm font-bold uppercase tracking-widest text-pink-200">{{ campaign.category }} · {{ campaign.area }}</p>
+        <h1 class="mt-2 max-w-4xl text-3xl font-extrabold tracking-tight sm:text-5xl">{{ campaign.title }}</h1>
+        <p class="mt-4 max-w-3xl text-lg leading-relaxed text-white/85">{{ campaign.summary }}</p>
+    </div>
+</section>
+
+<section class="bg-gray-50 px-4 py-10 sm:px-6">
+    <div class="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <article class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            {% if campaign.image_url %}
+            <img src="{{ campaign.image_url }}" alt="{{ campaign.image_alt or campaign.title }}" class="max-h-[32rem] w-full object-cover">
+            {% else %}
+            <div class="flex h-64 items-center justify-center bg-gradient-to-br from-brand-800 to-brand-600 text-white" role="img" aria-label="No campaign image provided">
+                <div class="text-center">
+                    <i class="fa-regular fa-image text-5xl" aria-hidden="true"></i>
+                    <p class="mt-3 font-semibold">Campaign image coming soon</p>
+                </div>
+            </div>
+            {% endif %}
+            <div class="p-6 sm:p-9">
+                <h2 class="text-2xl font-extrabold text-gray-900">The story behind this campaign</h2>
+                <div class="mt-5 whitespace-pre-line text-base leading-8 text-gray-700">{{ campaign.story }}</div>
+                {% if campaign.deadline %}
+                <p class="mt-8 border-t border-gray-100 pt-5 text-sm text-gray-600">
+                    <i class="fa-regular fa-calendar mr-2 text-brand-800" aria-hidden="true"></i>
+                    Campaign deadline: <time datetime="{{ campaign.deadline.isoformat() }}">{{ campaign.deadline.strftime('%d %B %Y') }}</time>
+                </p>
+                {% endif %}
+            </div>
+        </article>
+
+        <aside class="h-fit rounded-2xl border border-gray-200 bg-white p-6 shadow-sm lg:sticky lg:top-28" aria-labelledby="campaign-progress-heading">
+            <p class="text-sm font-bold uppercase tracking-widest text-brand-700">Campaign progress</p>
+            <h2 id="campaign-progress-heading" class="mt-2 text-2xl font-extrabold text-gray-900">R{{ "%.2f"|format(raised) }} <span class="text-base font-semibold text-gray-500">of R{{ "%.2f"|format(campaign.target_amount) }}</span></h2>
+            <div class="mt-4 h-3 overflow-hidden rounded-full bg-gray-100" role="progressbar"
+                 aria-label="Verified simulated contribution progress for {{ campaign.title }}"
+                 aria-valuenow="{{ [progress, 100]|min|round|int }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="h-full rounded-full bg-brand-700 transition-all" style="width: {{ [progress, 100]|min }}%"></div>
+            </div>
+            <p class="mt-3 text-xs leading-relaxed text-gray-500">Progress counts admin-approved simulated contributions only. No real funds have been received.</p>
+
+            {% if error %}
+            <div class="mt-5 rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-900" role="alert">{{ error }}</div>
+            {% endif %}
+
+            {% if campaign_is_open %}
+                {% if public_user %}
+                <form action="/campaigns/{{ campaign.slug }}/contribute" method="post" class="mt-6 space-y-4">
+                    {{ csrf_input(request) }}
+                    <h3 class="text-lg font-bold text-gray-900">Make a simulated contribution</h3>
+                    <p class="text-sm leading-relaxed text-gray-600">Choose an amount. An administrator will review it before it appears in progress.</p>
+                    <div class="grid grid-cols-3 gap-2" aria-label="Suggested contribution amounts">
+                        {% for preset in [50, 100, 250] %}
+                        <button type="button" class="campaign-amount-preset rounded-lg border border-gray-300 px-2 py-2 text-sm font-bold text-gray-800 hover:border-brand-800 hover:text-brand-800" data-amount="{{ preset }}">R{{ preset }}</button>
+                        {% endfor %}
+                    </div>
+                    <label for="contribution-amount" class="block text-sm font-semibold text-gray-800">Amount (ZAR)
+                        <div class="mt-1 flex overflow-hidden rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-brand-800">
+                            <span class="bg-gray-50 px-3 py-2.5 font-bold text-gray-600">R</span>
+                            <input id="contribution-amount" name="amount" type="number" min="10" max="9999999999.99" step="0.01" required value="{{ contribution_amount or '' }}" class="w-full px-3 py-2.5 text-gray-900 outline-none">
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-3 text-sm text-gray-700">
+                        <input type="checkbox" name="is_anonymous" value="true" class="mt-1 rounded border-gray-300">
+                        <span>Show my contribution as anonymous in public displays.</span>
+                    </label>
+                    <label class="flex items-start gap-3 text-xs leading-relaxed text-gray-600">
+                        <input type="checkbox" name="demo_consent" value="true" required class="mt-0.5 rounded border-gray-300">
+                        <span>I understand this is a simulated school-project contribution. No payment will be taken, and it will count toward progress only if an administrator approves it.</span>
+                    </label>
+                    <button type="submit" class="w-full rounded-lg bg-brand-800 px-4 py-3 font-bold text-white transition hover:bg-brand-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-800 focus-visible:ring-offset-2">
+                        Confirm simulated contribution
+                    </button>
+                </form>
+                {% else %}
+                <div class="mt-6 space-y-3">
+                    <p class="text-sm leading-relaxed text-gray-700">Sign in or create an account to contribute and follow your submission in your private notifications.</p>
+                    <a href="/account/login?next_path={{ ('/campaigns/' ~ campaign.slug)|urlencode }}" class="block rounded-lg bg-brand-800 px-4 py-3 text-center font-bold text-white hover:bg-brand-900">Sign in to continue</a>
+                    <a href="/account/register?next_path={{ ('/campaigns/' ~ campaign.slug)|urlencode }}" class="block rounded-lg border border-brand-800 px-4 py-3 text-center font-bold text-brand-800 hover:bg-pink-50">Create account</a>
+                </div>
+                {% endif %}
+            {% elif campaign.status.value == 'Completed' or raised >= campaign.target_amount %}
+            <div class="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status">
+                <strong class="block text-base">Campaign goal reached</strong>
+                This campaign is complete and no longer accepts contributions.
+            </div>
+            {% elif campaign.status.value == 'Paused' %}
+            <div class="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
+                This campaign is temporarily paused and cannot accept contributions right now.
+            </div>
+            {% else %}
+            <div class="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700" role="status">
+                This campaign is closed and is not accepting contributions.
+            </div>
+            {% endif %}
+        </aside>
+    </div>
+</section>
+
+{% if public_user %}
+<script>
+    document.querySelectorAll('.campaign-amount-preset').forEach((button) => {
+        button.addEventListener('click', () => {
+            const amount = document.getElementById('contribution-amount');
+            if (amount) {
+                amount.value = button.dataset.amount;
+                amount.focus();
+            }
+        });
+    });
+</script>
+{% endif %}
+{% endblock %}

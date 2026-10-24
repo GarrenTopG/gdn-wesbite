@@ -65,7 +65,9 @@ def export_donations_pdf(
     if not verify_staff_session(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    donations = list(session.exec(select(Donation)).all())
+    donations = list(
+        session.exec(select(Donation).where(Donation.campaign_id.is_(None))).all()
+    )
     pdf_buffer = generate_donations_pdf(donations)
     add_audit_event(session, request, "export.donations", "donation")
     session.commit()
@@ -113,6 +115,7 @@ def export_donation_reconciliation_csv(
     filtered = [
         donation
         for donation in donations
+        if donation.campaign_id is None
         if (start is None or donation.created_at.date() >= start)
         and (end is None or donation.created_at.date() <= end)
     ]

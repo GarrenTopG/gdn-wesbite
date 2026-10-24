@@ -1,0 +1,54 @@
+<div id="addCampaignModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+  <div class="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+    <div class="flex items-center justify-between border-b pb-3">
+      <div>
+        <h2 class="text-lg font-bold text-gray-900">Create a community campaign</h2>
+        <p class="mt-1 text-xs text-gray-600">New campaigns start as drafts and are not visible until published.</p>
+      </div>
+      <button type="button" onclick="toggleModal('addCampaignModal')" aria-label="Close dialog" class="text-gray-500 hover:text-gray-800">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+    <form action="/admin/campaigns/add" method="post" class="space-y-4">
+      {{ csrf_input(request) }}
+      <label class="block text-sm font-semibold text-gray-700">Campaign title
+        <input name="title" maxlength="255" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+      </label>
+      <label class="block text-sm font-semibold text-gray-700">Short summary
+        <textarea name="summary" rows="2" required maxlength="2000" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></textarea>
+      </label>
+      <label class="block text-sm font-semibold text-gray-700">Full story
+        <textarea name="story" rows="6" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></textarea>
+      </label>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <label class="block text-sm font-semibold text-gray-700">Area
+          <input name="area" maxlength="255" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+        </label>
+        <label class="block text-sm font-semibold text-gray-700">Category
+          <input name="category" maxlength="100" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+        </label>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <label class="block text-sm font-semibold text-gray-700">Funding target (ZAR)
+          <input type="number" name="target_amount" min="0.01" step="0.01" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+        </label>
+        <label class="block text-sm font-semibold text-gray-700">Optional deadline
+          <input type="date" name="deadline" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+        </label>
+      </div>
+      <p class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+        Image uploads are disabled until durable Render storage is configured. You can use an HTTPS image URL instead. Only share imagery with appropriate permission, and write meaningful image descriptions.
+      </p>
+      <label class="block text-sm font-semibold text-gray-700">Image URL (optional)
+        <input type="url" name="image_url" maxlength="2048" placeholder="https://example.org/campaign-image.jpg" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+      </label>
+      <label class="block text-sm font-semibold text-gray-700">Image description / alt text
+        <input name="image_alt" maxlength="500" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+      </label>
+      <div class="flex justify-end gap-2 border-t pt-4">
+        <button type="button" onclick="toggleModal('addCampaignModal')" class="rounded-lg bg-gray-100 px-4 py-2 font-bold text-gray-700">Cancel</button>
+        <button type="submit" class="rounded-lg bg-brand-800 px-4 py-2 font-bold text-white hover:bg-brand-900">Save draft</button>
+      </div>
+    </form>
+  </div>
+</div>

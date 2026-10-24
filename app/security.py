@@ -40,6 +40,8 @@ ROLE_PERMISSIONS = {
             "beneficiaries.write",
             "needs.read",
             "needs.write",
+            "campaigns.read",
+            "campaigns.write",
             "donations.read",
             "donations.write",
             "news.read",
@@ -139,6 +141,8 @@ def add_record_history(
     actor = getattr(request.state, "staff_user", None)
     if not isinstance(actor, User):
         actor = getattr(request.state, "mobile_user", None)
+    if not isinstance(actor, User):
+        actor = getattr(request.state, "public_user", None)
     session.add(
         RecordHistory(
             record_type=record_type,

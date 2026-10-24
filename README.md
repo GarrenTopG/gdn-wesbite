@@ -5,7 +5,9 @@ Aurorah CAN Digital Hub is a community support platform built to connect benefic
 ## Key Features
 
 - Request assistance through a structured, privacy-aware beneficiary form
-- Accept monetary and in-kind donations with targeting and tax-certificate support
+- Publish staff-created fundraising campaigns with admin-reviewed simulated contributions
+- Accept general monetary pledges and in-kind offers with existing review support
+- Give signed-in contributors a private notifications page for campaign review updates
 - Register and track volunteers by skills, availability, and assigned tasks
 - Publish updates and impact stories through a news and announcements feed
 - Manage operations from a secure admin dashboard with login, data review, and exports
@@ -287,8 +289,8 @@ The role permissions are enforced on the server for dashboard data, mutations, a
 
 | Role | Access |
 | --- | --- |
-| Administrator | All operational areas, staff management, and audit log |
-| Case Worker | Beneficiary requests, community needs, and volunteer scheduling |
+| Administrator | All operational areas, campaign publishing, staff management, and audit log |
+| Case Worker | Beneficiary requests, internal operational needs, and volunteer scheduling |
 | Finance | Donation verification and allocations, financial summaries, and permitted reports |
 | Content Editor | News and announcements |
 | Read-Only | Aggregated operational summaries only; no individual records or edits |
@@ -299,10 +301,12 @@ The Read-Only dashboard uses aggregate database queries and does not return bene
 
 - The dashboard priority queue links urgent assistance cases, donations awaiting verification, volunteer assignments due within seven days, and overdue case follow-ups to the underlying records.
 - Assistance lists support status, urgency, category, region, and date-range filters. Contact details are masked in the list and visible only on the permission-checked case detail page. Assignment, internal notes, follow-up dates, status changes, and their reasons are recorded in case history. A reason is required to fulfil/close or reject a request.
-- Donation states are `Submitted` → `Payment Pending` → `Received/Verified` → `Allocated`, with `Refunded` available from pending, verified, or allocated states. Allocation checks both the remaining donation balance and the target need's remaining funding server-side. The finance workspace provides an access-logged CSV reconciliation export.
+- General donation states remain `Submitted` → `Payment Pending` → `Received/Verified` → `Allocated`, with `Refunded` available from pending, verified, or allocated states. Allocation checks both the remaining donation balance and the target need's remaining funding server-side.
+- Campaign contributions are simulated school-project records, require a signed-in account, and do not process or collect payment credentials. Staff approve or reject them; only approved, non-reversed contributions count in campaign progress. Approval, rejection, campaign lifecycle updates, and completion updates appear on the contributor's private `/account/notifications` page. Simulated campaign contributions are kept out of general donation totals and the donation PDF/CSV exports; campaign progress is shown separately in campaign management.
+- Public campaigns are separate from private beneficiary assistance records. Campaigns follow `Draft` → `Published` → `Paused` / automatically `Completed` → `Archived`; completed campaigns remain visible below active campaigns but cannot accept new contributions. Archiving hides a campaign without removing its history.
 - Tax receipts are not available from an unverified pledge. A donor who requests one receives a private download link that remains unusable until staff verify payment; successful verification creates the time-limited receipt access record.
 - Volunteer lists can be filtered by skills, location, availability, and onboarding status. Assignments can include a date/time and appear in the upcoming-work queue.
-- Community need targets and deadlines can be updated with funding progress history. News content follows `Draft` → `Preview` → `Published` → `Archive`; only published articles appear publicly.
+- Internal operational-need targets and deadlines can be updated with funding progress history. Public campaigns are managed separately in the campaign section of the admin workspace. News content follows `Draft` → `Preview` → `Published` → `Archive`; only published articles appear publicly.
 - Operational records are archived rather than permanently deleted, preserving history and audit context. Include archived records from the dashboard's assistance filter when reviewing historical work.
 
 ## Personal-data retention
@@ -366,12 +370,12 @@ http://127.0.0.1:8000/donate
 
 The donation flow supports:
 
-- monetary contributions
+- general monetary pledges
 - in-kind donations
-- targeted funding toward a specific need
+- staff-created public campaigns with simulated contributions
 - optional tax certificate requests
 
-Monetary donations are pledges only; this project does not process payments. Requested certificates are downloaded as clearly marked demo documents and are not valid proof of payment or for tax purposes.
+General monetary contributions remain pledges only. Campaign contributions require an account and admin approval, but are simulations only: the site does not take payment or collect card/bank details. Progress counts approved demo contributions, not pending submissions. Campaign images can currently be added by URL; uploads are deferred until durable storage is confirmed for the Render deployment. Any requested certificate is a clearly marked demo document and is not valid proof of payment or for tax purposes.
 
 Example API-style flow:
 

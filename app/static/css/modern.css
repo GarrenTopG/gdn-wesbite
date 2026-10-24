@@ -524,6 +524,24 @@ textarea:focus-visible {
     font-size: 0.8rem;
 }
 
+.account-menu-link {
+    display: flex;
+    min-height: 2.5rem;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--brand-900);
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.account-menu-link:hover,
+.account-menu-link[aria-current="page"] {
+    color: var(--brand-700);
+    text-decoration: underline;
+    text-underline-offset: 0.2rem;
+}
+
 .account-menu-popover form {
     border-top: 1px solid var(--line);
     padding-top: 0.6rem;

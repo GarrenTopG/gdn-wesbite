@@ -2,7 +2,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Optional, List
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Index, UniqueConstraint
 from sqlmodel import Field, SQLModel, Column, JSON
 
 
@@ -39,6 +39,7 @@ class DonationStatus(str, Enum):
     PAYMENT_PENDING = "Payment Pending"
     RECEIVED_VERIFIED = "Received/Verified"
     ALLOCATED = "Allocated"
+    REJECTED = "Rejected"
     REFUNDED = "Refunded"
 
 
@@ -47,6 +48,14 @@ class NewsStatus(str, Enum):
     PREVIEW = "Preview"
     PUBLISHED = "Published"
     ARCHIVED = "Archive"
+
+
+class CampaignStatus(str, Enum):
+    DRAFT = "Draft"
+    PUBLISHED = "Published"
+    PAUSED = "Paused"
+    COMPLETED = "Completed"
+    ARCHIVED = "Archived"
 
 
 # ENUMS FOR VOLUNTEER STATUS
@@ -240,7 +249,61 @@ class Donation(SQLModel, table=True):
     need_id: Optional[int] = Field(
         default=None, foreign_key="beneficiaryneed.id", index=True
     )
+    campaign_id: Optional[int] = Field(
+        default=None, foreign_key="campaign.id", index=True
+    )
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Campaign(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str = Field(max_length=255)
+    slug: str = Field(max_length=255, unique=True, index=True)
+    summary: str
+    story: str
+    image_url: Optional[str] = Field(default=None, max_length=2048)
+    image_alt: Optional[str] = Field(default=None, max_length=500)
+    area: str = Field(max_length=255)
+    category: str = Field(max_length=100)
+    target_amount: Decimal = Field(max_digits=12, decimal_places=2)
+    legacy_raised_amount: Decimal = Field(
+        default=Decimal("0.00"), max_digits=12, decimal_places=2
+    )
+    status: CampaignStatus = Field(
+        default=CampaignStatus.DRAFT, max_length=50, index=True
+    )
+    completion_return_status: Optional[str] = Field(default=None, max_length=50)
+    deadline: Optional[date] = Field(default=None, index=True)
+    created_by: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    legacy_need_id: Optional[int] = Field(
+        default=None,
+        foreign_key="beneficiaryneed.id",
+        index=True,
+    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    published_at: Optional[datetime] = Field(default=None, index=True)
+    completed_at: Optional[datetime] = Field(default=None, index=True)
+    archived_at: Optional[datetime] = Field(default=None, index=True)
+
+
+class UserNotification(SQLModel, table=True):
+    __table_args__ = (
+        Index("ix_usernotification_user_created", "user_id", "created_at"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    donation_id: Optional[int] = Field(
+        default=None, foreign_key="donation.id", index=True
+    )
+    campaign_id: Optional[int] = Field(
+        default=None, foreign_key="campaign.id", index=True
+    )
+    event_type: str = Field(max_length=50, index=True)
+    message: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    read_at: Optional[datetime] = Field(default=None, index=True)
 
 
 class DonationAllocation(SQLModel, table=True):

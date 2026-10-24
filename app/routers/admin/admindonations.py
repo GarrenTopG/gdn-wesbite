@@ -3,12 +3,13 @@ from decimal import Decimal, InvalidOperation
 from typing import Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import true
+from sqlalchemy import false, true, update
 from sqlmodel import Session, select
 
 from app.db.session import get_session
 from app.models.entities import (
     BeneficiaryNeed,
+    Campaign,
     Donation,
     DonationAllocation,
     DonationStatus,
@@ -21,6 +22,10 @@ from app.templatesconfig import templates
 from app.routers.admin.auth import verify_staff_session
 from app.security import add_audit_event, add_record_history, permission_required
 from app.security import now_utc
+from app.services.campaigns import (
+    notify_user,
+    refresh_campaign_completion,
+)
 
 router = APIRouter(dependencies=[Depends(permission_required("donations.write"))])
 
@@ -130,9 +135,30 @@ def verify_donation(
         raise HTTPException(
             status_code=409, detail="Donation is not awaiting verification."
         )
-    donation.is_verified = True
-    donation.status = DonationStatus.RECEIVED_VERIFIED.value
-    session.add(donation)
+    if donation.campaign_id is not None:
+        result = session.exec(
+            update(Donation)
+            .where(
+                Donation.id == donation_id,
+                Donation.archived_at.is_(None),
+                Donation.is_verified == false(),
+                Donation.status == DonationStatus.PAYMENT_PENDING.value,
+            )
+            .values(
+                is_verified=True,
+                status=DonationStatus.RECEIVED_VERIFIED.value,
+            )
+        )
+        if result.rowcount != 1:
+            raise HTTPException(
+                status_code=409,
+                detail="Contribution was already reviewed; refresh the donation queue.",
+            )
+        session.refresh(donation)
+    else:
+        donation.is_verified = True
+        donation.status = DonationStatus.RECEIVED_VERIFIED.value
+        session.add(donation)
     add_record_history(
         session,
         request,
@@ -163,6 +189,27 @@ def verify_donation(
             donation_id,
             "verified_tax_receipt_issued",
         )
+    if donation.campaign_id is not None:
+        campaign = session.get(Campaign, donation.campaign_id)
+        if not campaign:
+            raise HTTPException(
+                status_code=409,
+                detail="The linked campaign is unavailable; contribution was not verified.",
+            )
+        if donation.user_id is not None:
+            notify_user(
+                session,
+                user_id=donation.user_id,
+                campaign_id=campaign.id,
+                donation_id=donation.id,
+                event_type="contribution_verified",
+                message=(
+                    f"Your simulated contribution of R{donation.amount:.2f} to "
+                    f"{campaign.title} has been approved and is now included in "
+                    "verified demo progress. No real payment was processed."
+                ),
+            )
+        refresh_campaign_completion(session, request, campaign)
     add_audit_event(session, request, "donation.verified", "donation", donation_id)
     session.commit()
 
@@ -336,10 +383,34 @@ def update_donation_status(
             detail=f"Invalid donation status transition from {donation.status}.",
         )
     old_status = donation.status
-    donation.status = status
-    if status == DonationStatus.REFUNDED.value:
-        donation.is_verified = False
-    session.add(donation)
+    if donation.campaign_id is not None:
+        result = session.exec(
+            update(Donation)
+            .where(
+                Donation.id == donation_id,
+                Donation.archived_at.is_(None),
+                Donation.status == old_status,
+            )
+            .values(
+                status=status,
+                is_verified=(
+                    False
+                    if status == DonationStatus.REFUNDED.value
+                    else donation.is_verified
+                ),
+            )
+        )
+        if result.rowcount != 1:
+            raise HTTPException(
+                status_code=409,
+                detail="Contribution status changed; refresh the donation queue.",
+            )
+        session.refresh(donation)
+    else:
+        donation.status = status
+        if status == DonationStatus.REFUNDED.value:
+            donation.is_verified = False
+        session.add(donation)
     add_record_history(
         session,
         request,
@@ -356,6 +427,36 @@ def update_donation_status(
         donation_id,
         {"from": old_status, "to": status},
     )
+    if status == DonationStatus.REFUNDED.value and donation.campaign_id is not None:
+        campaign = session.get(Campaign, donation.campaign_id)
+        if not campaign:
+            raise HTTPException(status_code=409, detail="Campaign not found.")
+        was_verified = old_status in {
+            DonationStatus.RECEIVED_VERIFIED.value,
+            DonationStatus.ALLOCATED.value,
+        }
+        if donation.user_id is not None:
+            notify_user(
+                session,
+                user_id=donation.user_id,
+                campaign_id=campaign.id,
+                donation_id=donation.id,
+                event_type=(
+                    "contribution_refunded"
+                    if was_verified
+                    else "contribution_cancelled"
+                ),
+                message=(
+                    f"Your simulated contribution of R{donation.amount:.2f} to "
+                    f"{campaign.title} "
+                    + (
+                        "was removed from verified demo progress."
+                        if was_verified
+                        else "was cancelled and has not been included in progress."
+                    )
+                ),
+            )
+        refresh_campaign_completion(session, request, campaign)
     session.commit()
     if status == DonationStatus.REFUNDED.value:
         affected_need_ids = session.exec(
@@ -366,6 +467,78 @@ def update_donation_status(
         for affected_need_id in set(affected_need_ids):
             recalculate_need_status(session, request, affected_need_id)
             record_need_funding_progress(session, request, affected_need_id)
+    return RedirectResponse(url="/admin/dashboard?tab=donations", status_code=303)
+
+
+@router.post("/donations/{donation_id}/reject")
+def reject_simulated_contribution(
+    donation_id: int,
+    request: Request,
+    reason: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    if not verify_staff_session(request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    donation = session.get(Donation, donation_id)
+    if not donation or donation.archived_at is not None or donation.campaign_id is None:
+        raise HTTPException(status_code=404, detail="Contribution record not found.")
+    if donation.status != DonationStatus.PAYMENT_PENDING.value:
+        raise HTTPException(
+            status_code=409, detail="Only pending contributions can be rejected."
+        )
+    campaign = session.get(Campaign, donation.campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=409, detail="Campaign not found.")
+    previous_status = donation.status
+    result = session.exec(
+        update(Donation)
+        .where(
+            Donation.id == donation_id,
+            Donation.archived_at.is_(None),
+            Donation.status == DonationStatus.PAYMENT_PENDING.value,
+            Donation.is_verified == false(),
+        )
+        .values(
+            status=DonationStatus.REJECTED.value,
+            is_verified=False,
+        )
+    )
+    if result.rowcount != 1:
+        raise HTTPException(
+            status_code=409,
+            detail="Contribution was already reviewed; refresh the donation queue.",
+        )
+    session.refresh(donation)
+    clean_reason = reason.strip()[:1000]
+    add_record_history(
+        session,
+        request,
+        "donation",
+        donation_id,
+        "simulated_contribution_rejected",
+        {"reason": clean_reason or None},
+    )
+    add_audit_event(
+        session,
+        request,
+        "donation.simulated_contribution_rejected",
+        "donation",
+        donation_id,
+        {"from": previous_status, "reason": clean_reason or None},
+    )
+    if donation.user_id is not None:
+        notify_user(
+            session,
+            user_id=donation.user_id,
+            campaign_id=campaign.id,
+            donation_id=donation.id,
+            event_type="contribution_rejected",
+            message=(
+                f"Your simulated contribution to {campaign.title} was not approved. "
+                "It has not been included in campaign progress."
+            ),
+        )
+    session.commit()
     return RedirectResponse(url="/admin/dashboard?tab=donations", status_code=303)
 
 

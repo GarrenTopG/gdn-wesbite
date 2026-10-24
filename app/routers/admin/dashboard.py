@@ -12,6 +12,7 @@ from sqlmodel import Session, func, select
 from app.db.session import get_session
 from app.models.entities import (
     BeneficiaryNeed,
+    Campaign,
     Donation,
     DonationAllocation,
     DonationStatus,
@@ -32,6 +33,7 @@ from app.security import (
     permission_required,
     role_has_permission,
 )
+from app.services.campaigns import campaign_progress_by_id
 from app.templatesconfig import templates
 
 router = APIRouter()
@@ -98,6 +100,7 @@ def get_admin_dashboard(
     can_view_donations = role_has_permission(staff_user.role, "donations.read")
     can_view_beneficiaries = role_has_permission(staff_user.role, "beneficiaries.read")
     can_view_needs = role_has_permission(staff_user.role, "needs.read")
+    can_view_campaigns = role_has_permission(staff_user.role, "campaigns.read")
     can_view_news = role_has_permission(staff_user.role, "news.read")
     can_view_reports = role_has_permission(staff_user.role, "reports.read")
     include_archived = (
@@ -165,6 +168,32 @@ def get_admin_dashboard(
     else:
         all_needs = []
     news_articles = session.exec(select(NewsArticle)).all() if can_view_news else []
+    campaigns = (
+        session.exec(
+            select(Campaign)
+            .where(True if include_archived else Campaign.archived_at.is_(None))
+            .order_by(Campaign.created_at.desc())
+        ).all()
+        if can_view_campaigns
+        else []
+    )
+    campaign_progress = campaign_progress_by_id(session, campaigns)
+    donation_campaign_ids = {
+        donation.campaign_id
+        for donation in donations
+        if donation.campaign_id is not None
+    }
+    campaigns_by_id = (
+        {
+            campaign.id: campaign
+            for campaign in session.exec(
+                select(Campaign).where(Campaign.id.in_(donation_campaign_ids))
+            ).all()
+            if campaign.id is not None
+        }
+        if can_view_donations and donation_campaign_ids
+        else {}
+    )
 
     beneficiaries = [need for need in all_needs if not need.is_community_need]
     community_needs = [need for need in all_needs if need.is_community_need]
@@ -275,6 +304,7 @@ def get_admin_dashboard(
             and donation.is_verified
             and donation.status != DonationStatus.REFUNDED.value
             and donation.donation_type == "monetary"
+            and donation.campaign_id is None
         ),
         Decimal("0.00"),
     )
@@ -293,6 +323,7 @@ def get_admin_dashboard(
                 Donation.is_verified == true(),
                 Donation.status != DonationStatus.REFUNDED.value,
                 Donation.donation_type == "monetary",
+                Donation.campaign_id.is_(None),
                 donation_date >= date_from.isoformat(),
                 donation_date <= date_to.isoformat(),
             )
@@ -389,6 +420,7 @@ def get_admin_dashboard(
                         if donation.is_verified
                         and donation.status != DonationStatus.REFUNDED.value
                         and donation.donation_type == "monetary"
+                        and donation.campaign_id is None
                         and donation.created_at.strftime("%Y-%m")
                         == month.strftime("%Y-%m")
                     ),
@@ -611,6 +643,7 @@ def get_admin_dashboard(
             ("donations", can_view_donations),
             ("beneficiaries", can_view_beneficiaries),
             ("needs", can_view_needs),
+            ("campaigns", can_view_campaigns),
             ("news", can_view_news),
             ("aggregate_reports", staff_user.role == UserRole.READ_ONLY),
         )
@@ -638,6 +671,9 @@ def get_admin_dashboard(
             "allocation_needs": allocation_needs,
             "beneficiaries": filtered_beneficiaries,
             "news_articles": news_articles,
+            "campaigns": campaigns,
+            "campaign_progress": campaign_progress,
+            "campaigns_by_id": campaigns_by_id,
             "notification_items": notification_items,
             "notification_count": unread_notification_count,
             "staff_user": request.state.staff_user,
@@ -645,9 +681,13 @@ def get_admin_dashboard(
             "can_view_donations": can_view_donations,
             "can_view_beneficiaries": can_view_beneficiaries,
             "can_view_needs": can_view_needs,
+            "can_view_campaigns": can_view_campaigns,
             "can_view_news": can_view_news,
             "can_view_reports": can_view_reports,
             "can_write_needs": role_has_permission(staff_user.role, "needs.write"),
+            "can_write_campaigns": role_has_permission(
+                staff_user.role, "campaigns.write"
+            ),
             "can_export_volunteers": role_has_permission(
                 staff_user.role, "exports.volunteers"
             ),
@@ -674,6 +714,7 @@ def get_admin_dashboard(
                 donation.is_verified
                 and donation.status != DonationStatus.REFUNDED.value
                 and donation.donation_type == "monetary"
+                and donation.campaign_id is None
                 and donation.amount
                 for donation in range_donations
             ),

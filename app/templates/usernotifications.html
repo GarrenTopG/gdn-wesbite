@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}My Notifications | Aurorah CAN{% endblock %}
+{% block meta_description %}Private updates about your campaign contributions and other interactions with Aurorah CAN.{% endblock %}
+
+{% block content %}
+<section class="bg-brand-800 px-4 py-12 text-white sm:px-6">
+    <div class="mx-auto max-w-4xl">
+        <p class="text-sm font-bold uppercase tracking-widest text-pink-200">Your account</p>
+        <h1 class="mt-2 text-4xl font-extrabold">My notifications</h1>
+        <p class="mt-3 max-w-2xl leading-relaxed text-white/85">Follow the status of your simulated contributions. These updates are private to your account.</p>
+    </div>
+</section>
+
+<section class="px-4 py-10 sm:px-6">
+    <div class="mx-auto max-w-4xl">
+        {% if submitted %}
+        <div class="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status" aria-live="polite">
+            Your simulated contribution was submitted. It will appear in campaign progress only after an administrator approves it.
+        </div>
+        {% endif %}
+        <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h2 class="text-xl font-bold text-gray-900">Recent activity</h2>
+                <p class="mt-1 text-sm text-gray-600">Showing your latest 100 updates.</p>
+            </div>
+            {% if notifications|selectattr('read_at', 'none')|list|length %}
+            <form action="/account/notifications/read-all" method="post">
+                {{ csrf_input(request) }}
+                <button type="submit" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 hover:border-brand-800 hover:text-brand-800">Mark all as read</button>
+            </form>
+            {% endif %}
+        </div>
+
+        {% if notifications %}
+        <ol class="space-y-3">
+            {% for item in notifications %}
+            <li>
+                <article class="rounded-xl border {% if item.read_at %}border-gray-200 bg-white{% else %}border-brand-200 bg-pink-50/40{% endif %} p-5 shadow-sm">
+                    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="flex gap-3">
+                            <span class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full {% if item.event_type in ['contribution_rejected', 'contribution_refunded', 'contribution_cancelled'] %}bg-rose-100 text-rose-800{% elif item.event_type == 'campaign_completed' or item.event_type == 'contribution_verified' %}bg-emerald-100 text-emerald-800{% else %}bg-brand-100 text-brand-800{% endif %}" aria-hidden="true">
+                                {% if item.event_type in ['contribution_rejected', 'contribution_cancelled'] %}<i class="fa-solid fa-xmark"></i>
+                                {% elif item.event_type == 'campaign_completed' or item.event_type == 'contribution_verified' %}<i class="fa-solid fa-check"></i>
+                                {% elif item.event_type == 'contribution_refunded' %}<i class="fa-solid fa-rotate-left"></i>
+                                {% else %}<i class="fa-regular fa-clock"></i>{% endif %}
+                            </span>
+                            <div>
+                                <h3 class="font-bold text-gray-900">
+                                    {% if item.event_type == 'contribution_pending' %}Contribution submitted
+                                    {% elif item.event_type == 'contribution_verified' %}Contribution approved
+                                    {% elif item.event_type == 'contribution_rejected' %}Contribution not approved
+                                    {% elif item.event_type == 'contribution_refunded' %}Contribution reversed
+                                    {% elif item.event_type == 'contribution_cancelled' %}Contribution cancelled
+                                    {% elif item.event_type == 'campaign_completed' %}Campaign goal reached
+                                    {% else %}Account update{% endif %}
+                                </h3>
+                                <p class="mt-1 text-sm leading-relaxed text-gray-700">{{ item.message }}</p>
+                                <time class="mt-2 block text-xs text-gray-500" datetime="{{ item.created_at.isoformat() }}">{{ item.created_at.strftime('%d %b %Y, %H:%M UTC') }}</time>
+                                {% set campaign = campaigns_by_id.get(item.campaign_id) %}
+                                {% if campaign and not campaign.archived_at %}
+                                <a href="/campaigns/{{ campaign.slug }}" class="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-brand-800 underline underline-offset-2">
+                                    View campaign <i class="fa-solid fa-arrow-up-right-from-square text-xs" aria-hidden="true"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end">
+                            {% if item.read_at %}
+                            <span class="text-xs font-semibold text-gray-500">Read</span>
+                            {% else %}
+                            <span class="text-xs font-bold text-brand-800">Unread</span>
+                            <form action="/account/notifications/read" method="post">
+                                {{ csrf_input(request) }}
+                                <input type="hidden" name="notification_id" value="{{ item.id }}">
+                                <button type="submit" class="text-xs font-semibold text-gray-600 underline underline-offset-2 hover:text-brand-800">Mark as read</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </article>
+            </li>
+            {% endfor %}
+        </ol>
+        {% else %}
+        <div class="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-12 text-center">
+            <i class="fa-regular fa-bell-slash text-4xl text-gray-300" aria-hidden="true"></i>
+            <h2 class="mt-3 text-lg font-bold text-gray-900">Nothing to show yet</h2>
+            <p class="mt-1 text-sm text-gray-600">When you submit a simulated campaign contribution, its review updates will appear here.</p>
+            <a href="/donate" class="mt-5 inline-flex rounded-lg bg-brand-800 px-4 py-2.5 font-bold text-white hover:bg-brand-900">Explore campaigns</a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
