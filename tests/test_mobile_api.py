@@ -5,15 +5,11 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
+from tests.support import DatabaseTestCase
+
 from sqlalchemy.exc import SQLAlchemyError
 
-os.environ.setdefault("APP_SECRET_KEY", "test-mobile-api-key-not-for-production-000000")
-os.environ["DATABASE_BACKEND"] = "sqlite"
-os.environ["SQLITE_FILE_NAME"] = "mobile_api_test_unused.db"
-
-from fastapi.testclient import TestClient
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, select
 
 from app.db.session import get_session
 from app.models.entities import (
@@ -29,30 +25,9 @@ from app.models.entities import (
     UserRole,
 )
 from app.security import STAFF_COOKIE_NAME
-from main import app
 
 
-class MobileApiTests(unittest.TestCase):
-    def setUp(self):
-        self.engine = create_engine(
-            "sqlite://",
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
-        )
-        SQLModel.metadata.create_all(self.engine)
-
-        def get_test_session():
-            with Session(self.engine) as session:
-                yield session
-
-        app.dependency_overrides[get_session] = get_test_session
-        self.client = TestClient(app)
-
-    def tearDown(self):
-        self.client.close()
-        app.dependency_overrides.clear()
-        self.engine.dispose()
-
+class MobileApiTests(DatabaseTestCase):
     def register(self, email="volunteer@example.org"):
         response = self.client.post(
             "/api/auth/register",
@@ -108,7 +83,7 @@ class MobileApiTests(unittest.TestCase):
             raise SQLAlchemyError("test database unavailable")
             yield
 
-        app.dependency_overrides[get_session] = failing_session
+        self.app.dependency_overrides[get_session] = failing_session
         response = self.client.get("/api/news")
         self.assertEqual(response.status_code, 503)
         self.assertEqual(
@@ -228,7 +203,9 @@ class MobileApiTests(unittest.TestCase):
         self.assertEqual(protected.status_code, 401)
         with Session(self.engine) as session:
             auth_session = session.exec(
-                select(AuthSession).where(AuthSession.user_id == account["user"]["userId"])
+                select(AuthSession).where(
+                    AuthSession.user_id == account["user"]["userId"]
+                )
             ).first()
             self.assertIsNone(auth_session)
 
@@ -244,6 +221,17 @@ class MobileApiTests(unittest.TestCase):
 
         unauthorized = self.client.post("/api/assistance-requests", json=body)
         self.assertEqual(unauthorized.status_code, 401)
+
+        invalid_urgency = self.client.post(
+            "/api/assistance-requests",
+            headers={"Authorization": "Bearer " + account.get("token", "")},
+            json={**body, "urgency": "Urgent"},
+        )
+        self.assertEqual(invalid_urgency.status_code, 400)
+        self.assertEqual(
+            invalid_urgency.json(),
+            {"detail": "Invalid assistance urgency."},
+        )
 
         response = self.client.post(
             "/api/assistance-requests",
@@ -424,7 +412,9 @@ class MobileApiTests(unittest.TestCase):
         with Session(self.engine) as session:
             self.assertEqual(len(session.exec(select(VolunteerOffer)).all()), 1)
             saved_donation = session.exec(select(Donation)).one()
-            self.assertEqual(saved_donation.payment_method, "Pledge - No Online Payment")
+            self.assertEqual(
+                saved_donation.payment_method, "Pledge - No Online Payment"
+            )
             self.assertEqual(saved_donation.status, "Submitted")
 
     def test_google_sign_in_fails_clearly_without_server_configuration(self):

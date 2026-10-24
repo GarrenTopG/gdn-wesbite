@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone
 
 from sqlmodel import Session, select
 
-from app.db.session import create_db_and_tables, engine
+from app.db.session import engine, validate_database_ready
 from app.models.entities import (
     AuthSession,
     BeneficiaryNeed,
@@ -52,15 +52,13 @@ def purge_expired_personal_data(apply_changes: bool = False) -> tuple[int, int]:
     purged_beneficiaries = 0
     purged_donations = 0
 
-    create_db_and_tables()
+    validate_database_ready()
     with Session(engine) as session:
         needs = session.exec(select(BeneficiaryNeed)).all()
         donations = session.exec(select(Donation)).all()
         all_receipts = session.exec(select(ReceiptAccess)).all()
         expired_receipts = [
-            receipt
-            for receipt in all_receipts
-            if _as_utc(receipt.expires_at) < now
+            receipt for receipt in all_receipts if _as_utc(receipt.expires_at) < now
         ]
         expired_sessions = session.exec(select(AuthSession)).all()
         expired_sessions = [

@@ -1,36 +1,12 @@
-import unittest
+from tests.support import DatabaseTestCase
 
-from fastapi.testclient import TestClient
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, select
 
-from app.db.session import get_session
 from app.models.entities import NewsArticle
 from app.news_content import COMMUNITY_STORIES, seed_community_stories
-from main import app
 
 
-class CommunityNewsContentTests(unittest.TestCase):
-    def setUp(self):
-        self.engine = create_engine(
-            "sqlite://",
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
-        )
-        SQLModel.metadata.create_all(self.engine)
-
-        def get_test_session():
-            with Session(self.engine) as session:
-                yield session
-
-        app.dependency_overrides[get_session] = get_test_session
-        self.client = TestClient(app)
-
-    def tearDown(self):
-        self.client.close()
-        app.dependency_overrides.clear()
-        self.engine.dispose()
-
+class CommunityNewsContentTests(DatabaseTestCase):
     def test_supplied_stories_are_seeded_once_and_duplicate_is_removed(self):
         with Session(self.engine) as session:
             seed_community_stories(session)
@@ -90,5 +66,7 @@ class CommunityNewsContentTests(unittest.TestCase):
             "/news/another-big-win-for-our-youth-financial-literacy-employment-milestones"
         )
         self.assertEqual(detail.status_code, 200)
-        self.assertIn("Three of the young people have received full-time job offers", detail.text)
+        self.assertIn(
+            "Three of the young people have received full-time job offers", detail.text
+        )
         self.assertIn("Date not provided", detail.text)

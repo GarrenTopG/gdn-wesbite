@@ -41,6 +41,7 @@ Optional but recommended:
 
 - A virtual environment manager such as `venv`
 - VS Code or another IDE for local development
+- Node.js and npm when rebuilding the Tailwind stylesheets
 
 The app uses a local SQLite database. No external cloud credentials are required for the default local setup, but a secret key must be set before the server starts; no default administrator account or secret is included.
 
@@ -49,8 +50,8 @@ The app uses a local SQLite database. No external cloud credentials are required
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/aurorah-can-digital-hub.git
-cd aurorah-can-digital-hub
+git clone https://github.com/GarrenTopG/gdn-wesbite.git
+cd gdn-wesbite
 ```
 
 ### 2. Create and activate a virtual environment
@@ -75,7 +76,46 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-The site uses precompiled local Tailwind stylesheets rather than compiling styles in the visitor's browser. If you change Tailwind classes or either theme, install the frontend build dependency with `npm install` and regenerate both stylesheets with `npm run build:css`.
+The site uses precompiled local Tailwind stylesheets rather than compiling styles in the visitor's browser. If you change Tailwind classes or either theme, install the locked frontend build dependencies with `npm ci` and regenerate both stylesheets with `npm run build:css`.
+
+### Python quality checks
+
+Install the pinned development checks and run the complete local Python gate:
+
+```bash
+python -m pip install -r requirements-dev.txt
+python scripts/check.py
+```
+
+The command checks Ruff lint and formatting, mypy on the application entry point,
+database/session, authentication, and mobile API modules, Python syntax
+buildability, and the full unittest suite. CI runs the same command on Python 3.11
+for every push and pull request. Its separate frontend job rebuilds both committed
+Tailwind stylesheets and fails if generated output differs. Require the **Python
+checks** status in repository branch protection to block merges on failures.
+
+Tests use isolated in-memory SQLite databases and cover app startup, migration
+paths, retention calculations, role rules, CSRF, authentication, authorization,
+and key public/mobile workflows. SQL Server compatibility currently includes
+compiled schema and query checks; these are not a substitute for a live SQL
+Server integration run. Run those checks against a dedicated disposable SQL
+Server database before production database changes.
+
+The test client currently emits one upstream `StarletteDeprecationWarning`: Starlette
+1.4.1 deprecates its `httpx` backend in favor of `httpx2`. The CSS build can also
+report that the pinned `caniuse-lite` browser data is outdated. Both warnings are
+documented rather than hidden or automatically changing locked dependencies;
+the project pins `httpx` as part of its application dependency set.
+
+Quality gates are:
+
+| Area | Gate |
+| --- | --- |
+| Maintainability | Ruff lint and formatting pass across `main.py`, `app`, `migrations`, and `tests`. |
+| Types and buildability | mypy passes on the critical application modules and all Python files compile without writing bytecode. |
+| Tests and runtime | The full unittest suite passes with isolated in-memory SQLite databases and startup coverage. |
+| Security and privacy | Tests cover staff MFA, expiration, revocation, and role authorization; tests do not connect to or modify the application database. |
+| Release readiness | Python CI is green and the frontend build reproduces committed CSS. |
 
 ### 4. Run the application
 
@@ -99,6 +139,18 @@ EOF
 
 The app loads `.env` automatically for local development. Keep this file private; it is excluded from Git.
 For production, set `APP_SECRET_KEY` and `COOKIE_SECURE=true` in the deployment environment instead.
+
+Install the migration command and initialize the selected database before starting the app:
+
+```powershell
+python -m pip install -r requirements-migrations.txt
+python -m alembic upgrade head
+```
+
+The migration command uses the same database settings as the application. Startup validates
+database connectivity and the current migration revision; it does not create tables, run
+migrations, or seed content.
+
 ```bash
 uvicorn main:app --reload
 ```
@@ -109,13 +161,15 @@ Then open the app in your browser at:
 http://127.0.0.1:8000
 ```
 
-The app creates the SQLite database and required tables if they do not already exist.
-Startup adds five supplied Aurorah community stories when their slugs are not already present, attaches their supplied local images, removes the duplicate “A Win Worth Celebrating” story, preserves missing original publication dates, and converts old internal-need placeholder contact values to empty values. Older news records keep their existing creation date as the publication date.
-Back up an existing `aurorah.db` before the first upgraded launch; startup applies additive schema changes and a narrowly scoped legacy-data cleanup.
+See [docs/database-migrations.md](./docs/database-migrations.md) for database access and
+transaction conventions, fresh and existing database upgrades, and the production backup
+and migration procedure.
 
 ### Website accounts
 
 Visitors can browse without signing in, and guest donation pledges are allowed with an optional email address. Requesting assistance or applying to volunteer requires a website account. Create an account at `/account/register`, sign in at `/account/login`, and sign out from the site navigation. Account passwords must be at least 12 characters; sessions use HTTP-only cookies and expire after 12 hours. Website accounts are separate from staff accounts and cannot access the admin workspace.
+
+Website sessions use the `user_session` HTTP-only cookie and are stored server-side. They authorize only regular website accounts; they are not accepted as staff sessions or mobile bearer tokens.
 
 ### Android mobile API
 
@@ -134,7 +188,7 @@ The Android app and website use this FastAPI service and the same configured dat
 | `POST /api/assistance-requests` | Bearer token | Submit a request (`category`, `description`, `urgency`, `location`, `contact_phone`) as the signed-in user. |
 | `POST /api/donations` | Bearer token | Record a monetary pledge (`category`, `amount`) or in-kind offer (`item_category`, `item_description`, `drop_off_option`). |
 
-Successful sign-in and registration responses include `success`, `message`, `token`, and a `user` object. Send the token on protected requests as `Authorization: Bearer <token>`; mobile sessions expire after 12 hours. Account roles are assigned by the server, never trusted from the app. Failed or malformed requests return HTTP error responses.
+Successful sign-in and registration responses include `success`, `message`, `token`, and a `user` object. Send the token on protected requests as `Authorization: Bearer <token>`; mobile bearer sessions expire after 12 hours. Mobile tokens are distinct from both website cookies and staff sessions. Account roles are assigned by the server, never trusted from the app. Failed or malformed requests return HTTP error responses.
 
 Google sign-in accepts a **Firebase ID token** in the JSON field `idToken` (not a raw Google ID token). Set `FIREBASE_PROJECT_ID` to the Firebase project used by Android, and configure Application Default Credentials for the website process. In local development, this can be done with `GOOGLE_APPLICATION_CREDENTIALS` pointing to a private service-account JSON file; in production, prefer the hosting platform's attached service identity. Keep credential files outside Git and never put credentials in Android, website JavaScript, or chat. Google sign-in returns a clear service-unavailable error until this configuration and the `firebase-admin` dependency are available.
 
@@ -154,7 +208,6 @@ Add these settings to the private `.env` file (or the deployment's secret enviro
 
 ```dotenv
 DATABASE_BACKEND=sqlserver
-DATABASE_AUTO_CREATE_SCHEMA=false
 MSSQL_SERVER=aurorah-sql-server.database.windows.net
 MSSQL_DATABASE=aurorah-db
 MSSQL_USERNAME=your-website-database-login
@@ -162,9 +215,13 @@ MSSQL_PASSWORD=your-website-database-password
 MSSQL_DRIVER=ODBC Driver 18 for SQL Server
 ```
 
-For a new, empty database, initialize the tables once with a schema-provisioning login: temporarily set `DATABASE_AUTO_CREATE_SCHEMA=true`, run `python -c "from app.db.session import create_db_and_tables; create_db_and_tables()"`, then switch it back to `false` and configure the restricted website login. The website login should have only the data permissions it needs; keep schema-owner/admin credentials out of the running website. Schema initialization does not migrate records from `aurorah.db`.
-
-When upgrading an existing SQL Server database, rerun the one-time schema setup with `DATABASE_AUTO_CREATE_SCHEMA=true` and a schema-provisioning login before starting the app with the restricted website login. This creates missing tables and applies additive schema updates, including the news publication-date field and mobile profile/assistance fields; it does not migrate SQLite records. On application startup, legacy role values such as `Volunteer` are normalized to the current `USER` role so old community accounts do not prevent staff pages from loading.
+Install the SQL Server adapter and migration dependency in the migration environment,
+then use a schema-provisioning login to run `python -m alembic upgrade head`. After
+migration, run the application with its restricted website login. Keep schema-owner
+credentials out of the running website. Migrations apply to the configured SQL Server
+database; they do not copy records from `aurorah.db`. See
+[docs/database-migrations.md](./docs/database-migrations.md) for backup and production
+steps.
 
 Allow the app machine's outbound IP address in the Azure SQL firewall. The IP auto-added when connecting through SSMS is your workstation's IP; it does not automatically allow a separately hosted website. Keep all database credentials in `.env` or a hosting secret store—never in templates, frontend JavaScript, or Git.
 
@@ -200,7 +257,7 @@ http://127.0.0.1:8000/admin/dashboard?tab=overview&from=2026-01-01&to=2026-01-31
 
 The `tab` parameter preserves the selected workspace section (`overview`, `volunteers`, `donations`, `beneficiaries`, `needs`, `news`, or `reports`). Empty activity windows show an explanatory state instead of placeholder charts.
 
-Staff sessions are stored server-side, expire after 12 hours, and are revoked on sign-out or password reset. In production, set `APP_ENV=production` and `COOKIE_SECURE=true`, serve the app only over HTTPS, and protect the SQLite file and backups using operating-system access controls and disk encryption.
+Staff sessions are stored server-side and expire 12 hours after successful MFA verification. Password-only challenges expire after five minutes and cannot access protected routes. Staff sessions are revoked on sign-out, password reset, role changes, or administrator deactivation. In production, set `APP_ENV=production` and `COOKIE_SECURE=true`, serve the app only over HTTPS, and protect the SQLite file and backups using operating-system access controls and disk encryption.
 
 All state-changing forms require CSRF tokens. Sign-in attempts are limited to five per 15 minutes per client IP; each public form is limited to five submissions per hour per client IP. Do not expose the app directly to the internet behind an untrusted proxy: rate limits use the connecting client IP and intentionally do not trust forwarded-IP headers.
 
@@ -215,7 +272,7 @@ python -m app.manage_staff create editor@example.org "Content Editor" --role con
 python -m app.manage_staff create reports@example.org "Read Only" --role read_only
 ```
 
-Every staff role must enroll an authenticator app using TOTP at first sign-in, and enter a fresh six-digit code at each subsequent sign-in. Keep the enrollment key private; administrators can change staff roles or revoke their sessions through the authenticated `/admin/staff` endpoints. Account creation, activation, password resets, and deactivation remain operator-controlled CLI operations. Available commands include:
+MFA is required for every staff account. On the first password-authenticated sign-in, the staff member receives a short-lived, unverified challenge and an enrollment key; protected routes remain unavailable until a valid six-digit TOTP code confirms enrollment. The enrollment key is then saved to the staff account and is no longer displayed. Every later sign-in requires a valid, unused TOTP code before the 12-hour staff session is issued. MFA verification is rate-limited to five attempts per 15 minutes. Keep the enrollment key private; administrators can change staff roles or revoke their sessions through the authenticated `/admin/staff` endpoints. Account creation, activation, password resets, and deactivation remain operator-controlled CLI operations. Available commands include:
 
 ```powershell
 python -m app.manage_staff set-role caseworker@example.org finance

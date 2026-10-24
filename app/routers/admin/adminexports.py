@@ -18,6 +18,7 @@ from app.models.entities import (
 )
 from app.routers.admin.auth import verify_staff_session
 from app.utils.pdfexports import (
+    generate_beneficiaries_pdf,
     generate_donations_pdf,
     generate_needs_pdf,
     generate_volunteers_pdf,
@@ -27,12 +28,13 @@ from app.security import add_audit_event, permission_required
 
 router = APIRouter()
 
+
 # Admin route to export BeneficiaryNeeds, Donations, and Volunteers as PDF reports
 @router.get(
     "/volunteers/export-pdf",
     dependencies=[Depends(permission_required("exports.volunteers"))],
 )
-async def export_volunteers_pdf(
+def export_volunteers_pdf(
     request: Request,
     session: Session = Depends(get_session),
 ):
@@ -50,12 +52,13 @@ async def export_volunteers_pdf(
         headers={"Content-Disposition": "attachment; filename=volunteers_report.pdf"},
     )
 
+
 # Admin route to export BeneficiaryNeeds, Donations, and Volunteers as PDF reports
 @router.get(
     "/donations/export-pdf",
     dependencies=[Depends(permission_required("exports.donations"))],
 )
-async def export_donations_pdf(
+def export_donations_pdf(
     request: Request,
     session: Session = Depends(get_session),
 ):
@@ -78,7 +81,7 @@ async def export_donations_pdf(
     "/donations/reconciliation.csv",
     dependencies=[Depends(permission_required("exports.donations"))],
 )
-async def export_donation_reconciliation_csv(
+def export_donation_reconciliation_csv(
     request: Request,
     session: Session = Depends(get_session),
 ):
@@ -105,8 +108,7 @@ async def export_donation_reconciliation_csv(
     if start and end and start > end:
         raise HTTPException(status_code=422, detail="Start date must precede end date.")
     donations = session.exec(
-        select(Donation)
-        .order_by(Donation.created_at, Donation.id)
+        select(Donation).order_by(Donation.created_at, Donation.id)
     ).all()
     filtered = [
         donation
@@ -130,9 +132,7 @@ async def export_donation_reconciliation_csv(
             "allocated_need_ids",
         ]
     )
-    donation_ids = [
-        donation.id for donation in filtered if donation.id is not None
-    ]
+    donation_ids = [donation.id for donation in filtered if donation.id is not None]
     allocated_need_ids: dict[int, set[int]] = {}
     if donation_ids:
         allocations = session.exec(
@@ -185,12 +185,13 @@ async def export_donation_reconciliation_csv(
         },
     )
 
+
 # Admin route to export BeneficiaryNeeds as a PDF report
 @router.get(
     "/needs/export-pdf",
     dependencies=[Depends(permission_required("exports.needs"))],
 )
-async def export_needs_pdf(
+def export_needs_pdf(
     request: Request,
     session: Session = Depends(get_session),
 ):
@@ -228,12 +229,38 @@ async def export_needs_pdf(
         session,
         request,
         "export.needs",
-        "community_need" if request.state.staff_user.role == UserRole.FINANCE else "beneficiary_need",
+        "community_need"
+        if request.state.staff_user.role == UserRole.FINANCE
+        else "beneficiary_need",
     )
     session.commit()
 
     return StreamingResponse(
         pdf_buffer,
         media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=community_needs_report.pdf"},
+        headers={
+            "Content-Disposition": "attachment; filename=community_needs_report.pdf"
+        },
+    )
+
+
+@router.get(
+    "/beneficiaries/export-pdf",
+    dependencies=[Depends(permission_required("exports.beneficiaries"))],
+)
+def export_beneficiaries_pdf(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    needs = session.exec(select(BeneficiaryNeed)).all()
+    pdf_buffer = generate_beneficiaries_pdf(list(needs))
+    add_audit_event(session, request, "export.beneficiaries", "beneficiary_need")
+    session.commit()
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="beneficiary_requests.pdf"',
+            "Cache-Control": "no-store",
+        },
     )

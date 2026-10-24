@@ -1,11 +1,18 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session
+from starlette.datastructures import FormData
 
+from app.assistance_validation import parse_need_urgency
 from app.db.session import get_session
+from app.routers.form_data import parse_form_data
 from app.routers.accounts import get_public_user
-from app.models.entities import BeneficiaryNeed, NeedUrgency, NeedStatus
-from app.security import add_record_history, enforce_public_form_rate_limit, require_csrf
+from app.models.entities import BeneficiaryNeed, NeedStatus
+from app.security import (
+    add_record_history,
+    enforce_public_form_rate_limit,
+    require_csrf,
+)
 from app.templatesconfig import templates
 
 router = APIRouter(
@@ -17,9 +24,10 @@ router = APIRouter(
     ],
 )
 
+
 # Assistance route to render the assistance request page
 @router.get("", response_class=HTMLResponse)
-async def get_assistance_page(
+def get_assistance_page(
     request: Request,
     session: Session = Depends(get_session),
 ):
@@ -33,10 +41,12 @@ async def get_assistance_page(
         context={"active_page": "assistance"},
     )
 
+
 # Assistance route to handle assistance form submission
 @router.post("", response_class=HTMLResponse)
-async def submit_assistance_form(
+def submit_assistance_form(
     request: Request,
+    form_data: FormData = Depends(parse_form_data),
     session: Session = Depends(get_session),
 ):
     user = get_public_user(request, session)
@@ -45,9 +55,6 @@ async def submit_assistance_form(
             "/account/login?next_path=%2Frequestassistance", status_code=303
         )
     request.state.mobile_user = user
-    form_data = await request.form()
-
-    # Personal Data Parsing
     first_name = str(form_data.get("first_name", "")).strip()
     last_name = str(form_data.get("last_name", "")).strip()
     contact_name = f"{first_name} {last_name}".strip()
@@ -59,13 +66,15 @@ async def submit_assistance_form(
     area = str(form_data.get("location", "")).strip()
     category = str(form_data.get("need_type", "")).strip()
     request_details = str(form_data.get("description", "")).strip()
-    raw_urgency = str(form_data.get("urgency", "Medium")).strip().capitalize()
-
-    # Map raw string to Enum safely
+    raw_urgency = str(form_data.get("urgency", "Medium"))
+    if not category:
+        raise HTTPException(status_code=400, detail="Assistance category is required.")
     try:
-        urgency_enum = NeedUrgency(raw_urgency)
-    except ValueError:
-        urgency_enum = NeedUrgency.MEDIUM
+        urgency = parse_need_urgency(raw_urgency)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400, detail="Invalid assistance urgency."
+        ) from exc
 
     anonymised_title = f"{category} assistance request"
 
@@ -77,7 +86,7 @@ async def submit_assistance_form(
         area=area,
         category=category,
         request_details=request_details,
-        urgency=urgency_enum,
+        urgency=urgency,
         status=NeedStatus.PENDING,
     )
 

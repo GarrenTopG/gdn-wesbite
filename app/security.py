@@ -1,11 +1,12 @@
 import base64
+import binascii
 import hashlib
 import hmac
 import json
 import os
 import secrets
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from threading import Lock
 
 from fastapi import Depends, HTTPException, Request, status
@@ -13,6 +14,7 @@ from sqlmodel import Session, func, select
 
 from app.db.session import get_session
 from app.models.entities import (
+    AuthSession,
     AuditLog,
     RateLimitHit,
     RecordHistory,
@@ -23,6 +25,8 @@ from app.models.entities import (
 CSRF_COOKIE_NAME = "csrf_token"
 STAFF_COOKIE_NAME = "staff_session"
 STAFF_SESSION_TTL_SECONDS = 12 * 60 * 60
+PUBLIC_SESSION_TTL_SECONDS = 12 * 60 * 60
+MOBILE_SESSION_TTL_SECONDS = 12 * 60 * 60
 MFA_CHALLENGE_TTL_SECONDS = 5 * 60
 CSRF_TTL_SECONDS = 60 * 60 * 24
 _rate_limit_lock = Lock()
@@ -123,6 +127,7 @@ def add_audit_event(
         )
     )
 
+
 def add_record_history(
     session: Session,
     request: Request,
@@ -149,6 +154,22 @@ def new_totp_secret() -> str:
     return base64.b32encode(secrets.token_bytes(20)).decode("ascii").rstrip("=")
 
 
+def create_staff_mfa_challenge(session: Session, user: User) -> str:
+    if user.id is None:
+        raise ValueError("Staff users must be persisted before authentication.")
+    token = secrets.token_urlsafe(32)
+    session.add(
+        AuthSession(
+            token_hash=hashlib.sha256(token.encode("utf-8")).hexdigest(),
+            user_id=user.id,
+            expires_at=now_utc() + timedelta(seconds=MFA_CHALLENGE_TTL_SECONDS),
+            mfa_verified=False,
+            mfa_setup_secret=None if user.mfa_secret else new_totp_secret(),
+        )
+    )
+    return token
+
+
 def matching_totp_counter(
     secret: str, code: str, timestamp: int | None = None
 ) -> int | None:
@@ -156,7 +177,7 @@ def matching_totp_counter(
         return None
     try:
         key = base64.b32decode(secret + "=" * (-len(secret) % 8), casefold=True)
-    except (ValueError, base64.binascii.Error):
+    except (ValueError, binascii.Error):
         return None
     now = int(time.time()) if timestamp is None else timestamp
     for counter in range(max(0, now // 30 - 1), now // 30 + 2):
@@ -186,7 +207,10 @@ def secure_cookies() -> bool:
 
 def validate_security_configuration() -> None:
     get_secret_key()
-    if os.environ.get("APP_ENV", "development").lower() == "production" and not secure_cookies():
+    if (
+        os.environ.get("APP_ENV", "development").lower() == "production"
+        and not secure_cookies()
+    ):
         raise RuntimeError("COOKIE_SECURE=true is required when APP_ENV=production.")
 
 
@@ -228,7 +252,9 @@ async def require_csrf(request: Request) -> None:
         or not hmac.compare_digest(cookie_token, submitted_token)
         or not valid_csrf_token(cookie_token)
     ):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid CSRF token.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid CSRF token."
+        )
 
 
 def enforce_rate_limit(
@@ -250,7 +276,9 @@ def enforce_rate_limit(
 
     with _rate_limit_lock:
         session.exec(
-            RateLimitHit.__table__.delete().where(RateLimitHit.occurred_at < now - 86400)
+            RateLimitHit.__table__.delete().where(
+                RateLimitHit.occurred_at < now - 86400
+            )
         )
         session.add(RateLimitHit(bucket_key=bucket_key, occurred_at=now))
         session.commit()

@@ -132,7 +132,8 @@ COMMUNITY_STORIES = (
 def seed_community_stories(session: Session) -> None:
     duplicate_story = session.exec(
         select(NewsArticle).where(
-            NewsArticle.slug == "a-win-worth-celebrating-three-more-youth-full-time-contracts"
+            NewsArticle.slug
+            == "a-win-worth-celebrating-three-more-youth-full-time-contracts"
         )
     ).first()
     if duplicate_story:

@@ -1,11 +1,17 @@
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session
+from starlette.datastructures import FormData
 
 from app.db.session import get_session
+from app.routers.form_data import parse_form_data
 from app.routers.accounts import get_public_user
 from app.models.entities import Volunteer, VolunteerStatus
-from app.security import add_record_history, enforce_public_form_rate_limit, require_csrf
+from app.security import (
+    add_record_history,
+    enforce_public_form_rate_limit,
+    require_csrf,
+)
 from app.templatesconfig import templates
 
 router = APIRouter(
@@ -17,9 +23,10 @@ router = APIRouter(
     ],
 )
 
+
 # Volunteer route to render the volunteer page
 @router.get("", response_class=HTMLResponse)
-async def get_volunteer_page(
+def get_volunteer_page(
     request: Request,
     session: Session = Depends(get_session),
 ):
@@ -33,10 +40,12 @@ async def get_volunteer_page(
         context={"active_page": "volunteer", "submitted": False},
     )
 
+
 # Volunteer route to handle volunteer form submission
 @router.post("", response_class=HTMLResponse)
-async def submit_volunteer_form(
+def submit_volunteer_form(
     request: Request,
+    form_data: FormData = Depends(parse_form_data),
     session: Session = Depends(get_session),
 ):
     user = get_public_user(request, session)
@@ -45,8 +54,6 @@ async def submit_volunteer_form(
             "/account/login?next_path=%2Fvolunteer", status_code=303
         )
     request.state.mobile_user = user
-    form_data = await request.form()
-
     # Name Parsing
     first_name = str(form_data.get("first_name", "")).strip()
     last_name = str(form_data.get("last_name", "")).strip()
@@ -65,7 +72,9 @@ async def submit_volunteer_form(
         or form_data.getlist("days")
     )
     selected_days = [str(day).strip() for day in raw_days if str(day).strip()]
-    availability_str = ", ".join(selected_days) if selected_days else "Flexible / Not Specified"
+    availability_str = (
+        ", ".join(selected_days) if selected_days else "Flexible / Not Specified"
+    )
 
     skills = str(form_data.get("skills", "")).strip()
     location = str(form_data.get("location", "")).strip()

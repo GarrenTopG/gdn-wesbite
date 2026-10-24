@@ -7,7 +7,7 @@ import sys
 from sqlalchemy import true
 from sqlmodel import Session, func, select
 
-from app.db.session import create_db_and_tables, engine
+from app.db.session import engine, validate_database_ready
 from app.models.entities import AuditLog, AuthSession, User, UserRole
 
 HASH_ROUNDS = 600_000
@@ -66,7 +66,9 @@ def main() -> int:
         choices=[role.value for role in UserRole if role != UserRole.USER],
         default=UserRole.ADMINISTRATOR.value,
     )
-    reset = subparsers.add_parser("reset-password", help="Set a staff account password.")
+    reset = subparsers.add_parser(
+        "reset-password", help="Set a staff account password."
+    )
     reset.add_argument("email")
     deactivate = subparsers.add_parser("deactivate", help="Disable a staff account.")
     deactivate.add_argument("email")
@@ -83,17 +85,22 @@ def main() -> int:
     revoke.add_argument("email")
     args = parser.parse_args()
 
-    create_db_and_tables()
+    validate_database_ready()
     with Session(engine) as session:
         email = args.email.strip().lower()
         user = session.exec(select(User).where(User.email == email)).first()
 
         if args.action == "create":
             if user:
-                print("A staff account with that email already exists.", file=sys.stderr)
+                print(
+                    "A staff account with that email already exists.", file=sys.stderr
+                )
                 return 1
             if not email or "@" not in email or not args.full_name.strip():
-                print("A valid email and non-empty full name are required.", file=sys.stderr)
+                print(
+                    "A valid email and non-empty full name are required.",
+                    file=sys.stderr,
+                )
                 return 1
             try:
                 password_hash = hash_password(read_new_password())

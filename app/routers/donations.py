@@ -7,14 +7,16 @@ from sqlalchemy import false, true
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from sqlmodel import Session, select
+from starlette.datastructures import FormData
 from datetime import timezone
 import hashlib
 import secrets
 
 from app.db.session import get_session
+from app.routers.form_data import parse_form_data
+from app.services.donations import create_donation_with_history
 from app.models.entities import BeneficiaryNeed, Donation, NeedStatus, ReceiptAccess
 from app.security import (
-    add_record_history,
     enforce_receipt_rate_limit,
     enforce_public_form_rate_limit,
     now_utc,
@@ -55,7 +57,7 @@ def _active_community_needs_statement():
 
 # Donation route to render the donation page
 @router.get("", response_class=HTMLResponse)
-async def get_donate_page(
+def get_donate_page(
     request: Request,
     need_id: Optional[int] = None,
     session: Session = Depends(get_session),
@@ -72,15 +74,16 @@ async def get_donate_page(
         },
     )
 
+
 # Donation route to handle donation form submission
 @router.post("", response_class=HTMLResponse)
-async def submit_donation_form(
+def submit_donation_form(
     request: Request,
+    form_data: FormData = Depends(parse_form_data),
     session: Session = Depends(get_session),
 ):
     active_needs = session.exec(_active_community_needs_statement()).all()
     request.state.donation_active_needs = active_needs
-    form_data = await request.form()
     request.state.donation_form_values = {
         key: str(form_data.get(key, "")).strip()
         for key in (
@@ -109,12 +112,14 @@ async def submit_donation_form(
         raise HTTPException(status_code=400, detail="Invalid donation type.")
     is_anon = form_data.get("is_anonymous") == "true"
     donor_name_raw = str(form_data.get("donor_name", "")).strip()
-    donor_name = "Anonymous Donor" if (is_anon or not donor_name_raw) else donor_name_raw
+    donor_name = (
+        "Anonymous Donor" if (is_anon or not donor_name_raw) else donor_name_raw
+    )
 
     country_code = str(form_data.get("country_code", "+27")).strip()
     phone_str = str(form_data.get("phone", "")).strip()
     donor_phone = f"{country_code} {phone_str}" if phone_str else None
-    
+
     # Clean email input: set to None if blank
     raw_email = str(form_data.get("donor_email", "")).strip()
     donor_email = raw_email if raw_email else None  # <-- UPDATED
@@ -130,11 +135,7 @@ async def submit_donation_form(
             detail="Tax receipts can only be requested for monetary donations.",
         )
     if req_tax and (
-        is_anon
-        or not donor_name_raw
-        or not donor_email
-        or not tax_id
-        or not tax_addr
+        is_anon or not donor_name_raw or not donor_email or not tax_id or not tax_addr
     ):
         raise HTTPException(
             status_code=400,
@@ -152,11 +153,15 @@ async def submit_donation_form(
         except (ValueError, InvalidOperation):
             raise HTTPException(status_code=400, detail="Invalid donation amount.")
         if not amount_val.is_finite() or amount_val <= Decimal("0.00"):
-            raise HTTPException(status_code=400, detail="Donation amount must be positive.")
+            raise HTTPException(
+                status_code=400, detail="Donation amount must be positive."
+            )
         try:
             rounded_amount = amount_val.quantize(Decimal("0.01"))
         except InvalidOperation as exc:
-            raise HTTPException(status_code=400, detail="Invalid donation amount precision.") from exc
+            raise HTTPException(
+                status_code=400, detail="Invalid donation amount precision."
+            ) from exc
         if rounded_amount != amount_val:
             raise HTTPException(
                 status_code=400,
@@ -176,18 +181,39 @@ async def submit_donation_form(
                     or not linked_need.is_community_need
                     or linked_need.status == NeedStatus.FULFILLED
                 ):
-                    raise HTTPException(status_code=400, detail="Selected community need is unavailable.")
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Selected community need is unavailable.",
+                    )
                 cause_val = f"Targeted: {linked_need.anonymised_title}"
             elif cleaned_need_id in SUPPORT_AREAS:
                 cause_val = SUPPORT_AREAS[cleaned_need_id]
             else:
-                raise HTTPException(status_code=400, detail="Choose a valid donation support option.")
+                raise HTTPException(
+                    status_code=400, detail="Choose a valid donation support option."
+                )
 
     # In-Kind Attributes
-    item_category = str(form_data.get("item_category", "")).strip() if donation_type == "inkind" else None
-    item_description = str(form_data.get("item_description", "")).strip() if donation_type == "inkind" else None
-    logistics_type = str(form_data.get("logistics_type", "")).strip() if donation_type == "inkind" else None
-    pickup_address = str(form_data.get("pickup_address", "")).strip() if logistics_type == "pickup" else None
+    item_category = (
+        str(form_data.get("item_category", "")).strip()
+        if donation_type == "inkind"
+        else None
+    )
+    item_description = (
+        str(form_data.get("item_description", "")).strip()
+        if donation_type == "inkind"
+        else None
+    )
+    logistics_type = (
+        str(form_data.get("logistics_type", "")).strip()
+        if donation_type == "inkind"
+        else None
+    )
+    pickup_address = (
+        str(form_data.get("pickup_address", "")).strip()
+        if logistics_type == "pickup"
+        else None
+    )
 
     new_donation = Donation(
         donor_name=donor_name,
@@ -220,18 +246,11 @@ async def submit_donation_form(
         new_donation.pending_receipt_token_hash = hashlib.sha256(
             receipt_token.encode("utf-8")
         ).hexdigest()
-    session.add(new_donation)
-    session.flush()
-    add_record_history(
+    create_donation_with_history(
         session,
         request,
-        "donation",
-        new_donation.id,
-        "submitted",
-        {
-            "status": new_donation.status,
-            "tax_receipt_requested": req_tax,
-        },
+        new_donation,
+        tax_receipt_requested=req_tax,
     )
     session.commit()
     session.refresh(new_donation)
@@ -249,13 +268,14 @@ async def submit_donation_form(
         },
     )
 
+
 # Donation route to download a tax certificate for a specific donation
 @receipt_router.post("/tax-certificate", name="download_tax_certificate")
-async def download_tax_certificate(
+def download_tax_certificate(
     request: Request,
+    form: FormData = Depends(parse_form_data),
     session: Session = Depends(get_session),
 ):
-    form = await request.form()
     token = str(form.get("receipt_token", ""))
     token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
     access = session.exec(
@@ -314,7 +334,11 @@ async def download_tax_certificate(
 
     # Document Header
     p.setFont("Helvetica-Bold", 18)
-    title = "SECTION 18A DONATION CERTIFICATE" if is_demo_receipt else "SECTION 18A TAX DEDUCTION RECEIPT"
+    title = (
+        "SECTION 18A DONATION CERTIFICATE"
+        if is_demo_receipt
+        else "SECTION 18A TAX DEDUCTION RECEIPT"
+    )
     p.drawString(100, 750, title)
     p.setFont("Helvetica", 10)
     organization_name = "Aurorah Community Action Network"
@@ -342,27 +366,55 @@ async def download_tax_certificate(
     # Details Grid - All dynamic parameters explicitly wrapped as str()
     p.setFont("Helvetica-Bold", 12)
     issued_year = donation.created_at.year
-    p.drawString(100, details_y, f"Receipt Number: CAN-18A-{issued_year}-{str(donation.id)}")
-    
+    p.drawString(
+        100, details_y, f"Receipt Number: CAN-18A-{issued_year}-{str(donation.id)}"
+    )
+
     p.setFont("Helvetica", 11)
     p.drawString(100, details_y - 30, f"Donor Name: {str(donation.donor_name)}")
-    p.drawString(100, details_y - 50, f"SARS Tax Ref / ID: {str(donation.tax_id_number or 'N/A')}")
+    p.drawString(
+        100,
+        details_y - 50,
+        f"SARS Tax Ref / ID: {str(donation.tax_id_number or 'N/A')}",
+    )
     p.drawString(100, details_y - 70, f"Address: {str(donation.tax_address or 'N/A')}")
-    
+
     p.drawString(100, details_y - 90, f"Transaction Ref ID: #{str(donation.id)}")
-    
+
     p.setFont("Helvetica", 11)
-    amount_label = "Pledge Amount (not received)" if is_demo_receipt else "Amount Received"
+    amount_label = (
+        "Pledge Amount (not received)" if is_demo_receipt else "Amount Received"
+    )
     p.drawString(100, details_y - 110, f"{amount_label}: R{donation.amount:.2f}")
-    p.drawString(100, details_y - 130, f"Cause / Allocated Need: {str(donation.cause or 'General Fund')}")
+    p.drawString(
+        100,
+        details_y - 130,
+        f"Cause / Allocated Need: {str(donation.cause or 'General Fund')}",
+    )
 
     p.setFont("Helvetica-Oblique", 9)
     if is_demo_receipt:
-        p.drawString(100, details_y - 170, "This certificate reflects the pledged donation recorded for the donor.")
-        p.drawString(100, details_y - 185, "Payment has not yet been processed or received and may still require verification.")
+        p.drawString(
+            100,
+            details_y - 170,
+            "This certificate reflects the pledged donation recorded for the donor.",
+        )
+        p.drawString(
+            100,
+            details_y - 185,
+            "Payment has not yet been processed or received and may still require verification.",
+        )
     else:
-        p.drawString(100, 500, "Issued in terms of Section 18A of the Income Tax Act No 58 of 1962.")
-        p.drawString(100, 485, "The funds will be used exclusively for public benefit activities.")
+        p.drawString(
+            100,
+            500,
+            "Issued in terms of Section 18A of the Income Tax Act No 58 of 1962.",
+        )
+        p.drawString(
+            100,
+            485,
+            "The funds will be used exclusively for public benefit activities.",
+        )
 
     p.showPage()
     p.save()

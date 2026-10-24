@@ -15,12 +15,14 @@ class UserRole(str, Enum):
     READ_ONLY = "read_only"
     USER = "user"
 
+
 # ENUMS FOR NEEDS AND VOLUNTEERS
 class NeedUrgency(str, Enum):
     LOW = "Low"
     MEDIUM = "Medium"
     HIGH = "High"
     CRITICAL = "Critical"
+
 
 # ENUMS FOR NEED STATUS AND VOLUNTEER STATUS
 class NeedStatus(str, Enum):
@@ -31,6 +33,7 @@ class NeedStatus(str, Enum):
     FULFILLED = "Fulfilled"
     REJECTED = "Rejected"
 
+
 class DonationStatus(str, Enum):
     SUBMITTED = "Submitted"
     PAYMENT_PENDING = "Payment Pending"
@@ -38,11 +41,13 @@ class DonationStatus(str, Enum):
     ALLOCATED = "Allocated"
     REFUNDED = "Refunded"
 
+
 class NewsStatus(str, Enum):
     DRAFT = "Draft"
     PREVIEW = "Preview"
     PUBLISHED = "Published"
     ARCHIVED = "Archive"
+
 
 # ENUMS FOR VOLUNTEER STATUS
 class VolunteerStatus(str, Enum):
@@ -65,9 +70,7 @@ class User(SQLModel, table=True):
     is_active: bool = Field(default=True)
     mfa_secret: Optional[str] = Field(default=None)
     mfa_last_counter: Optional[int] = Field(default=None)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AuthSession(SQLModel, table=True):
@@ -81,9 +84,7 @@ class AuthSession(SQLModel, table=True):
 
 
 class StaffNotificationRead(SQLModel, table=True):
-    __table_args__ = (
-        UniqueConstraint("staff_user_id", "notification_key"),
-    )
+    __table_args__ = (UniqueConstraint("staff_user_id", "notification_key"),)
 
     id: Optional[int] = Field(default=None, primary_key=True)
     staff_user_id: int = Field(foreign_key="user.id", index=True)
@@ -127,19 +128,23 @@ class Volunteer(SQLModel, table=True):
     email: str = Field(max_length=255, index=True)
     skills: str  # Comma-separated (e.g., "Food Dist, Logistics, Medical")
     location: str  # Suburb / Area
-    availability: str = Field(default="Anytime")  # e.g., "Weekdays", "Weekends", "Anytime"
-    
+    availability: str = Field(
+        default="Anytime"
+    )  # e.g., "Weekdays", "Weekends", "Anytime"
+
     # Store specific days the volunteer indicated they are available for
-    available_days: List[str] = Field(default_factory=list, sa_column=Column(JSON))  # e.g., ["Monday", "Wednesday", "Saturday"]
-    assigned_day: Optional[str] = Field(default="Inactive")  # "Inactive" by default or chosen day
-    
+    available_days: List[str] = Field(
+        default_factory=list, sa_column=Column(JSON)
+    )  # e.g., ["Monday", "Wednesday", "Saturday"]
+    assigned_day: Optional[str] = Field(
+        default="Inactive"
+    )  # "Inactive" by default or chosen day
+
     status: VolunteerStatus = Field(default=VolunteerStatus.ACTIVE)
     onboarding_status: str = Field(default="Pending", max_length=50, index=True)
     next_assignment_at: Optional[datetime] = Field(default=None, index=True)
     archived_at: Optional[datetime] = Field(default=None, index=True)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # --- BENEFICIARY & NEED ENTITY (POPIA Compliant) ---
@@ -162,14 +167,18 @@ class BeneficiaryNeed(SQLModel, table=True):
     status: NeedStatus = Field(default=NeedStatus.PENDING, index=True)
 
     # Financial / Resource Metrics
-    target_amount: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
-    current_amount: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
-
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
+    target_amount: Decimal = Field(
+        default=Decimal("0.00"), max_digits=12, decimal_places=2
     )
+    current_amount: Decimal = Field(
+        default=Decimal("0.00"), max_digits=12, decimal_places=2
+    )
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     closed_at: Optional[datetime] = Field(default=None, index=True)
-    assigned_staff_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    assigned_staff_id: Optional[int] = Field(
+        default=None, foreign_key="user.id", index=True
+    )
     internal_notes: Optional[str] = None
     follow_up_at: Optional[datetime] = Field(default=None, index=True)
     deadline: Optional[datetime] = Field(default=None, index=True)
@@ -184,6 +193,7 @@ def set_need_status(need: BeneficiaryNeed, status: NeedStatus) -> None:
         need.closed_at = None
     need.status = status
 
+
 # --- DONATION ENTITY ---
 class Donation(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -194,9 +204,13 @@ class Donation(SQLModel, table=True):
     cause: Optional[str] = Field(default="General Fund (Where Most Needed)")
 
     # Monetary vs In-Kind Classification
-    donation_type: str = Field(default="monetary", max_length=50, index=True)  # 'monetary' or 'inkind'
+    donation_type: str = Field(
+        default="monetary", max_length=50, index=True
+    )  # 'monetary' or 'inkind'
     amount: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
-    allocated_amount: Decimal = Field(default=Decimal("0.00"), max_digits=12, decimal_places=2)
+    allocated_amount: Decimal = Field(
+        default=Decimal("0.00"), max_digits=12, decimal_places=2
+    )
 
     # In-Kind Physical Item Attributes
     item_category: Optional[str] = None
@@ -208,7 +222,9 @@ class Donation(SQLModel, table=True):
     request_tax_certificate: bool = Field(default=False)
     tax_id_number: Optional[str] = None
     tax_address: Optional[str] = None
-    pending_receipt_token_hash: Optional[str] = Field(default=None, max_length=255, index=True)
+    pending_receipt_token_hash: Optional[str] = Field(
+        default=None, max_length=255, index=True
+    )
 
     # Verification & Payment Tracking
     payment_method: str = Field(default="Gateway")
@@ -216,15 +232,15 @@ class Donation(SQLModel, table=True):
     message: Optional[str] = None
     is_anonymous: bool = Field(default=False)
     is_verified: bool = Field(default=False, index=True)
-    status: str = Field(default=DonationStatus.SUBMITTED.value, max_length=50, index=True)
+    status: str = Field(
+        default=DonationStatus.SUBMITTED.value, max_length=50, index=True
+    )
     archived_at: Optional[datetime] = Field(default=None, index=True)
 
     need_id: Optional[int] = Field(
         default=None, foreign_key="beneficiaryneed.id", index=True
     )
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class DonationAllocation(SQLModel, table=True):
@@ -238,9 +254,7 @@ class DonationAllocation(SQLModel, table=True):
     donation_id: int = Field(foreign_key="donation.id", index=True)
     need_id: int = Field(foreign_key="beneficiaryneed.id", index=True)
     amount: Decimal = Field(max_digits=12, decimal_places=2)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # --- MATCHING ENGINE ENTITY ---
@@ -251,9 +265,7 @@ class VolunteerMatch(SQLModel, table=True):
     matched_by_admin: str = Field(default="System Scored")
     status: str = Field(default="Assigned")
     assigned_for: Optional[datetime] = Field(default=None, index=True)
-    matched_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    matched_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class VolunteerOffer(SQLModel, table=True):
@@ -263,9 +275,7 @@ class VolunteerOffer(SQLModel, table=True):
     volunteer_skill: str
     notes: str = Field(default="")
     status: str = Field(default="Pending", max_length=50, index=True)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # --- NEWS ARTICLE ENTITY ---
@@ -282,9 +292,7 @@ class NewsArticle(SQLModel, table=True):
     published_date: Optional[date] = Field(default=None)
     status: str = Field(default=NewsStatus.DRAFT.value, max_length=50, index=True)
     archived_at: Optional[datetime] = Field(default=None, index=True)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class RecordHistory(SQLModel, table=True):

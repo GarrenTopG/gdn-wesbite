@@ -3,7 +3,7 @@ import secrets
 from datetime import timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -13,8 +13,10 @@ from app.manage_staff import hash_password, verify_password
 from app.models.entities import AuditLog, AuthSession, User, UserRole
 from app.security import (
     STAFF_COOKIE_NAME,
-    STAFF_SESSION_TTL_SECONDS,
+    MFA_CHALLENGE_TTL_SECONDS,
+    PUBLIC_SESSION_TTL_SECONDS,
     add_record_history,
+    create_staff_mfa_challenge,
     enforce_rate_limit,
     now_utc,
     require_csrf,
@@ -96,7 +98,7 @@ def _account_rate_limit(bucket: str, limit: int, window_seconds: int):
 
 
 @router.get("/login", response_class=HTMLResponse)
-async def account_login_page(
+def account_login_page(
     request: Request,
     next_path: str = "/",
     session: Session = Depends(get_session),
@@ -118,7 +120,7 @@ def _get_staff_user(request: Request, session: Session) -> Optional[User]:
     auth_session = session.exec(
         select(AuthSession).where(AuthSession.token_hash == _session_digest(token))
     ).first()
-    if not auth_session:
+    if not auth_session or not auth_session.mfa_verified:
         return None
     expires_at = auth_session.expires_at
     if expires_at.tzinfo is None:
@@ -137,7 +139,7 @@ def _get_staff_user(request: Request, session: Session) -> Optional[User]:
     response_class=HTMLResponse,
     dependencies=[Depends(_account_rate_limit("account-login", 5, 15 * 60))],
 )
-async def account_login(
+def account_login(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
@@ -169,16 +171,8 @@ async def account_login(
         )
 
     is_staff = user.role != UserRole.USER
-    token = secrets.token_urlsafe(32)
-    session.add(
-        AuthSession(
-            token_hash=_session_digest(token),
-            user_id=user.id,
-            expires_at=now_utc() + timedelta(seconds=STAFF_SESSION_TTL_SECONDS),
-            mfa_verified=True,
-        )
-    )
     if is_staff:
+        token = create_staff_mfa_challenge(session, user)
         session.add(
             AuditLog(
                 actor_id=user.id,
@@ -188,29 +182,46 @@ async def account_login(
                 target_id=str(user.id),
             )
         )
+        session.commit()
+        response = RedirectResponse("/admin/mfa", status_code=303)
+        response.set_cookie(
+            key=STAFF_COOKIE_NAME,
+            value=token,
+            max_age=MFA_CHALLENGE_TTL_SECONDS,
+            httponly=True,
+            secure=secure_cookies(),
+            samesite="lax",
+            path="/",
+        )
     else:
+        token = secrets.token_urlsafe(32)
+        session.add(
+            AuthSession(
+                token_hash=_session_digest(token),
+                user_id=user.id,
+                expires_at=now_utc() + timedelta(seconds=PUBLIC_SESSION_TTL_SECONDS),
+                mfa_verified=True,
+            )
+        )
         add_record_history(session, request, "user", user.id, "web_login")
-    session.commit()
-    response = RedirectResponse(
-        "/admin/dashboard" if is_staff else _safe_next_path(next_path),
-        status_code=303,
-    )
-    response.set_cookie(
-        key=STAFF_COOKIE_NAME if is_staff else USER_COOKIE_NAME,
-        value=token,
-        max_age=STAFF_SESSION_TTL_SECONDS,
-        httponly=True,
-        secure=secure_cookies(),
-        samesite="lax",
-        path="/",
-    )
+        session.commit()
+        response = RedirectResponse(_safe_next_path(next_path), status_code=303)
+        response.set_cookie(
+            key=USER_COOKIE_NAME,
+            value=token,
+            max_age=PUBLIC_SESSION_TTL_SECONDS,
+            httponly=True,
+            secure=secure_cookies(),
+            samesite="lax",
+            path="/",
+        )
     response.headers["Cache-Control"] = "no-store"
     response.headers["Referrer-Policy"] = "no-referrer"
     return response
 
 
 @router.get("/register", response_class=HTMLResponse)
-async def account_register_page(
+def account_register_page(
     request: Request,
     next_path: str = "/",
     session: Session = Depends(get_session),
@@ -226,7 +237,7 @@ async def account_register_page(
     response_class=HTMLResponse,
     dependencies=[Depends(_account_rate_limit("account-register", 5, 60 * 60))],
 )
-async def account_register(
+def account_register(
     request: Request,
     full_name: str = Form(...),
     email: str = Form(...),
@@ -313,7 +324,7 @@ async def account_register(
         AuthSession(
             token_hash=_session_digest(token),
             user_id=user.id,
-            expires_at=now_utc() + timedelta(seconds=STAFF_SESSION_TTL_SECONDS),
+            expires_at=now_utc() + timedelta(seconds=PUBLIC_SESSION_TTL_SECONDS),
             mfa_verified=True,
         )
     )
@@ -323,7 +334,7 @@ async def account_register(
     response.set_cookie(
         key=USER_COOKIE_NAME,
         value=token,
-        max_age=STAFF_SESSION_TTL_SECONDS,
+        max_age=PUBLIC_SESSION_TTL_SECONDS,
         httponly=True,
         secure=secure_cookies(),
         samesite="lax",
@@ -335,16 +346,14 @@ async def account_register(
 
 
 @router.post("/logout")
-async def account_logout(
+def account_logout(
     request: Request,
     session: Session = Depends(get_session),
 ):
     token = request.cookies.get(USER_COOKIE_NAME)
     if token:
         auth_session = session.exec(
-            select(AuthSession).where(
-                AuthSession.token_hash == _session_digest(token)
-            )
+            select(AuthSession).where(AuthSession.token_hash == _session_digest(token))
         ).first()
         if auth_session:
             session.delete(auth_session)

@@ -13,7 +13,7 @@ router = APIRouter(prefix="/news", tags=["News"])
 
 
 @router.get("", response_class=HTMLResponse)
-async def get_news_feed(
+def get_news_feed(
     request: Request,
     category: Optional[str] = None,
     page: int = 1,
@@ -21,7 +21,9 @@ async def get_news_feed(
     session: Session = Depends(get_session),
 ):
     if per_page < 1 or per_page > 50:
-        raise HTTPException(status_code=400, detail="Page size must be between 1 and 50.")
+        raise HTTPException(
+            status_code=400, detail="Page size must be between 1 and 50."
+        )
 
     query = select(NewsArticle).where(
         NewsArticle.status == NewsStatus.PUBLISHED.value,
@@ -31,7 +33,9 @@ async def get_news_feed(
         query = query.where(NewsArticle.category == category.strip())
 
     all_articles = session.exec(query.order_by(desc(NewsArticle.created_at))).all()
-    featured_article = next((article for article in all_articles if article.is_featured), None)
+    featured_article = next(
+        (article for article in all_articles if article.is_featured), None
+    )
     if not featured_article and all_articles and not category:
         featured_article = all_articles[0]
 
@@ -59,7 +63,7 @@ async def get_news_feed(
 
 
 @router.get("/{identifier}", response_class=HTMLResponse)
-async def get_news_article_detail(
+def get_news_article_detail(
     identifier: str,
     request: Request,
     session: Session = Depends(get_session),

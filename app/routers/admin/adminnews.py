@@ -8,14 +8,20 @@ from sqlmodel import Session, select
 from app.db.session import get_session
 from app.models.entities import NewsArticle, NewsStatus
 from app.routers.admin.auth import verify_staff_session
-from app.security import add_audit_event, add_record_history, now_utc, permission_required
+from app.security import (
+    add_audit_event,
+    add_record_history,
+    now_utc,
+    permission_required,
+)
 from app.templatesconfig import templates
 
 router = APIRouter(dependencies=[Depends(permission_required("news.write"))])
 
+
 # Admin route to create a new NewsArticle directly from the admin dashboard
 @router.post("/news/add")
-async def create_news_article(
+def create_news_article(
     request: Request,
     title: str = Form(...),
     category: str = Form("Community"),
@@ -33,7 +39,7 @@ async def create_news_article(
     suffix = 2
     while session.exec(select(NewsArticle).where(NewsArticle.slug == slug)).first():
         suffix_text = f"-{suffix}"
-        slug = f"{base_slug[:50 - len(suffix_text)]}{suffix_text}"
+        slug = f"{base_slug[: 50 - len(suffix_text)]}{suffix_text}"
         suffix += 1
 
     article = NewsArticle(
@@ -48,20 +54,17 @@ async def create_news_article(
     )
     session.add(article)
     session.flush()
-    add_record_history(
-        session, request, "news_article", article.id, "article_created"
-    )
+    add_record_history(session, request, "news_article", article.id, "article_created")
     add_audit_event(session, request, "news.created", "news_article", article.id)
     session.commit()
-    
+
     return RedirectResponse(url="/admin/dashboard?tab=news", status_code=303)
+
 
 # Admin route to delete a NewsArticle from the admin dashboard
 @router.post("/news/{article_id}/delete")
-async def delete_news_article(
-    article_id: int, 
-    request: Request,
-    session: Session = Depends(get_session)
+def delete_news_article(
+    article_id: int, request: Request, session: Session = Depends(get_session)
 ):
     if not verify_staff_session(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -75,12 +78,12 @@ async def delete_news_article(
     add_record_history(session, request, "news_article", article_id, "archived")
     add_audit_event(session, request, "news.archived", "news_article", article_id)
     session.commit()
-        
+
     return RedirectResponse(url="/admin/dashboard?tab=news", status_code=303)
 
 
 @router.post("/news/{article_id}/status")
-async def update_news_status(
+def update_news_status(
     article_id: int,
     request: Request,
     status: str = Form(...),
@@ -130,7 +133,7 @@ async def update_news_status(
 
 
 @router.get("/news/{article_id}/preview")
-async def preview_news_article(
+def preview_news_article(
     article_id: int,
     request: Request,
     session: Session = Depends(get_session),
@@ -150,9 +153,10 @@ async def preview_news_article(
         },
     )
 
+
 # Admin route to update a NewsArticle from the admin dashboard
 @router.post("/news/{article_id}/edit")
-async def update_news_article(
+def update_news_article(
     article_id: int,
     request: Request,
     title: str = Form(...),
@@ -160,7 +164,7 @@ async def update_news_article(
     summary: str = Form(...),
     content: str = Form(...),
     image_url: Optional[str] = Form(None),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
     if not verify_staff_session(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -173,7 +177,9 @@ async def update_news_article(
         article.content = content
         article.image_url = image_url
         session.add(article)
-        add_record_history(session, request, "news_article", article_id, "content_updated")
+        add_record_history(
+            session, request, "news_article", article_id, "content_updated"
+        )
         add_audit_event(session, request, "news.updated", "news_article", article_id)
         session.commit()
 

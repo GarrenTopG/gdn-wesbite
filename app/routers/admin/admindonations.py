@@ -24,10 +24,9 @@ from app.security import now_utc
 
 router = APIRouter(dependencies=[Depends(permission_required("donations.write"))])
 
+
 # Helper function to recalculate the status of a BeneficiaryNeed based on its donations
-def recalculate_need_status(
-    session: Session, request: Request, need_id: int
-) -> None:
+def recalculate_need_status(session: Session, request: Request, need_id: int) -> None:
     """
     Recalculates total allocated donations for a specific BeneficiaryNeed,
     updates its current_amount, and updates status accordingly.
@@ -52,7 +51,9 @@ def recalculate_need_status(
     if need.target_amount and need.target_amount > Decimal("0.00"):
         if need.current_amount >= need.target_amount:
             set_need_status(need, NeedStatus.FULFILLED)
-        elif need.current_amount > Decimal("0.00") and need.status != NeedStatus.REJECTED:
+        elif (
+            need.current_amount > Decimal("0.00") and need.status != NeedStatus.REJECTED
+        ):
             set_need_status(need, NeedStatus.IN_PROGRESS)
         elif need.current_amount == Decimal("0.00") and need.status in {
             NeedStatus.FULFILLED,
@@ -106,9 +107,10 @@ def record_need_funding_progress(
     )
     session.commit()
 
+
 # Admin route to verify a donation
 @router.post("/donations/{donation_id}/verify")
-async def verify_donation(
+def verify_donation(
     donation_id: int,
     request: Request,
     session: Session = Depends(get_session),
@@ -121,9 +123,13 @@ async def verify_donation(
         raise HTTPException(status_code=404, detail="Donation record not found")
 
     if donation.status == DonationStatus.REFUNDED.value:
-        raise HTTPException(status_code=409, detail="A refunded donation cannot be verified.")
+        raise HTTPException(
+            status_code=409, detail="A refunded donation cannot be verified."
+        )
     if donation.status != DonationStatus.PAYMENT_PENDING.value:
-        raise HTTPException(status_code=409, detail="Donation is not awaiting verification.")
+        raise HTTPException(
+            status_code=409, detail="Donation is not awaiting verification."
+        )
     donation.is_verified = True
     donation.status = DonationStatus.RECEIVED_VERIFIED.value
     session.add(donation)
@@ -169,9 +175,10 @@ async def verify_donation(
 
     return RedirectResponse(url="/admin/dashboard?tab=donations", status_code=303)
 
+
 # Admin route to allocate a donation to a specific BeneficiaryNeed
 @router.post("/donations/{donation_id}/allocate")
-async def allocate_donation(
+def allocate_donation(
     donation_id: int,
     request: Request,
     need_id: int = Form(...),
@@ -187,16 +194,9 @@ async def allocate_donation(
         raise HTTPException(status_code=404, detail="Donation record not found")
 
     need = session.get(BeneficiaryNeed, need_id)
-    if (
-        not need
-        or need.archived_at is not None
-        or need.status == NeedStatus.REJECTED
-    ):
+    if not need or need.archived_at is not None or need.status == NeedStatus.REJECTED:
         raise HTTPException(status_code=404, detail="Community need not found")
-    if (
-        request.state.staff_user.role == UserRole.FINANCE
-        and not need.is_community_need
-    ):
+    if request.state.staff_user.role == UserRole.FINANCE and not need.is_community_need:
         raise HTTPException(status_code=404, detail="Community need not found")
 
     if not donation.is_verified or donation.status not in {
@@ -208,7 +208,9 @@ async def allocate_donation(
             detail="Only received and verified donations can be allocated.",
         )
     if donation.status == DonationStatus.ALLOCATED.value:
-        raise HTTPException(status_code=409, detail="Donation is already fully allocated.")
+        raise HTTPException(
+            status_code=409, detail="Donation is already fully allocated."
+        )
     raw_amount = allocate_amount or amount
     if not raw_amount:
         raise HTTPException(status_code=400, detail="Allocation amount is required")
@@ -222,7 +224,9 @@ async def allocate_donation(
     try:
         rounded_amount = alloc_decimal.quantize(Decimal("0.01"))
     except InvalidOperation as exc:
-        raise HTTPException(status_code=400, detail="Invalid allocation precision.") from exc
+        raise HTTPException(
+            status_code=400, detail="Invalid allocation precision."
+        ) from exc
     if rounded_amount != alloc_decimal:
         raise HTTPException(
             status_code=400, detail="Allocation amounts may have at most two decimals."
@@ -233,13 +237,17 @@ async def allocate_donation(
     unallocated_balance = total_amount - current_allocated
 
     if alloc_decimal <= Decimal("0.00"):
-        raise HTTPException(status_code=400, detail="Allocation amount must be greater than zero")
+        raise HTTPException(
+            status_code=400, detail="Allocation amount must be greater than zero"
+        )
 
     if alloc_decimal > unallocated_balance:
-        raise HTTPException(status_code=400, detail=f"Allocation R{alloc_decimal:.2f} exceeds remaining balance R{unallocated_balance:.2f}")
-    remaining_need_target = (
-        (need.target_amount or Decimal("0.00"))
-        - (need.current_amount or Decimal("0.00"))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Allocation R{alloc_decimal:.2f} exceeds remaining balance R{unallocated_balance:.2f}",
+        )
+    remaining_need_target = (need.target_amount or Decimal("0.00")) - (
+        need.current_amount or Decimal("0.00")
     )
     if need.target_amount > Decimal("0.00") and alloc_decimal > remaining_need_target:
         raise HTTPException(
@@ -303,7 +311,7 @@ async def allocate_donation(
 
 
 @router.post("/donations/{donation_id}/status")
-async def update_donation_status(
+def update_donation_status(
     donation_id: int,
     request: Request,
     status: str = Form(...),
@@ -362,7 +370,7 @@ async def update_donation_status(
 
 
 @router.post("/donations/{donation_id}/archive")
-async def archive_donation(
+def archive_donation(
     donation_id: int,
     request: Request,
     session: Session = Depends(get_session),

@@ -1,64 +1,40 @@
 import hashlib
-import os
 import re
 import unittest
 from datetime import datetime, timedelta, timezone
 
-os.environ.setdefault("APP_SECRET_KEY", "test-public-web-key-not-for-production-000000")
-os.environ["DATABASE_BACKEND"] = "sqlite"
-os.environ["SQLITE_FILE_NAME"] = "public_web_test_unused.db"
+from tests.support import DatabaseTestCase, totp_code
 
-from fastapi.testclient import TestClient
 from sqlalchemy import text
-from sqlalchemy.dialects import mssql
-from sqlalchemy.pool import StaticPool
 from sqlalchemy import true
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, select
 
-from app.db.session import (
-    _normalize_user_roles,
-    _normalize_volunteer_available_days,
-    _normalize_volunteer_status,
-    get_session,
-)
+from sqlalchemy.dialects import mssql
 from app.models.entities import (
+    AuthSession,
     BeneficiaryNeed,
     Donation,
     DonationStatus,
     NeedStatus,
     NewsArticle,
     ReceiptAccess,
+    RecordHistory,
     User,
     UserRole,
     Volunteer,
     VolunteerStatus,
 )
 from app.manage_staff import hash_password
+from app.security import STAFF_COOKIE_NAME
 from app.routers.donations import _active_community_needs_statement
-from main import app
+from tests.migration_support import (
+    normalize_user_roles as _normalize_user_roles,
+    normalize_volunteer_available_days as _normalize_volunteer_available_days,
+    normalize_volunteer_status as _normalize_volunteer_status,
+)
 
 
-class PublicWebTests(unittest.TestCase):
-    def setUp(self):
-        self.engine = create_engine(
-            "sqlite://",
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
-        )
-        SQLModel.metadata.create_all(self.engine)
-
-        def get_test_session():
-            with Session(self.engine) as session:
-                yield session
-
-        app.dependency_overrides[get_session] = get_test_session
-        self.client = TestClient(app)
-
-    def tearDown(self):
-        self.client.close()
-        app.dependency_overrides.clear()
-        self.engine.dispose()
-
+class PublicWebTests(DatabaseTestCase):
     def csrf_token(self):
         response = self.client.get("/account/login")
         self.assertEqual(response.status_code, 200, response.text)
@@ -87,6 +63,7 @@ class PublicWebTests(unittest.TestCase):
         self.assertEqual(response.status_code, 303, response.text)
         self.assertEqual(response.headers["location"], "/requestassistance")
         self.assertTrue(self.client.cookies.get("user_session"))
+        self.assertFalse(self.client.cookies.get(STAFF_COOKIE_NAME))
         with Session(self.engine) as session:
             user = session.exec(
                 select(User).where(User.email == "member@example.org")
@@ -119,6 +96,65 @@ class PublicWebTests(unittest.TestCase):
         self.assertEqual(login.status_code, 303, login.text)
         self.assertEqual(login.headers["location"], "/volunteer")
         self.assertTrue(self.client.cookies.get("user_session"))
+
+    def test_assistance_form_rejects_invalid_urgency_and_records_history(self):
+        csrf_token = self.csrf_token()
+        registration = self.client.post(
+            "/account/register",
+            data={
+                "csrf_token": csrf_token,
+                "full_name": "Assistance Applicant",
+                "email": "applicant@example.org",
+                "password": "CorrectHorseBatteryStaple1!",
+                "password_confirm": "CorrectHorseBatteryStaple1!",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(registration.status_code, 303)
+
+        form_data = {
+            "first_name": "Assistance",
+            "last_name": "Applicant",
+            "phone": "82 123 4567",
+            "location": "Kuils River",
+            "need_type": "Food Parcel",
+            "description": "Need groceries for this week.",
+            "popia": "true",
+        }
+        missing_csrf = self.client.post(
+            "/requestassistance",
+            data={**form_data, "urgency": "High"},
+        )
+        self.assertEqual(missing_csrf.status_code, 403)
+
+        invalid_urgency = self.client.post(
+            "/requestassistance",
+            data={**form_data, "csrf_token": csrf_token, "urgency": "Urgent"},
+        )
+        self.assertEqual(invalid_urgency.status_code, 400)
+        self.assertEqual(
+            invalid_urgency.json(),
+            {"detail": "Invalid assistance urgency."},
+        )
+        with Session(self.engine) as session:
+            self.assertEqual(session.exec(select(BeneficiaryNeed)).all(), [])
+
+        submitted = self.client.post(
+            "/requestassistance",
+            data={**form_data, "csrf_token": csrf_token, "urgency": "Critical"},
+        )
+        self.assertEqual(submitted.status_code, 200, submitted.text)
+        with Session(self.engine) as session:
+            need = session.exec(select(BeneficiaryNeed)).one()
+            history = session.exec(
+                select(RecordHistory).where(
+                    RecordHistory.record_type == "beneficiary_need",
+                    RecordHistory.record_id == need.id,
+                )
+            ).one()
+        self.assertEqual(need.urgency.value, "Critical")
+        self.assertEqual(history.action, "submitted")
+        self.assertEqual(history.record_id, need.id)
 
     def test_guest_can_submit_donation_without_email(self):
         token = self.csrf_token()
@@ -171,7 +207,9 @@ class PublicWebTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["content-type"], "application/pdf")
-        self.assertIn("DEMO_Section18A_Receipt_", response.headers["content-disposition"])
+        self.assertIn(
+            "DEMO_Section18A_Receipt_", response.headers["content-disposition"]
+        )
         self.assertIn(b"DEMO ONLY - NOT VALID FOR TAX PURPOSES", response.content)
         self.assertIn(b"No payment was processed or received.", response.content)
 
@@ -254,16 +292,11 @@ class PublicWebTests(unittest.TestCase):
             )
             session.commit()
 
-        login = self.client.post(
-            "/admin/login",
-            data={
-                "csrf_token": self.csrf_token(),
-                "email": "admin@example.org",
-                "password": "CorrectHorseBatteryStaple1!",
-            },
-            follow_redirects=False,
+        login, verification = self.login_staff(
+            "admin@example.org", "CorrectHorseBatteryStaple1!"
         )
         self.assertEqual(login.status_code, 303, login.text)
+        self.assertEqual(verification.status_code, 303, verification.text)
 
         response = self.client.post(
             "/admin/news/1/edit",
@@ -308,22 +341,15 @@ class PublicWebTests(unittest.TestCase):
             session.commit()
 
         with self.engine.begin() as connection:
-            connection.execute(
-                text("UPDATE volunteer SET available_days = ''")
-            )
+            connection.execute(text("UPDATE volunteer SET available_days = ''"))
 
         _normalize_volunteer_available_days(self.engine)
 
-        login = self.client.post(
-            "/admin/login",
-            data={
-                "csrf_token": self.csrf_token(),
-                "email": "admin@example.org",
-                "password": "CorrectHorseBatteryStaple1!",
-            },
-            follow_redirects=False,
+        login, verification = self.login_staff(
+            "admin@example.org", "CorrectHorseBatteryStaple1!"
         )
         self.assertEqual(login.status_code, 303, login.text)
+        self.assertEqual(verification.status_code, 303, verification.text)
         dashboard = self.client.get("/admin/dashboard")
         self.assertEqual(dashboard.status_code, 200, dashboard.text[:1000])
 
@@ -357,16 +383,11 @@ class PublicWebTests(unittest.TestCase):
 
         _normalize_volunteer_status(self.engine)
 
-        login = self.client.post(
-            "/admin/login",
-            data={
-                "csrf_token": self.csrf_token(),
-                "email": "admin@example.org",
-                "password": "CorrectHorseBatteryStaple1!",
-            },
-            follow_redirects=False,
+        login, verification = self.login_staff(
+            "admin@example.org", "CorrectHorseBatteryStaple1!"
         )
         self.assertEqual(login.status_code, 303, login.text)
+        self.assertEqual(verification.status_code, 303, verification.text)
         dashboard = self.client.get("/admin/dashboard")
         self.assertEqual(dashboard.status_code, 200, dashboard.text[:1000])
 
@@ -408,16 +429,11 @@ class PublicWebTests(unittest.TestCase):
             ).one()
         self.assertEqual(legacy_user.role, UserRole.USER)
 
-        login = self.client.post(
-            "/admin/login",
-            data={
-                "csrf_token": self.csrf_token(),
-                "email": "admin@example.org",
-                "password": "CorrectHorseBatteryStaple1!",
-            },
-            follow_redirects=False,
+        login, verification = self.login_staff(
+            "admin@example.org", "CorrectHorseBatteryStaple1!"
         )
         self.assertEqual(login.status_code, 303, login.text)
+        self.assertEqual(verification.status_code, 303, verification.text)
         security = self.client.get("/admin/security")
         self.assertEqual(security.status_code, 200, security.text[:1000])
         self.assertNotIn("volunteer@example.org", security.text)
@@ -440,27 +456,27 @@ class PublicWebTests(unittest.TestCase):
             )
             session.commit()
 
-        response = self.client.post(
-            "/admin/login",
-            data={
-                "csrf_token": self.csrf_token(),
-                "email": "admin@example.org",
-                "password": "CorrectHorseBatteryStaple1!",
-            },
-            follow_redirects=False,
+        challenge, verification = self.login_staff(
+            "admin@example.org", "CorrectHorseBatteryStaple1!"
         )
-        self.assertEqual(response.status_code, 303, response.text)
-        self.assertIn("max-age=43200", response.headers["set-cookie"].lower())
+        self.assertEqual(challenge.status_code, 303, challenge.text)
+        self.assertIn("max-age=300", challenge.headers["set-cookie"].lower())
+        self.assertEqual(verification.status_code, 303, verification.text)
+        self.assertIn("max-age=43200", verification.headers["set-cookie"].lower())
         dashboard = self.client.get("/admin/dashboard")
         self.assertEqual(dashboard.status_code, 200, dashboard.text[:1000])
-        self.assertIn("id=\"notifications-panel\"", dashboard.text)
+        self.assertIn('id="notifications-panel"', dashboard.text)
         self.assertIn("Donation pledges to review", dashboard.text)
         self.assertRegex(
             dashboard.text,
             r'class="admin-header-icon-badge" id="notifications-badge"[^>]*>1</span>',
         )
-        self.assertIn('class="admin-user-initials" aria-hidden="true">A</span>', dashboard.text)
-        self.assertIn('class="admin-user-role-pill">Administration</span>', dashboard.text)
+        self.assertIn(
+            'class="admin-user-initials" aria-hidden="true">A</span>', dashboard.text
+        )
+        self.assertIn(
+            'class="admin-user-role-pill">Administration</span>', dashboard.text
+        )
         donation_notification = re.search(
             r'data-notification-key="donations".*?data-notification-fingerprint="([0-9a-f]{64})"',
             dashboard.text,
@@ -497,7 +513,7 @@ class PublicWebTests(unittest.TestCase):
         )
         security = self.client.get("/admin/security")
         self.assertEqual(security.status_code, 200, security.text[:1000])
-        self.assertIn("class=\"admin-workspace\"", security.text)
+        self.assertIn('class="admin-workspace"', security.text)
 
     def test_shared_login_routes_staff_to_admin_dashboard(self):
         with Session(self.engine) as session:
@@ -526,10 +542,180 @@ class PublicWebTests(unittest.TestCase):
             follow_redirects=False,
         )
         self.assertEqual(response.status_code, 303, response.text)
-        self.assertEqual(response.headers["location"], "/admin/dashboard")
+        self.assertEqual(response.headers["location"], "/admin/mfa")
         self.assertTrue(self.client.cookies.get("staff_session"))
         self.assertFalse(self.client.cookies.get("user_session"))
+        unauthorized = self.client.get("/admin/dashboard", follow_redirects=False)
+        self.assertEqual(unauthorized.status_code, 401)
+        self.assertEqual(unauthorized.json(), {"detail": "Staff sign-in required."})
+        self.assertEqual(self.client.get("/admin/mfa").status_code, 200)
+        with Session(self.engine) as session:
+            auth_session = session.exec(select(AuthSession)).one()
+            self.assertFalse(auth_session.mfa_verified)
+            self.assertTrue(auth_session.mfa_setup_secret)
+            setup_secret = auth_session.mfa_setup_secret
+
+        rejected_code = self.client.post(
+            "/admin/mfa/verify",
+            data={"code": "invalid"},
+            headers={"X-CSRF-Token": self.client.cookies.get("csrf_token", "")},
+            follow_redirects=False,
+        )
+        self.assertEqual(rejected_code.status_code, 401)
+        verified = self.client.post(
+            "/admin/mfa/verify",
+            data={"code": totp_code(setup_secret)},
+            headers={"X-CSRF-Token": self.client.cookies.get("csrf_token", "")},
+            follow_redirects=False,
+        )
+        self.assertEqual(verified.status_code, 303)
+        self.assertEqual(verified.headers["location"], "/admin/dashboard")
         self.assertEqual(self.client.get("/admin/dashboard").status_code, 200)
+
+    def test_staff_login_rejects_invalid_passwords_and_public_accounts(self):
+        with Session(self.engine) as session:
+            session.add_all(
+                [
+                    User(
+                        full_name="Administrator",
+                        email="admin-login@example.org",
+                        hashed_password=hash_password("CorrectHorseBatteryStaple1!"),
+                        role=UserRole.ADMINISTRATOR,
+                    ),
+                    User(
+                        full_name="Community Member",
+                        email="public-login@example.org",
+                        hashed_password=hash_password("CorrectHorseBatteryStaple1!"),
+                        role=UserRole.USER,
+                    ),
+                ]
+            )
+            session.commit()
+
+        csrf_token = self.csrf_token()
+        for email, password in (
+            ("admin-login@example.org", "IncorrectPassword1!"),
+            ("public-login@example.org", "CorrectHorseBatteryStaple1!"),
+            ("missing@example.org", "IncorrectPassword1!"),
+        ):
+            with self.subTest(email=email):
+                response = self.client.post(
+                    "/admin/login",
+                    data={
+                        "csrf_token": csrf_token,
+                        "email": email,
+                        "password": password,
+                    },
+                    follow_redirects=False,
+                )
+                self.assertEqual(response.status_code, 401)
+                self.assertIn("Invalid email or password.", response.text)
+                self.assertFalse(self.client.cookies.get(STAFF_COOKIE_NAME))
+                self.assertFalse(self.client.cookies.get("user_session"))
+
+        with Session(self.engine) as session:
+            self.assertEqual(session.exec(select(AuthSession)).all(), [])
+
+    def test_staff_authorization_rejects_expired_revoked_and_disallowed_roles(self):
+        staff = User(
+            full_name="Case Worker",
+            email="caseworker@example.org",
+            hashed_password=hash_password("CorrectHorseBatteryStaple1!"),
+            role=UserRole.CASE_WORKER,
+        )
+        token = self.authenticate_staff(staff)
+        dashboard = self.client.get("/admin/dashboard")
+        self.assertEqual(dashboard.status_code, 200, dashboard.text[:500])
+        self.assertEqual(self.client.get("/admin/staff").status_code, 403)
+
+        self.client.cookies.set(STAFF_COOKIE_NAME, token)
+        with Session(self.engine) as session:
+            auth_session = session.exec(select(AuthSession)).one()
+            session.delete(auth_session)
+            session.commit()
+        revoked = self.client.get("/admin/dashboard", follow_redirects=False)
+        self.assertEqual(revoked.status_code, 401)
+        self.assertEqual(revoked.json(), {"detail": "Staff sign-in required."})
+
+        expired_staff = User(
+            full_name="Expired Staff",
+            email="expired-staff@example.org",
+            hashed_password=hash_password("CorrectHorseBatteryStaple1!"),
+            role=UserRole.ADMINISTRATOR,
+        )
+        self.authenticate_staff(
+            expired_staff,
+            expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+        )
+        expired = self.client.get("/admin/dashboard", follow_redirects=False)
+        self.assertEqual(expired.status_code, 401)
+        self.assertEqual(expired.json(), {"detail": "Staff sign-in required."})
+
+    def test_enrolled_staff_must_verify_mfa_without_reenrolling(self):
+        secret = "JBSWY3DPEHPK3PXP"
+        with Session(self.engine) as session:
+            session.add(
+                User(
+                    full_name="Enrolled Administrator",
+                    email="enrolled-admin@example.org",
+                    hashed_password=hash_password("CorrectHorseBatteryStaple1!"),
+                    role=UserRole.ADMINISTRATOR,
+                    mfa_secret=secret,
+                )
+            )
+            session.commit()
+
+        challenge, verification = self.login_staff(
+            "enrolled-admin@example.org", "CorrectHorseBatteryStaple1!"
+        )
+        self.assertEqual(challenge.status_code, 303)
+        self.assertEqual(challenge.headers["location"], "/admin/mfa")
+        mfa_page = self.client.get("/admin/mfa")
+        self.assertEqual(mfa_page.status_code, 200)
+        self.assertNotIn(secret, mfa_page.text)
+        self.assertEqual(verification.status_code, 303)
+        self.assertEqual(self.client.get("/admin/dashboard").status_code, 200)
+
+    def test_mfa_verification_attempts_are_rate_limited(self):
+        with Session(self.engine) as session:
+            session.add(
+                User(
+                    full_name="Administrator",
+                    email="mfa-limited@example.org",
+                    hashed_password=hash_password("CorrectHorseBatteryStaple1!"),
+                    role=UserRole.ADMINISTRATOR,
+                )
+            )
+            session.commit()
+
+        csrf_token = self.csrf_token()
+        challenge = self.client.post(
+            "/admin/login",
+            data={
+                "csrf_token": csrf_token,
+                "email": "mfa-limited@example.org",
+                "password": "CorrectHorseBatteryStaple1!",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(challenge.headers["location"], "/admin/mfa")
+        for attempt in range(5):
+            with self.subTest(attempt=attempt + 1):
+                response = self.client.post(
+                    "/admin/mfa/verify",
+                    data={"code": "invalid"},
+                    headers={"X-CSRF-Token": csrf_token},
+                    follow_redirects=False,
+                )
+                self.assertEqual(response.status_code, 401)
+
+        limited = self.client.post(
+            "/admin/mfa/verify",
+            data={"code": "invalid"},
+            headers={"X-CSRF-Token": csrf_token},
+            follow_redirects=False,
+        )
+        self.assertEqual(limited.status_code, 429)
 
     def test_donate_page_reads_legacy_open_need_status(self):
         with Session(self.engine) as session:
@@ -554,7 +740,9 @@ class PublicWebTests(unittest.TestCase):
     def test_public_browse_pages_render(self):
         for path in ("/", "/about", "/donate", "/account/register"):
             response = self.client.get(path)
-            self.assertEqual(response.status_code, 200, f"{path}: {response.text[:500]}")
+            self.assertEqual(
+                response.status_code, 200, f"{path}: {response.text[:500]}"
+            )
             self.assertIn('href="/static/css/tailwind.css"', response.text)
             self.assertNotIn("cdn.tailwindcss.com", response.text)
         stylesheet = self.client.get("/static/css/tailwind.css")
@@ -598,9 +786,9 @@ class PublicWebTests(unittest.TestCase):
 
     def test_verified_donation_query_uses_sql_server_bit_comparison(self):
         query = str(
-            select(Donation).where(Donation.is_verified == true()).compile(
-                dialect=mssql.dialect()
-            )
+            select(Donation)
+            .where(Donation.is_verified == true())
+            .compile(dialect=mssql.dialect())
         )
         self.assertIn("donation.is_verified = 1", query)
         self.assertNotIn("donation.is_verified IS 1", query)
