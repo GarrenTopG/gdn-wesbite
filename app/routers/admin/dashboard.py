@@ -144,6 +144,11 @@ def get_admin_dashboard(
                 BeneficiaryNeed.status,
                 BeneficiaryNeed.target_amount,
                 BeneficiaryNeed.current_amount,
+                BeneficiaryNeed.article,
+                BeneficiaryNeed.image_url,
+                BeneficiaryNeed.image_alt,
+                BeneficiaryNeed.deadline,
+                BeneficiaryNeed.archived_at,
                 BeneficiaryNeed.created_at,
             ).where(
                 BeneficiaryNeed.is_community_need == true(),
@@ -161,7 +166,12 @@ def get_admin_dashboard(
                 status=row[6],
                 target_amount=row[7],
                 current_amount=row[8],
-                created_at=row[9],
+                article=row[9],
+                image_url=row[10],
+                image_alt=row[11],
+                deadline=row[12],
+                archived_at=row[13],
+                created_at=row[14],
             )
             for row in need_rows
         ]

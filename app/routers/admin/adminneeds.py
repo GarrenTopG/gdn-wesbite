@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
+from urllib.parse import urlsplit
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlmodel import Session
@@ -33,6 +34,59 @@ def _has_cent_precision(amount: Decimal) -> bool:
         return False
 
 
+def _community_content_fields(
+    *, article: str, image_url: str, image_alt: str
+) -> dict[str, str | None]:
+    article = article.strip()
+    image_url = image_url.strip()
+    image_alt = image_alt.strip()
+    if len(article) > 20000:
+        raise HTTPException(status_code=400, detail="The article is too long.")
+    if len(image_url) > 2048 or len(image_alt) > 500:
+        raise HTTPException(status_code=400, detail="Image details are too long.")
+    if image_url:
+        try:
+            parsed_url = urlsplit(image_url)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid image URL.") from exc
+        if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+            raise HTTPException(
+                status_code=400,
+                detail="Image URLs must use an HTTP or HTTPS URL.",
+            )
+        if not image_alt:
+            raise HTTPException(
+                status_code=400,
+                detail="Provide descriptive alt text for the image.",
+            )
+    return {
+        "article": article or None,
+        "image_url": image_url or None,
+        "image_alt": image_alt or None,
+    }
+
+
+def _validate_community_need_labels(
+    anonymised_title: str, area: str, category: str
+) -> tuple[str, str, str]:
+    anonymised_title = anonymised_title.strip()
+    area = area.strip()
+    category = category.strip()
+    if (
+        not anonymised_title
+        or len(anonymised_title) > 255
+        or not area
+        or len(area) > 255
+        or not category
+        or len(category) > 100
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Enter a valid title, area, and category.",
+        )
+    return anonymised_title, area, category
+
+
 # Admin route to create a new BeneficiaryNeed directly from the admin dashboard
 @router.post("/needs/add")
 def create_community_need(
@@ -46,11 +100,17 @@ def create_community_need(
     full_address: str = Form(""),
     target_amount: str = Form("0.00"),
     deadline: str = Form(""),
+    article: str = Form(""),
+    image_url: str = Form(""),
+    image_alt: str = Form(""),
     session: Session = Depends(get_session),
 ):
     if not verify_staff_session(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+    anonymised_title, area, category = _validate_community_need_labels(
+        anonymised_title, area, category
+    )
     try:
         parsed_target = Decimal(target_amount)
     except (InvalidOperation, ValueError):
@@ -75,6 +135,9 @@ def create_community_need(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid urgency value.")
 
+    content_fields = _community_content_fields(
+        article=article, image_url=image_url, image_alt=image_alt
+    )
     new_need = BeneficiaryNeed(
         contact_name=contact_name,
         contact_phone=contact_phone,
@@ -85,6 +148,7 @@ def create_community_need(
         urgency=urgency_enum,
         target_amount=parsed_target,
         deadline=parsed_deadline,
+        **content_fields,
         status=NeedStatus.PENDING,
         is_community_need=True,
     )
@@ -100,6 +164,94 @@ def create_community_need(
     )
     add_audit_event(session, request, "need.created", "beneficiary_need", new_need.id)
     session.commit()
+
+    return RedirectResponse(url="/admin/dashboard?tab=needs", status_code=303)
+
+
+@router.post("/needs/{need_id}/edit")
+def edit_community_need(
+    need_id: int,
+    request: Request,
+    anonymised_title: str = Form(...),
+    area: str = Form(...),
+    category: str = Form(...),
+    urgency: str = Form(...),
+    target_amount: str = Form(...),
+    deadline: str = Form(""),
+    article: str = Form(""),
+    image_url: str = Form(""),
+    image_alt: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    if not verify_staff_session(request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    need = session.get(BeneficiaryNeed, need_id)
+    if not need or not need.is_community_need or need.archived_at is not None:
+        raise HTTPException(status_code=404, detail="Community need not found.")
+
+    anonymised_title, area, category = _validate_community_need_labels(
+        anonymised_title, area, category
+    )
+    try:
+        parsed_target = Decimal(target_amount)
+    except (InvalidOperation, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid target amount.") from exc
+    if not parsed_target.is_finite() or parsed_target < Decimal("0.00"):
+        raise HTTPException(
+            status_code=400, detail="Target amount must be zero or greater."
+        )
+    if not _has_cent_precision(parsed_target):
+        raise HTTPException(
+            status_code=400, detail="Target amount may have at most two decimals."
+        )
+    try:
+        parsed_deadline = datetime.fromisoformat(deadline) if deadline.strip() else None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid need deadline.") from exc
+    if parsed_deadline and parsed_deadline.tzinfo is None:
+        parsed_deadline = parsed_deadline.replace(tzinfo=timezone.utc)
+    try:
+        urgency_enum = NeedUrgency(urgency)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid urgency value.") from exc
+
+    content_fields = _community_content_fields(
+        article=article, image_url=image_url, image_alt=image_alt
+    )
+    updates = {
+        "anonymised_title": anonymised_title,
+        "area": area,
+        "category": category,
+        "urgency": urgency_enum,
+        "target_amount": parsed_target,
+        "deadline": parsed_deadline,
+        **content_fields,
+    }
+    changed_fields = [
+        name for name, value in updates.items() if getattr(need, name) != value
+    ]
+    for name, value in updates.items():
+        setattr(need, name, value)
+    if changed_fields:
+        session.add(need)
+        add_record_history(
+            session,
+            request,
+            "beneficiary_need",
+            need_id,
+            "need_updated",
+            {"fields": changed_fields},
+        )
+        add_audit_event(
+            session,
+            request,
+            "need.updated",
+            "beneficiary_need",
+            need_id,
+            {"fields": changed_fields},
+        )
+        session.commit()
 
     return RedirectResponse(url="/admin/dashboard?tab=needs", status_code=303)
 

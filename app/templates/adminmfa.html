@@ -19,8 +19,11 @@
       <p class="text-sm text-amber-900 mt-1">
         Add this key to your authenticator app. This key is shown only during enrollment.
       </p>
-      <code class="block mt-3 break-all rounded-lg bg-white px-3 py-2 text-sm font-bold tracking-wider text-gray-900">{{ setup_secret }}</code>
-      <p class="text-xs text-amber-900 mt-2">Choose time-based one-time passwords (TOTP), then enter the generated code below.</p>
+      <code aria-label="Authenticator setup key, grouped in sets of four" class="block mt-3 break-all rounded-lg bg-white px-3 py-2 font-mono text-sm font-bold tracking-wide text-gray-900">{{ setup_secret_display }}</code>
+      <p class="text-xs text-amber-900 mt-2">
+        This Base32 key uses letters A-Z and digits 2-7: O is the letter, not zero. Spaces only separate groups; use the complete key and omit spaces if entering it manually.
+      </p>
+      <p class="text-xs text-amber-900 mt-2">Choose time-based one-time passwords (TOTP), then enter the generated six-digit code below.</p>
     </div>
     {% endif %}
 

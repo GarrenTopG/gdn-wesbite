@@ -548,12 +548,19 @@ class PublicWebTests(DatabaseTestCase):
         unauthorized = self.client.get("/admin/dashboard", follow_redirects=False)
         self.assertEqual(unauthorized.status_code, 401)
         self.assertEqual(unauthorized.json(), {"detail": "Staff sign-in required."})
-        self.assertEqual(self.client.get("/admin/mfa").status_code, 200)
+        mfa_page = self.client.get("/admin/mfa")
+        self.assertEqual(mfa_page.status_code, 200)
         with Session(self.engine) as session:
             auth_session = session.exec(select(AuthSession)).one()
             self.assertFalse(auth_session.mfa_verified)
             self.assertTrue(auth_session.mfa_setup_secret)
             setup_secret = auth_session.mfa_setup_secret
+        grouped_secret = " ".join(
+            setup_secret[index : index + 4]
+            for index in range(0, len(setup_secret), 4)
+        )
+        self.assertIn(grouped_secret, mfa_page.text)
+        self.assertIn("O is the letter, not zero", mfa_page.text)
 
         rejected_code = self.client.post(
             "/admin/mfa/verify",

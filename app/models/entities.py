@@ -2,7 +2,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Optional, List
-from sqlalchemy import Index, UniqueConstraint
+from sqlalchemy import Index, Text, UniqueConstraint
 from sqlmodel import Field, SQLModel, Column, JSON
 
 
@@ -172,6 +172,9 @@ class BeneficiaryNeed(SQLModel, table=True):
     area: str
     category: str  # 'Food', 'Clothing', 'Shelter', 'Other'
     request_details: Optional[str] = None
+    article: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
+    image_url: Optional[str] = Field(default=None, max_length=2048)
+    image_alt: Optional[str] = Field(default=None, max_length=500)
     urgency: NeedUrgency = Field(default=NeedUrgency.MEDIUM)
     status: NeedStatus = Field(default=NeedStatus.PENDING, index=True)
 

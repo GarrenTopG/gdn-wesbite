@@ -49,7 +49,7 @@ def _create_engine() -> Engine:
 engine = _create_engine()
 
 
-DATABASE_SCHEMA_REVISION = "8c41d62a9f30"
+DATABASE_SCHEMA_REVISION = "9f89a4e2cc71"
 
 
 def validate_database_ready(database_engine: Engine | None = None) -> None:

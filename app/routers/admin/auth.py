@@ -175,12 +175,21 @@ def get_mfa_setup(request: Request, session: Session = Depends(get_session)):
         if get_staff_user(request, session):
             return RedirectResponse(url="/admin/dashboard", status_code=303)
         return RedirectResponse(url="/admin/login", status_code=303)
+    setup_secret = pending.mfa_setup_secret
     return templates.TemplateResponse(
         request=request,
         name="adminmfa.html",
         context={
             "active_page": "admin",
-            "setup_secret": pending.mfa_setup_secret,
+            "setup_secret": setup_secret,
+            "setup_secret_display": (
+                " ".join(
+                    setup_secret[index : index + 4]
+                    for index in range(0, len(setup_secret), 4)
+                )
+                if setup_secret
+                else None
+            ),
             "error": None,
         },
         headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
