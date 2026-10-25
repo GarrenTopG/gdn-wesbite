@@ -403,6 +403,7 @@ def _overview_dashboard(
         context={
             "active_page": "admin",
             "active_tab": active_tab,
+            "form_error": request.query_params.get("form_error"),
             "volunteers": [],
             "filtered_volunteers": [],
             "donations": [],
@@ -1143,6 +1144,7 @@ def get_admin_dashboard(
         context={
             "active_page": "admin",
             "active_tab": active_tab,
+            "form_error": request.query_params.get("form_error"),
             "volunteers": volunteers,
             "filtered_volunteers": filtered_volunteers,
             "donations": donations,

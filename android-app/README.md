@@ -26,7 +26,7 @@ This folder contains a Jetpack Compose Android app screen implementation. It is 
    <uses-permission android:name="android.permission.INTERNET" />
    ```
 
-6. Start an emulator or connect an Android device, then click **Run**. The app calls the live site at `https://aurorahcan.org.za`.
+6. Start an emulator or connect an Android device, then click **Run**. The app calls the live site at `https://aurorah-web-hub.onrender.com`.
 
 ### Test against a local backend
 

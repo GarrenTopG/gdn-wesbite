@@ -32,6 +32,16 @@
         </div>
       </div>
 
+      <script>
+        const addNeedImageUrl = document.querySelector('#addNeedModal input[name="image_url"]');
+        const addNeedImageAlt = document.querySelector('#addNeedModal input[name="image_alt"]');
+        const syncAddNeedAltTextRequirement = () => {
+          addNeedImageAlt.required = Boolean(addNeedImageUrl.value.trim());
+        };
+        addNeedImageUrl.addEventListener('input', syncAddNeedAltTextRequirement);
+        syncAddNeedAltTextRequirement();
+      </script>
+
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label for="need_urgency" class="block font-bold text-gray-700 mb-1">Urgency Level</label>

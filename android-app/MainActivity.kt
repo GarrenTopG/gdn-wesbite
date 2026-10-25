@@ -81,7 +81,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-private const val SITE_BASE_URL = "https://aurorahcan.org.za"
+private const val SITE_BASE_URL = "https://aurorah-web-hub.onrender.com"
 private const val ORG_ADDRESS = "27 Lovebird Walk, Sunbird Park, Cape Town, 7580"
 private val Brand = Color(0xFF752D42)
 private val BrandMid = Color(0xFF943D56)

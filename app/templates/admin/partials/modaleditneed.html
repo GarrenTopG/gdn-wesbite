@@ -97,10 +97,20 @@
     document.getElementById('edit_need_image_url').value = button.dataset.imageUrl || '';
     document.getElementById('edit_need_image_alt').value = button.dataset.imageAlt || '';
     document.getElementById('edit_need_article').value = button.dataset.article || '';
+    syncEditNeedAltTextRequirement();
 
     toggleModal('editNeedModal');
     document.getElementById('edit_need_title').focus();
   }
+
+  function syncEditNeedAltTextRequirement() {
+    const imageUrl = document.getElementById('edit_need_image_url');
+    const imageAlt = document.getElementById('edit_need_image_alt');
+    imageAlt.required = Boolean(imageUrl.value.trim());
+  }
+
+  document.getElementById('edit_need_image_url')
+    .addEventListener('input', syncEditNeedAltTextRequirement);
 
   function closeEditNeedModal() {
     const modal = document.getElementById('editNeedModal');

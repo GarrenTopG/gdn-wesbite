@@ -3,9 +3,13 @@ from dataclasses import dataclass
 from datetime import date
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlencode
 
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -80,6 +84,50 @@ def create_app(
 
         application.dependency_overrides[get_session] = configured_session
 
+    def admin_form_error_redirect(
+        request: Request, message: str
+    ) -> Optional[RedirectResponse]:
+        if (
+            request.method != "POST"
+            or not request.url.path.startswith("/admin/")
+            or "text/html" not in request.headers.get("accept", "")
+            or request.headers.get("HX-Request")
+        ):
+            return None
+
+        path = request.url.path
+        dashboard_tabs = (
+            ("/admin/needs/", "needs"),
+            ("/admin/campaigns/", "needs"),
+            ("/admin/news/", "news"),
+            ("/admin/donations/", "donations"),
+            ("/admin/volunteers/", "volunteers"),
+        )
+        tab = next(
+            (tab for prefix, tab in dashboard_tabs if path.startswith(prefix)), None
+        )
+        if tab is None:
+            return None
+
+        query = {"tab": tab, "form_error": message}
+        if path == "/admin/needs/add":
+            query["form_modal"] = "addNeed"
+        elif match := re.fullmatch(r"/admin/needs/(\d+)/edit", path):
+            query["form_modal"] = "editNeed"
+            query["edit_need_id"] = match.group(1)
+        elif path == "/admin/campaigns/add":
+            query["form_modal"] = "addCampaign"
+        elif match := re.fullmatch(r"/admin/campaigns/(\d+)/edit", path):
+            query["edit_campaign_id"] = match.group(1)
+        elif path == "/admin/news/add":
+            query["form_modal"] = "addNews"
+        elif match := re.fullmatch(r"/admin/news/(\d+)/edit", path):
+            query["form_modal"] = "editNews"
+            query["edit_news_id"] = match.group(1)
+        return RedirectResponse(
+            url=f"/admin/dashboard?{urlencode(query)}", status_code=303
+        )
+
     cors_allowed_origins = (
         list(app_settings.cors_allowed_origins)
         if app_settings.cors_allowed_origins is not None
@@ -123,6 +171,16 @@ def create_app(
 
     @application.exception_handler(HTTPException)
     async def render_html_errors(request: Request, exc: HTTPException):
+        if exc.status_code in {400, 404, 409, 422}:
+            message = (
+                exc.detail
+                if isinstance(exc.detail, str)
+                else "Some form fields are invalid. Please review them and try again."
+            )
+            redirect = admin_form_error_redirect(request, message)
+            if redirect is not None:
+                return redirect
+
         if (
             request.method == "POST"
             and request.url.path == "/donate"
@@ -191,6 +249,18 @@ def create_app(
             status_code=exc.status_code,
             headers=exc.headers,
         )
+
+    @application.exception_handler(RequestValidationError)
+    async def handle_request_validation_error(
+        request: Request, exc: RequestValidationError
+    ):
+        redirect = admin_form_error_redirect(
+            request,
+            "Some required fields are missing or invalid. Please review the form and try again.",
+        )
+        if redirect is not None:
+            return redirect
+        return await request_validation_exception_handler(request, exc)
 
     @application.middleware("http")
     async def add_csrf_cookie(request: Request, call_next):

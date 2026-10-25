@@ -119,6 +119,7 @@
               {% if can_write_needs and not need.archived_at %}
               <button type="button" class="admin-action-button admin-action-secondary"
                 aria-haspopup="dialog" onclick="handleEditNeedClick(this)"
+                id="edit-need-{{ need.id }}"
                 data-id="{{ need.id }}"
                 data-title="{{ need.anonymised_title }}"
                 data-area="{{ need.area }}"
@@ -195,7 +196,7 @@
             </td>
             <td data-label="Actions" class="py-4 px-4 text-right">
               {% if can_write_campaigns and not campaign.archived_at %}
-              <details class="inline-block text-left">
+              <details id="edit-campaign-{{ campaign.id }}" class="inline-block text-left">
                 <summary class="admin-action-button admin-action-secondary cursor-pointer">Edit details</summary>
                 <form action="/admin/campaigns/{{ campaign.id }}/edit" method="post" class="mt-3 w-[min(28rem,80vw)] space-y-2 rounded-xl border border-white/10 bg-[#09090B] p-4">
                   {{ csrf_input(request) }}

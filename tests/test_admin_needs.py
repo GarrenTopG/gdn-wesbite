@@ -110,10 +110,16 @@ class CommunityNeedAdminTests(DatabaseTestCase):
                 "image_url": "javascript:alert(1)",
                 "image_alt": "Invalid image",
             },
-            headers={"X-CSRF-Token": self.csrf_token},
+            headers={
+                "X-CSRF-Token": self.csrf_token,
+                "Accept": "text/html",
+            },
             follow_redirects=False,
         )
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 303, response.text)
+        dashboard = self.client.get(response.headers["location"])
+        self.assertEqual(dashboard.status_code, 200, dashboard.text)
+        self.assertIn("Image URLs must use an HTTP or HTTPS URL.", dashboard.text)
         with Session(self.engine) as session:
             self.assertIsNone(
                 session.exec(
@@ -122,3 +128,86 @@ class CommunityNeedAdminTests(DatabaseTestCase):
                     )
                 ).first()
             )
+
+    def test_edit_validation_returns_to_dashboard_and_reopens_editor(self):
+        create_response = self.client.post(
+            "/admin/needs/add",
+            data={
+                "anonymised_title": "Need to edit",
+                "area": "Kuils River",
+                "category": "Clothing",
+                "urgency": "Medium",
+                "target_amount": "100.00",
+                "image_url": "https://example.org/image.jpg",
+                "image_alt": "A description",
+            },
+            headers={"X-CSRF-Token": self.csrf_token},
+            follow_redirects=False,
+        )
+        self.assertEqual(create_response.status_code, 303, create_response.text)
+        with Session(self.engine) as session:
+            need_id = session.exec(
+                select(BeneficiaryNeed).where(
+                    BeneficiaryNeed.anonymised_title == "Need to edit"
+                )
+            ).one().id
+
+        edit_data = {
+            "anonymised_title": "Need to edit",
+            "area": "Kuils River",
+            "category": "Clothing",
+            "urgency": "Medium",
+            "target_amount": "100.00",
+            "image_url": "https://example.org/image.jpg",
+            "image_alt": "",
+        }
+        response = self.client.post(
+            f"/admin/needs/{need_id}/edit",
+            data=edit_data,
+            headers={
+                "X-CSRF-Token": self.csrf_token,
+                "Accept": "text/html",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303, response.text)
+        self.assertIn("tab=needs", response.headers["location"])
+        self.assertIn("form_modal=editNeed", response.headers["location"])
+        self.assertIn(f"edit_need_id={need_id}", response.headers["location"])
+        dashboard = self.client.get(response.headers["location"])
+        self.assertEqual(dashboard.status_code, 200, dashboard.text)
+        self.assertIn("Provide descriptive alt text for the image.", dashboard.text)
+        self.assertIn(f'id="edit-need-{need_id}"', dashboard.text)
+
+        missing_field_response = self.client.post(
+            f"/admin/needs/{need_id}/edit",
+            data={key: value for key, value in edit_data.items() if key != "category"},
+            headers={
+                "X-CSRF-Token": self.csrf_token,
+                "Accept": "text/html",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(missing_field_response.status_code, 303)
+        missing_field_dashboard = self.client.get(
+            missing_field_response.headers["location"]
+        )
+        self.assertEqual(missing_field_dashboard.status_code, 200)
+        self.assertIn(
+            "Some required fields are missing or invalid.",
+            missing_field_dashboard.text,
+        )
+        json_validation_response = self.client.post(
+            f"/admin/needs/{need_id}/edit",
+            data={key: value for key, value in edit_data.items() if key != "category"},
+            headers={
+                "X-CSRF-Token": self.csrf_token,
+                "Accept": "application/json",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(json_validation_response.status_code, 422)
+        self.assertIn("detail", json_validation_response.json())
+        with Session(self.engine) as session:
+            unchanged = session.get(BeneficiaryNeed, need_id)
+            self.assertEqual(unchanged.anonymised_title, "Need to edit")

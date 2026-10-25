@@ -73,6 +73,7 @@
               {% if article.status != 'Archive' %}
               <button 
                 type="button" 
+                id="edit-news-{{ article.id }}"
                 data-id="{{ article.id }}"
                 data-title="{{ article.title }}"
                 data-category="{{ article.category or 'Community Outreaches' }}"

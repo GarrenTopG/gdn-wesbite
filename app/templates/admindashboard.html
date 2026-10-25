@@ -137,6 +137,9 @@
 
     <main class="admin-content" id="admin-main" tabindex="-1">
       <h1 class="admin-page-title" id="page-title">{{ {'overview': 'Overview', 'volunteers': 'Volunteers', 'donations': 'Donations', 'beneficiaries': 'Beneficiaries', 'needs': 'Community Needs', 'news': 'News & Announcements', 'reports': 'Reports'}.get(active_tab, 'Overview') }}</h1>
+      {% if form_error %}
+      <p class="mb-5 rounded-lg border border-rose-400/30 bg-rose-950/40 px-4 py-3 text-sm text-rose-200" role="alert">{{ form_error }}</p>
+      {% endif %}
       <p id="admin-loading" class="admin-loading-state" role="status" aria-live="polite" hidden>
         <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Updating date-filtered metrics…
       </p>
@@ -245,6 +248,24 @@
       if (target) {
         target.scrollIntoView({ block: 'center' });
         target.focus({ preventScroll: true });
+      }
+    }
+    const formModal = urlParams.get('form_modal');
+    if (formModal === 'addNeed' || formModal === 'addCampaign' || formModal === 'addNews') {
+      toggleModal(`${formModal}Modal`);
+    } else if (formModal === 'editNeed') {
+      const trigger = document.getElementById(`edit-need-${urlParams.get('edit_need_id')}`);
+      if (trigger) handleEditNeedClick(trigger);
+    } else if (formModal === 'editNews') {
+      const trigger = document.getElementById(`edit-news-${urlParams.get('edit_news_id')}`);
+      if (trigger) handleEditNewsClick(trigger);
+    }
+    const editCampaignId = urlParams.get('edit_campaign_id');
+    if (editCampaignId) {
+      const editor = document.getElementById(`edit-campaign-${editCampaignId}`);
+      if (editor) {
+        editor.open = true;
+        editor.scrollIntoView({ block: 'center' });
       }
     }
 
