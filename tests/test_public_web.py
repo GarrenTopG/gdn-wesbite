@@ -727,33 +727,69 @@ class PublicWebTests(DatabaseTestCase):
         )
         self.assertEqual(limited.status_code, 429)
 
-    def test_donate_page_shows_community_needs_separately_from_campaigns(self):
+    def test_donate_page_shows_admin_needs_and_full_story_on_detail_page(self):
+        article = "Public details about the food parcel need are important. " * 8
         with Session(self.engine) as session:
-            session.add(
-                BeneficiaryNeed(
-                    is_community_need=True,
-                    contact_name="Private Contact",
-                    contact_phone="555-0100",
-                    full_address="Private Address",
-                    anonymised_title="Community food parcels",
-                    area="Kuils River",
-                    category="Food",
-                    article="Public details about the food parcel need.",
-                    status=NeedStatus.Open,
-                )
+            community_need = BeneficiaryNeed(
+                is_community_need=True,
+                contact_name="Private Contact",
+                contact_phone="555-0100",
+                full_address="Private Address",
+                anonymised_title="Community food parcels",
+                area="Kuils River",
+                category="Food",
+                article=article,
+                status=NeedStatus.Open,
             )
+            personal_request = BeneficiaryNeed(
+                is_community_need=False,
+                contact_name="Private Assistance Applicant",
+                contact_phone="555-0199",
+                full_address="Private Applicant Address",
+                anonymised_title="Private beneficiary request",
+                area="Kuils River",
+                category="Food",
+                status=NeedStatus.Open,
+            )
+            session.add(community_need)
+            session.add(personal_request)
             session.commit()
+            session.refresh(community_need)
+            community_need_id = community_need.id
+            personal_request_id = personal_request.id
 
         response = self.client.get("/donate")
         self.assertEqual(response.status_code, 200, response.text)
         self.assertIn("Community needs", response.text)
         self.assertIn("Community food parcels", response.text)
-        self.assertIn("Public details about the food parcel need.", response.text)
-        self.assertIn("Current campaigns", response.text)
+        self.assertNotIn(article, response.text)
+        excerpt_match = re.search(
+            r'<p class="community-need-article[^"]*">(.*?)</p>',
+            response.text,
+            flags=re.DOTALL,
+        )
+        self.assertIsNotNone(excerpt_match)
+        excerpt = excerpt_match.group(1)
+        self.assertLessEqual(len(excerpt), 180)
+        self.assertTrue(excerpt.endswith("…"))
+        self.assertNotIn("Private beneficiary request", response.text)
+        self.assertNotIn("Current campaigns", response.text)
+        self.assertIn(f'href="/community-needs/{community_need_id}"', response.text)
         self.assertNotIn("Private Contact", response.text)
         self.assertNotIn("555-0100", response.text)
         self.assertNotIn("Private Address", response.text)
-        self.assertNotIn('href="/campaigns/community-food-parcels"', response.text)
+        self.assertNotIn("Private Assistance Applicant", response.text)
+        self.assertNotIn("555-0199", response.text)
+        self.assertNotIn("Private Applicant Address", response.text)
+
+        detail = self.client.get(f"/community-needs/{community_need_id}")
+        self.assertEqual(detail.status_code, 200, detail.text)
+        self.assertIn(article, detail.text)
+        self.assertIn('href="/donate#donation-form"', detail.text)
+        self.assertEqual(
+            self.client.get(f"/community-needs/{personal_request_id}").status_code,
+            404,
+        )
 
     def test_public_community_needs_hide_terminal_and_archived_records(self):
         with Session(self.engine) as session:
@@ -804,6 +840,8 @@ class PublicWebTests(DatabaseTestCase):
         self.assertIn("@media (max-width: 767px)", modern_stylesheet.text)
         self.assertIn("@media (min-width: 768px)", modern_stylesheet.text)
         self.assertIn(".mobile-menu-toggle", modern_stylesheet.text)
+        normalized_stylesheet = modern_stylesheet.text.replace("\r\n", "\n")
+        self.assertIn(".mobile-menu-toggle {\n    display: none;", normalized_stylesheet)
         admin_stylesheet = self.client.get("/static/css/admin-tailwind.css")
         self.assertEqual(admin_stylesheet.status_code, 200)
         self.assertIn(".bg-brand-900", admin_stylesheet.text)

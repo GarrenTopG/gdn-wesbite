@@ -7,7 +7,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from sqlmodel import Session, select
 from starlette.datastructures import FormData
-from datetime import date, timezone
+from datetime import timezone
 import hashlib
 import secrets
 
@@ -22,7 +22,6 @@ from app.models.entities import (
     NeedStatus,
     ReceiptAccess,
 )
-from app.services.campaigns import campaign_progress_by_id
 from app.security import (
     enforce_receipt_rate_limit,
     enforce_public_form_rate_limit,
@@ -38,6 +37,10 @@ router = APIRouter(
         Depends(require_csrf),
         Depends(enforce_public_form_rate_limit),
     ],
+)
+community_needs_router = APIRouter(
+    prefix="/community-needs",
+    tags=["Community Needs"],
 )
 receipt_router = APIRouter(
     prefix="/donate",
@@ -72,9 +75,10 @@ def _public_campaigns_statement():
     )
 
 
-def _public_community_needs_statement():
-    return (
+def _public_community_needs_statement(need_id: int | None = None):
+    statement = (
         select(
+            BeneficiaryNeed.id,
             BeneficiaryNeed.anonymised_title,
             BeneficiaryNeed.area,
             BeneficiaryNeed.category,
@@ -95,6 +99,43 @@ def _public_community_needs_statement():
         )
         .order_by(BeneficiaryNeed.created_at.desc())
     )
+    if need_id is not None:
+        statement = statement.where(BeneficiaryNeed.id == need_id)
+    return statement
+
+
+def _community_need_excerpt(article: str | None, limit: int = 180) -> str:
+    if not article or len(article) <= limit:
+        return article or ""
+
+    excerpt = article[: limit - 1]
+    word_boundary = max(
+        excerpt.rfind(" "),
+        excerpt.rfind("\n"),
+        excerpt.rfind("\t"),
+    )
+    if word_boundary > 0:
+        excerpt = excerpt[:word_boundary]
+    return f"{excerpt.rstrip()}…"
+
+
+@community_needs_router.get("/{need_id}", response_class=HTMLResponse)
+def community_need_detail(
+    request: Request,
+    need_id: int,
+    session: Session = Depends(get_session),
+):
+    row = session.exec(_public_community_needs_statement(need_id)).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Community need not found.")
+
+    need = dict(row._mapping)
+    return templates.TemplateResponse(
+        request=request,
+        name="communityneeddetail.html",
+        context={"active_page": "donate", "need": need},
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 # Donation route to render the donation page
@@ -103,30 +144,19 @@ def get_donate_page(
     request: Request,
     session: Session = Depends(get_session),
 ):
-    campaigns = session.exec(_public_campaigns_statement()).all()
     community_needs = [
-        dict(row._mapping)
+        {
+            **dict(row._mapping),
+            "article_excerpt": _community_need_excerpt(row.article),
+        }
         for row in session.exec(_public_community_needs_statement()).all()
     ]
-    campaigns.sort(
-        key=lambda campaign: (
-            {
-                CampaignStatus.PUBLISHED: 0,
-                CampaignStatus.PAUSED: 1,
-                CampaignStatus.COMPLETED: 2,
-            }.get(campaign.status, 3),
-            -campaign.created_at.timestamp(),
-        )
-    )
     return templates.TemplateResponse(
         request=request,
         name="donate.html",
         context={
             "active_page": "donate",
-            "campaigns": campaigns,
             "community_needs": community_needs,
-            "campaign_progress": campaign_progress_by_id(session, campaigns),
-            "today": date.today(),
             "selected_need_id": None,
         },
     )
@@ -139,25 +169,13 @@ def submit_donation_form(
     form_data: FormData = Depends(parse_form_data),
     session: Session = Depends(get_session),
 ):
-    campaigns = session.exec(_public_campaigns_statement()).all()
     request.state.donation_community_needs = [
-        dict(row._mapping)
+        {
+            **dict(row._mapping),
+            "article_excerpt": _community_need_excerpt(row.article),
+        }
         for row in session.exec(_public_community_needs_statement()).all()
     ]
-    campaigns.sort(
-        key=lambda campaign: (
-            {
-                CampaignStatus.PUBLISHED: 0,
-                CampaignStatus.PAUSED: 1,
-                CampaignStatus.COMPLETED: 2,
-            }.get(campaign.status, 3),
-            -campaign.created_at.timestamp(),
-        )
-    )
-    request.state.donation_campaigns = campaigns
-    request.state.donation_campaign_progress = campaign_progress_by_id(
-        session, campaigns
-    )
     request.state.donation_form_values = {
         key: str(form_data.get(key, "")).strip()
         for key in (
@@ -324,10 +342,7 @@ def submit_donation_form(
             "receipt_token": receipt_token,
             "request_tax": req_tax,
             "amount": f"{amount_val:.2f}",
-            "campaigns": campaigns,
             "community_needs": request.state.donation_community_needs,
-            "campaign_progress": request.state.donation_campaign_progress,
-            "today": date.today(),
         },
     )
 

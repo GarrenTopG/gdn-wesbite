@@ -71,38 +71,23 @@ class CampaignWebTests(DatabaseTestCase):
         self.authenticate_staff(admin)
         return admin
 
-    def test_campaign_feed_shows_only_public_states_and_orders_completed_last(self):
+    def test_donate_page_lists_needs_without_removing_campaign_details(self):
         self.create_campaign(
             title="Active campaign", slug="active", status=CampaignStatus.PUBLISHED
         )
         self.create_campaign(
-            title="Paused campaign", slug="paused", status=CampaignStatus.PAUSED
-        )
-        self.create_campaign(
-            title="Completed campaign",
-            slug="completed",
-            status=CampaignStatus.COMPLETED,
-        )
-        self.create_campaign(
             title="Draft campaign", slug="draft", status=CampaignStatus.DRAFT
-        )
-        self.create_campaign(
-            title="Archived campaign", slug="archived", status=CampaignStatus.ARCHIVED
         )
 
         response = self.client.get("/donate")
 
         self.assertEqual(response.status_code, 200, response.text)
-        self.assertLess(
-            response.text.index("Active campaign"),
-            response.text.index("Completed campaign"),
-        )
-        self.assertIn("Paused campaign", response.text)
+        self.assertNotIn("Active campaign", response.text)
         self.assertNotIn("Draft campaign", response.text)
-        self.assertNotIn("Archived campaign", response.text)
-        completed_card = response.text[response.text.index("Completed campaign") :]
-        self.assertIn("Goal reached", completed_card)
-        self.assertNotIn("View &amp; support", completed_card)
+        self.assertNotIn("Current campaigns", response.text)
+        detail = self.client.get("/campaigns/active")
+        self.assertEqual(detail.status_code, 200, detail.text)
+        self.assertIn("Active campaign", detail.text)
 
     def test_contribution_requires_login_and_public_campaign_page_hides_draft(self):
         campaign_id = self.create_campaign()
@@ -443,8 +428,11 @@ class CampaignWebTests(DatabaseTestCase):
             follow_redirects=False,
         )
         self.assertEqual(published.status_code, 303, published.text)
-        self.assertIn("School supplies", self.client.get("/donate").text)
-        self.assertEqual(self.client.get(f"/campaigns/{slug}").status_code, 200)
+        donate_page = self.client.get("/donate")
+        self.assertNotIn("School supplies", donate_page.text)
+        campaign_page = self.client.get(f"/campaigns/{slug}")
+        self.assertEqual(campaign_page.status_code, 200)
+        self.assertIn("School supplies", campaign_page.text)
 
 
 if __name__ == "__main__":

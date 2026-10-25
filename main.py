@@ -239,6 +239,7 @@ def create_app(
     application.include_router(volunteers.router)
     application.include_router(assistance.router)
     application.include_router(donations.router)
+    application.include_router(donations.community_needs_router)
     application.include_router(campaigns.router)
     application.include_router(donations.receipt_router)
     application.include_router(accounts.router)

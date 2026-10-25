@@ -147,6 +147,7 @@ body.bg-gray-50 {
 }
 
 .mobile-menu-toggle {
+    display: none;
     width: 44px;
     height: 44px;
     align-items: center;
