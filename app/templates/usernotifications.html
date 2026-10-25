@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}My Notifications | Aurorah CAN{% endblock %}
-{% block meta_description %}Private updates about your campaign contributions and other interactions with Aurorah CAN.{% endblock %}
+{% block meta_description %}Private updates about your pledges, campaign contributions, and other interactions with Aurorah CAN.{% endblock %}
 
 {% block content %}
 <section class="bg-brand-800 px-4 py-12 text-white sm:px-6">
@@ -16,7 +16,7 @@
     <div class="mx-auto max-w-4xl">
         {% if submitted %}
         <div class="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status" aria-live="polite">
-            Your simulated contribution was submitted. It will appear in campaign progress only after an administrator approves it.
+            Your pledge or simulated contribution was submitted. It will appear in public progress only after an administrator approves it.
         </div>
         {% endif %}
         <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -39,9 +39,9 @@
                 <article class="rounded-xl border {% if item.read_at %}border-gray-200 bg-white{% else %}border-brand-200 bg-pink-50/40{% endif %} p-5 shadow-sm">
                     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div class="flex gap-3">
-                            <span class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full {% if item.event_type in ['contribution_rejected', 'contribution_refunded', 'contribution_cancelled'] %}bg-rose-100 text-rose-800{% elif item.event_type == 'campaign_completed' or item.event_type == 'contribution_verified' %}bg-emerald-100 text-emerald-800{% else %}bg-brand-100 text-brand-800{% endif %}" aria-hidden="true">
-                                {% if item.event_type in ['contribution_rejected', 'contribution_cancelled'] %}<i class="fa-solid fa-xmark"></i>
-                                {% elif item.event_type == 'campaign_completed' or item.event_type == 'contribution_verified' %}<i class="fa-solid fa-check"></i>
+                            <span class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full {% if item.event_type in ['contribution_rejected', 'contribution_refunded', 'contribution_cancelled', 'need_pledge_rejected'] %}bg-rose-100 text-rose-800{% elif item.event_type in ['campaign_completed', 'contribution_verified', 'need_pledge_approved'] %}bg-emerald-100 text-emerald-800{% else %}bg-brand-100 text-brand-800{% endif %}" aria-hidden="true">
+                                {% if item.event_type in ['contribution_rejected', 'contribution_cancelled', 'need_pledge_rejected'] %}<i class="fa-solid fa-xmark"></i>
+                                {% elif item.event_type in ['campaign_completed', 'contribution_verified', 'need_pledge_approved'] %}<i class="fa-solid fa-check"></i>
                                 {% elif item.event_type == 'contribution_refunded' %}<i class="fa-solid fa-rotate-left"></i>
                                 {% else %}<i class="fa-regular fa-clock"></i>{% endif %}
                             </span>
@@ -50,6 +50,9 @@
                                     {% if item.event_type == 'contribution_pending' %}Contribution submitted
                                     {% elif item.event_type == 'contribution_verified' %}Contribution approved
                                     {% elif item.event_type == 'contribution_rejected' %}Contribution not approved
+                                    {% elif item.event_type == 'need_pledge_pending' %}Community pledge pending review
+                                    {% elif item.event_type == 'need_pledge_approved' %}Community pledge approved
+                                    {% elif item.event_type == 'need_pledge_rejected' %}Community pledge rejected
                                     {% elif item.event_type == 'contribution_refunded' %}Contribution reversed
                                     {% elif item.event_type == 'contribution_cancelled' %}Contribution cancelled
                                     {% elif item.event_type == 'campaign_completed' %}Campaign goal reached
@@ -61,6 +64,14 @@
                                 {% if campaign and not campaign.archived_at %}
                                 <a href="/campaigns/{{ campaign.slug }}" class="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-brand-800 underline underline-offset-2">
                                     View campaign <i class="fa-solid fa-arrow-up-right-from-square text-xs" aria-hidden="true"></i>
+                                </a>
+                                {% endif %}
+                                {% set donation = donations_by_id.get(item.donation_id) %}
+                                {% set need = needs_by_id.get(donation.need_id) if donation and donation.need_id else none %}
+                                {% set need_status = need.status.value if need and need.status.value is defined else (need.status if need else '') %}
+                                {% if need and not need.archived_at and need_status != 'Rejected' %}
+                                <a href="/community-needs/{{ need.id }}" class="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-brand-800 underline underline-offset-2">
+                                    View community need <i class="fa-solid fa-arrow-up-right-from-square text-xs" aria-hidden="true"></i>
                                 </a>
                                 {% endif %}
                             </div>
@@ -86,7 +97,7 @@
         <div class="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-12 text-center">
             <i class="fa-regular fa-bell-slash text-4xl text-gray-300" aria-hidden="true"></i>
             <h2 class="mt-3 text-lg font-bold text-gray-900">Nothing to show yet</h2>
-            <p class="mt-1 text-sm text-gray-600">When you submit a simulated campaign contribution, its review updates will appear here.</p>
+            <p class="mt-1 text-sm text-gray-600">When you submit a community pledge or simulated campaign contribution, its review updates will appear here.</p>
             <a href="/donate" class="mt-5 inline-flex rounded-lg bg-brand-800 px-4 py-2.5 font-bold text-white hover:bg-brand-900">Explore campaigns</a>
         </div>
         {% endif %}

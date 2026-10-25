@@ -204,6 +204,22 @@ def get_admin_dashboard(
         if can_view_donations and donation_campaign_ids
         else {}
     )
+    donation_need_ids = {
+        donation.need_id for donation in donations if donation.need_id is not None
+    }
+    donation_needs_by_id = (
+        {
+            need.id: need
+            for need in session.exec(
+                select(BeneficiaryNeed).where(
+                    BeneficiaryNeed.id.in_(donation_need_ids)
+                )
+            ).all()
+            if need.id is not None
+        }
+        if can_view_donations and donation_need_ids
+        else {}
+    )
 
     beneficiaries = [need for need in all_needs if not need.is_community_need]
     community_needs = [need for need in all_needs if need.is_community_need]
@@ -684,6 +700,7 @@ def get_admin_dashboard(
             "campaigns": campaigns,
             "campaign_progress": campaign_progress,
             "campaigns_by_id": campaigns_by_id,
+            "donation_needs_by_id": donation_needs_by_id,
             "notification_items": notification_items,
             "notification_count": unread_notification_count,
             "staff_user": request.state.staff_user,

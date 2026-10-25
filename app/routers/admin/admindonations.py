@@ -15,8 +15,8 @@ from app.models.entities import (
     DonationStatus,
     NeedStatus,
     ReceiptAccess,
+    UserNotification,
     UserRole,
-    set_need_status,
 )
 from app.templatesconfig import templates
 from app.routers.admin.auth import verify_staff_session
@@ -30,18 +30,12 @@ from app.services.campaigns import (
 router = APIRouter(dependencies=[Depends(permission_required("donations.write"))])
 
 
-# Helper function to recalculate the status of a BeneficiaryNeed based on its donations
-def recalculate_need_status(session: Session, request: Request, need_id: int) -> None:
-    """
-    Recalculates total allocated donations for a specific BeneficiaryNeed,
-    updates its current_amount, and updates status accordingly.
-    """
+def recalculate_need_funding(session: Session, need_id: int) -> None:
     need = session.get(BeneficiaryNeed, need_id)
     if not need:
         return
-    previous_status = getattr(need.status, "value", need.status)
 
-    allocation_amounts = session.exec(
+    allocated_amounts = session.exec(
         select(DonationAllocation.amount)
         .join(Donation, Donation.id == DonationAllocation.donation_id)
         .where(
@@ -50,43 +44,18 @@ def recalculate_need_status(session: Session, request: Request, need_id: int) ->
             Donation.status != DonationStatus.REFUNDED.value,
         )
     ).all()
-    total_raised = sum(allocation_amounts, Decimal("0.00"))
-    need.current_amount = total_raised
-
-    if need.target_amount and need.target_amount > Decimal("0.00"):
-        if need.current_amount >= need.target_amount:
-            set_need_status(need, NeedStatus.FULFILLED)
-        elif (
-            need.current_amount > Decimal("0.00") and need.status != NeedStatus.REJECTED
-        ):
-            set_need_status(need, NeedStatus.IN_PROGRESS)
-        elif need.current_amount == Decimal("0.00") and need.status in {
-            NeedStatus.FULFILLED,
-            NeedStatus.IN_PROGRESS,
-        }:
-            set_need_status(need, NeedStatus.PENDING)
-
+    direct_pledges = session.exec(
+        select(Donation.amount).where(
+            Donation.need_id == need_id,
+            Donation.allocated_amount == Decimal("0.00"),
+            Donation.is_verified == true(),
+            Donation.status != DonationStatus.REFUNDED.value,
+        )
+    ).all()
+    need.current_amount = sum(allocated_amounts, Decimal("0.00")) + sum(
+        direct_pledges, Decimal("0.00")
+    )
     session.add(need)
-    current_status = getattr(need.status, "value", need.status)
-    if current_status != previous_status:
-        reason = (
-            "Funding target reached"
-            if need.status == NeedStatus.FULFILLED
-            else "Funding progress changed"
-        )
-        add_record_history(
-            session,
-            request,
-            "beneficiary_need",
-            need_id,
-            "status_changed",
-            {
-                "from": previous_status,
-                "to": current_status,
-                "reason": reason,
-            },
-        )
-    session.commit()
 
 
 def record_need_funding_progress(
@@ -135,30 +104,25 @@ def verify_donation(
         raise HTTPException(
             status_code=409, detail="Donation is not awaiting verification."
         )
-    if donation.campaign_id is not None:
-        result = session.exec(
-            update(Donation)
-            .where(
-                Donation.id == donation_id,
-                Donation.archived_at.is_(None),
-                Donation.is_verified == false(),
-                Donation.status == DonationStatus.PAYMENT_PENDING.value,
-            )
-            .values(
-                is_verified=True,
-                status=DonationStatus.RECEIVED_VERIFIED.value,
-            )
+    result = session.exec(
+        update(Donation)
+        .where(
+            Donation.id == donation_id,
+            Donation.archived_at.is_(None),
+            Donation.is_verified == false(),
+            Donation.status == DonationStatus.PAYMENT_PENDING.value,
         )
-        if result.rowcount != 1:
-            raise HTTPException(
-                status_code=409,
-                detail="Contribution was already reviewed; refresh the donation queue.",
-            )
-        session.refresh(donation)
-    else:
-        donation.is_verified = True
-        donation.status = DonationStatus.RECEIVED_VERIFIED.value
-        session.add(donation)
+        .values(
+            is_verified=True,
+            status=DonationStatus.RECEIVED_VERIFIED.value,
+        )
+    )
+    if result.rowcount != 1:
+        raise HTTPException(
+            status_code=409,
+            detail="Contribution was already reviewed; refresh the donation queue.",
+        )
+    session.refresh(donation)
     add_record_history(
         session,
         request,
@@ -211,6 +175,28 @@ def verify_donation(
             )
         refresh_campaign_completion(session, request, campaign)
     add_audit_event(session, request, "donation.verified", "donation", donation_id)
+    if donation.need_id is not None:
+        need = session.get(BeneficiaryNeed, donation.need_id)
+        if not need or not need.is_community_need:
+            raise HTTPException(
+                status_code=409,
+                detail="The linked community need is unavailable; pledge was not approved.",
+            )
+        if donation.user_id is not None:
+            session.add(
+                UserNotification(
+                    user_id=donation.user_id,
+                    donation_id=donation.id,
+                    event_type="need_pledge_approved",
+                    message=(
+                        f"Your pledge of R{donation.amount:.2f} for "
+                        f"{need.anonymised_title} was approved and is now included "
+                        "in the community total."
+                    ),
+                )
+            )
+        recalculate_need_funding(session, need.id)
+        record_need_funding_progress(session, request, need.id)
     session.commit()
 
     if request.headers.get("HX-Request"):
@@ -239,6 +225,11 @@ def allocate_donation(
     donation = session.get(Donation, donation_id)
     if not donation or donation.archived_at is not None:
         raise HTTPException(status_code=404, detail="Donation record not found")
+    if donation.need_id is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="A community pledge is already linked to its selected need.",
+        )
 
     need = session.get(BeneficiaryNeed, need_id)
     if not need or need.archived_at is not None or need.status == NeedStatus.REJECTED:
@@ -351,7 +342,7 @@ def allocate_donation(
     )
     session.commit()
 
-    recalculate_need_status(session, request, need_id)
+    recalculate_need_funding(session, need_id)
     record_need_funding_progress(session, request, need_id)
 
     return RedirectResponse(url="/admin/dashboard?tab=donations", status_code=303)
@@ -367,6 +358,11 @@ def update_donation_status(
     donation = session.get(Donation, donation_id)
     if not donation or donation.archived_at is not None:
         raise HTTPException(status_code=404, detail="Donation record not found.")
+    if donation.need_id is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Community pledges can only be approved or rejected.",
+        )
     allowed_transitions = {
         DonationStatus.SUBMITTED.value: {
             DonationStatus.PAYMENT_PENDING.value,
@@ -465,7 +461,7 @@ def update_donation_status(
             )
         ).all()
         for affected_need_id in set(affected_need_ids):
-            recalculate_need_status(session, request, affected_need_id)
+            recalculate_need_funding(session, affected_need_id)
             record_need_funding_progress(session, request, affected_need_id)
     return RedirectResponse(url="/admin/dashboard?tab=donations", status_code=303)
 
@@ -480,14 +476,27 @@ def reject_simulated_contribution(
     if not verify_staff_session(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
     donation = session.get(Donation, donation_id)
-    if not donation or donation.archived_at is not None or donation.campaign_id is None:
+    if (
+        not donation
+        or donation.archived_at is not None
+        or (donation.campaign_id is None and donation.need_id is None)
+    ):
         raise HTTPException(status_code=404, detail="Contribution record not found.")
     if donation.status != DonationStatus.PAYMENT_PENDING.value:
         raise HTTPException(
             status_code=409, detail="Only pending contributions can be rejected."
         )
-    campaign = session.get(Campaign, donation.campaign_id)
-    if not campaign:
+    campaign = (
+        session.get(Campaign, donation.campaign_id)
+        if donation.campaign_id is not None
+        else None
+    )
+    need = (
+        session.get(BeneficiaryNeed, donation.need_id)
+        if donation.need_id is not None
+        else None
+    )
+    if donation.campaign_id is not None and not campaign:
         raise HTTPException(status_code=409, detail="Campaign not found.")
     previous_status = donation.status
     result = session.exec(
@@ -526,7 +535,7 @@ def reject_simulated_contribution(
         donation_id,
         {"from": previous_status, "reason": clean_reason or None},
     )
-    if donation.user_id is not None:
+    if donation.user_id is not None and campaign is not None:
         notify_user(
             session,
             user_id=donation.user_id,
@@ -537,6 +546,19 @@ def reject_simulated_contribution(
                 f"Your simulated contribution to {campaign.title} was not approved. "
                 "It has not been included in campaign progress."
             ),
+        )
+    elif donation.user_id is not None and need is not None:
+        session.add(
+            UserNotification(
+                user_id=donation.user_id,
+                donation_id=donation.id,
+                event_type="need_pledge_rejected",
+                message=(
+                    f"Your pledge of R{donation.amount:.2f} for "
+                    f"{need.anonymised_title} was rejected and is not included "
+                    "in the community total."
+                ),
+            )
         )
     session.commit()
     return RedirectResponse(url="/admin/dashboard?tab=donations", status_code=303)

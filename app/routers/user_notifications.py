@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
 
 from app.db.session import get_session
-from app.models.entities import Campaign, UserNotification
+from app.models.entities import BeneficiaryNeed, Campaign, Donation, UserNotification
 from app.routers.accounts import get_public_user
 from app.security import now_utc, require_csrf
 from app.templatesconfig import templates
@@ -53,6 +53,34 @@ def list_user_notifications(
         if campaign_ids
         else {}
     )
+    donation_ids = {item.donation_id for item in items if item.donation_id is not None}
+    donations_by_id = (
+        {
+            donation.id: donation
+            for donation in session.exec(
+                select(Donation).where(Donation.id.in_(donation_ids))
+            ).all()
+            if donation.id is not None
+        }
+        if donation_ids
+        else {}
+    )
+    need_ids = {
+        donation.need_id
+        for donation in donations_by_id.values()
+        if donation.need_id is not None
+    }
+    needs_by_id = (
+        {
+            need.id: need
+            for need in session.exec(
+                select(BeneficiaryNeed).where(BeneficiaryNeed.id.in_(need_ids))
+            ).all()
+            if need.id is not None
+        }
+        if need_ids
+        else {}
+    )
     return templates.TemplateResponse(
         request=request,
         name="usernotifications.html",
@@ -60,6 +88,8 @@ def list_user_notifications(
             "active_page": "notifications",
             "notifications": items,
             "campaigns_by_id": campaigns_by_id,
+            "donations_by_id": donations_by_id,
+            "needs_by_id": needs_by_id,
             "submitted": request.query_params.get("submitted") == "1",
         },
         headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},

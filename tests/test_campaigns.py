@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from io import BytesIO
 import unittest
@@ -9,8 +9,10 @@ from sqlmodel import Session, select
 from app.models.entities import (
     Campaign,
     CampaignStatus,
+    BeneficiaryNeed,
     Donation,
     DonationStatus,
+    NeedStatus,
     User,
     UserNotification,
     UserRole,
@@ -71,6 +73,38 @@ class CampaignWebTests(DatabaseTestCase):
         self.authenticate_staff(admin)
         return admin
 
+    def create_community_need(self, *, title="Community food parcels", target="50.00"):
+        with Session(self.engine) as session:
+            need = BeneficiaryNeed(
+                is_community_need=True,
+                contact_name="Private Contact",
+                contact_phone="555-0100",
+                full_address="Private Address",
+                anonymised_title=title,
+                area="Kuils River",
+                category="Food",
+                status=NeedStatus.PENDING,
+                target_amount=Decimal(target),
+                deadline=datetime.now(timezone.utc) + timedelta(days=2),
+            )
+            session.add(need)
+            session.commit()
+            session.refresh(need)
+            return need.id
+
+    def submit_need_pledge(self, need_id, amount="50.00"):
+        return self.client.post(
+            "/donate",
+            data={
+                "csrf_token": self.csrf_token,
+                "donation_type": "monetary",
+                "amount": amount,
+                "need_id": str(need_id),
+                "popia": "true",
+            },
+            follow_redirects=False,
+        )
+
     def test_donate_page_lists_needs_without_removing_campaign_details(self):
         self.create_campaign(
             title="Active campaign", slug="active", status=CampaignStatus.PUBLISHED
@@ -88,6 +122,156 @@ class CampaignWebTests(DatabaseTestCase):
         detail = self.client.get("/campaigns/active")
         self.assertEqual(detail.status_code, 200, detail.text)
         self.assertIn("Active campaign", detail.text)
+
+    def test_community_need_pledge_is_approved_directly_and_updates_public_total(self):
+        need_id = self.create_community_need()
+        other_need_id = self.create_community_need(
+            title="Different community priority", target="100.00"
+        )
+        donor_id = self.create_public_user()
+
+        detail = self.client.get(f"/community-needs/{need_id}")
+        self.assertIn(f"/donate?need_id={need_id}#donation-form", detail.text)
+        selected_form = self.client.get(f"/donate?need_id={need_id}")
+        self.assertIn(f'<option value="{need_id}" selected>', selected_form.text)
+
+        submitted = self.submit_need_pledge(need_id)
+        self.assertEqual(submitted.status_code, 200, submitted.text)
+        self.assertIn("pending admin review", submitted.text)
+        with Session(self.engine) as session:
+            donation = session.exec(
+                select(Donation).where(Donation.need_id == need_id)
+            ).one()
+            pending_notice = session.exec(
+                select(UserNotification).where(
+                    UserNotification.user_id == donor_id,
+                    UserNotification.event_type == "need_pledge_pending",
+                )
+            ).one()
+            self.assertEqual(donation.user_id, donor_id)
+            self.assertEqual(donation.status, DonationStatus.PAYMENT_PENDING.value)
+            self.assertFalse(donation.is_verified)
+            self.assertEqual(pending_notice.donation_id, donation.id)
+            donation_id = donation.id
+
+        notifications = self.client.get("/account/notifications")
+        self.assertIn("Community pledge pending review", notifications.text)
+        self.assertIn("Community food parcels", notifications.text)
+
+        self.create_admin()
+        approved = self.client.post(
+            f"/admin/donations/{donation_id}/verify",
+            data={"csrf_token": self.csrf_token},
+            follow_redirects=False,
+        )
+        self.assertEqual(approved.status_code, 303, approved.text)
+        redirected = self.client.post(
+            f"/admin/donations/{donation_id}/allocate",
+            data={
+                "csrf_token": self.csrf_token,
+                "need_id": str(other_need_id),
+                "allocate_amount": "50.00",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(redirected.status_code, 409, redirected.text)
+        with Session(self.engine) as session:
+            donation = session.get(Donation, donation_id)
+            need = session.get(BeneficiaryNeed, need_id)
+            approved_notice = session.exec(
+                select(UserNotification).where(
+                    UserNotification.user_id == donor_id,
+                    UserNotification.event_type == "need_pledge_approved",
+                )
+            ).one()
+            self.assertEqual(donation.status, DonationStatus.RECEIVED_VERIFIED.value)
+            self.assertTrue(donation.is_verified)
+            self.assertEqual(need.current_amount, Decimal("50.00"))
+            self.assertEqual(need.status, NeedStatus.PENDING)
+            self.assertIn("approved", approved_notice.message)
+
+        public_page = self.client.get("/donate")
+        self.assertIn("Community food parcels", public_page.text)
+        self.assertIn("Target reached. Pledges remain open", public_page.text)
+
+        second_pledge = self.submit_need_pledge(need_id, "25.00")
+        self.assertEqual(second_pledge.status_code, 200, second_pledge.text)
+        with Session(self.engine) as session:
+            pending = session.exec(
+                select(Donation).where(
+                    Donation.need_id == need_id,
+                    Donation.status == DonationStatus.PAYMENT_PENDING.value,
+                )
+            ).one()
+            need = session.get(BeneficiaryNeed, need_id)
+            self.assertEqual(pending.amount, Decimal("25.00"))
+            self.assertEqual(need.current_amount, Decimal("50.00"))
+
+    def test_need_pledge_can_be_reviewed_after_due_date_and_rejection_is_not_counted(self):
+        need_id = self.create_community_need(title="Winter blankets")
+        donor_id = self.create_public_user()
+        submitted = self.submit_need_pledge(need_id, "20.00")
+        self.assertEqual(submitted.status_code, 200, submitted.text)
+        with Session(self.engine) as session:
+            donation = session.exec(
+                select(Donation).where(Donation.need_id == need_id)
+            ).one()
+            donation_id = donation.id
+        second_submitted = self.submit_need_pledge(need_id, "15.00")
+        self.assertEqual(second_submitted.status_code, 200, second_submitted.text)
+        with Session(self.engine) as session:
+            second_donation = session.exec(
+                select(Donation).where(
+                    Donation.need_id == need_id,
+                    Donation.id != donation_id,
+                )
+            ).one()
+            second_donation_id = second_donation.id
+            need = session.get(BeneficiaryNeed, need_id)
+            need.deadline = datetime.now(timezone.utc) - timedelta(days=1)
+            session.add(need)
+            session.commit()
+
+        self.assertNotIn("Winter blankets", self.client.get("/donate").text)
+        detail = self.client.get(f"/community-needs/{need_id}")
+        self.assertIn("closed to new pledges", detail.text)
+
+        self.create_admin()
+        approved = self.client.post(
+            f"/admin/donations/{donation_id}/verify",
+            data={"csrf_token": self.csrf_token},
+            follow_redirects=False,
+        )
+        self.assertEqual(approved.status_code, 303, approved.text)
+        rejected = self.client.post(
+            f"/admin/donations/{second_donation_id}/reject",
+            data={"csrf_token": self.csrf_token, "reason": "Not eligible"},
+            follow_redirects=False,
+        )
+        self.assertEqual(rejected.status_code, 303, rejected.text)
+        with Session(self.engine) as session:
+            rejected_donation = session.get(Donation, second_donation_id)
+            need = session.get(BeneficiaryNeed, need_id)
+            notice = session.exec(
+                select(UserNotification).where(
+                    UserNotification.user_id == donor_id,
+                    UserNotification.event_type == "need_pledge_rejected",
+                )
+            ).one()
+            self.assertEqual(
+                session.get(Donation, donation_id).status,
+                DonationStatus.RECEIVED_VERIFIED.value,
+            )
+            self.assertEqual(
+                rejected_donation.status, DonationStatus.REJECTED.value
+            )
+            self.assertTrue(session.get(Donation, donation_id).is_verified)
+            self.assertFalse(rejected_donation.is_verified)
+            self.assertEqual(need.current_amount, Decimal("20.00"))
+            self.assertIn("rejected", notice.message)
+        notifications = self.client.get("/account/notifications")
+        self.assertIn("Community pledge rejected", notifications.text)
+        self.assertIn("Community pledge approved", notifications.text)
 
     def test_contribution_requires_login_and_public_campaign_page_hides_draft(self):
         campaign_id = self.create_campaign()

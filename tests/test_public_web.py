@@ -785,13 +785,15 @@ class PublicWebTests(DatabaseTestCase):
         detail = self.client.get(f"/community-needs/{community_need_id}")
         self.assertEqual(detail.status_code, 200, detail.text)
         self.assertIn(article, detail.text)
-        self.assertIn('href="/donate#donation-form"', detail.text)
+        self.assertIn(
+            f'href="/donate?need_id={community_need_id}#donation-form"', detail.text
+        )
         self.assertEqual(
             self.client.get(f"/community-needs/{personal_request_id}").status_code,
             404,
         )
 
-    def test_public_community_needs_hide_terminal_and_archived_records(self):
+    def test_public_community_needs_hide_rejected_and_archived_records(self):
         with Session(self.engine) as session:
             for title, need_status, archived in (
                 ("Visible need", NeedStatus.PENDING, False),
@@ -818,7 +820,7 @@ class PublicWebTests(DatabaseTestCase):
         response = self.client.get("/donate")
         self.assertEqual(response.status_code, 200, response.text)
         self.assertIn("Visible need", response.text)
-        self.assertNotIn("Fulfilled need", response.text)
+        self.assertIn("Fulfilled need", response.text)
         self.assertNotIn("Rejected need", response.text)
         self.assertNotIn("Archived need", response.text)
         self.assertNotIn("Private beneficiary case", response.text)

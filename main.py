@@ -138,6 +138,9 @@ def create_app(
                     "campaign_progress": getattr(
                         request.state, "donation_campaign_progress", {}
                     ),
+                    "community_needs": getattr(
+                        request.state, "donation_community_needs", []
+                    ),
                     "today": date.today(),
                     "donation_form_values": getattr(
                         request.state, "donation_form_values", {}

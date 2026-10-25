@@ -1,4 +1,5 @@
 from decimal import Decimal, InvalidOperation
+from datetime import datetime, time, timedelta, timezone
 from io import BytesIO
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -7,20 +8,22 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from sqlmodel import Session, select
 from starlette.datastructures import FormData
-from datetime import timezone
 import hashlib
 import secrets
 
 from app.db.session import get_session
 from app.routers.form_data import parse_form_data
+from app.routers.accounts import get_public_user
 from app.services.donations import create_donation_with_history
 from app.models.entities import (
     BeneficiaryNeed,
     Campaign,
     CampaignStatus,
     Donation,
+    DonationStatus,
     NeedStatus,
     ReceiptAccess,
+    UserNotification,
 )
 from app.security import (
     enforce_receipt_rate_limit,
@@ -76,6 +79,12 @@ def _public_campaigns_statement():
 
 
 def _public_community_needs_statement(need_id: int | None = None):
+    return _community_needs_statement(need_id=need_id, active_only=True)
+
+
+def _community_needs_statement(
+    *, need_id: int | None = None, active_only: bool
+):
     statement = (
         select(
             BeneficiaryNeed.id,
@@ -83,25 +92,51 @@ def _public_community_needs_statement(need_id: int | None = None):
             BeneficiaryNeed.area,
             BeneficiaryNeed.category,
             BeneficiaryNeed.urgency,
+            BeneficiaryNeed.status,
             BeneficiaryNeed.target_amount,
             BeneficiaryNeed.current_amount,
             BeneficiaryNeed.article,
             BeneficiaryNeed.image_url,
             BeneficiaryNeed.image_alt,
             BeneficiaryNeed.deadline,
+            BeneficiaryNeed.is_community_need,
+            BeneficiaryNeed.archived_at,
         )
         .where(
             BeneficiaryNeed.is_community_need == true(),
-            BeneficiaryNeed.status.notin_(
-                (NeedStatus.FULFILLED, NeedStatus.REJECTED)
-            ),
+            BeneficiaryNeed.status != NeedStatus.REJECTED,
             BeneficiaryNeed.archived_at.is_(None),
         )
         .order_by(BeneficiaryNeed.created_at.desc())
     )
+    if active_only:
+        start_of_today = datetime.combine(
+            now_utc().date(), time.min, tzinfo=timezone.utc
+        )
+        statement = statement.where(
+            (BeneficiaryNeed.deadline.is_(None))
+            | (BeneficiaryNeed.deadline >= start_of_today)
+        )
     if need_id is not None:
         statement = statement.where(BeneficiaryNeed.id == need_id)
     return statement
+
+
+def _community_need_is_open(need: BeneficiaryNeed | dict) -> bool:
+    get_value = need.get if isinstance(need, dict) else lambda key: getattr(need, key)
+    deadline = get_value("deadline")
+    if (
+        not get_value("is_community_need")
+        or get_value("archived_at") is not None
+        or get_value("status") == NeedStatus.REJECTED
+    ):
+        return False
+    if deadline is None:
+        return True
+    start_of_today = datetime.combine(now_utc().date(), time.min, tzinfo=timezone.utc)
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    return deadline >= start_of_today
 
 
 def _community_need_excerpt(article: str | None, limit: int = 180) -> str:
@@ -125,7 +160,9 @@ def community_need_detail(
     need_id: int,
     session: Session = Depends(get_session),
 ):
-    row = session.exec(_public_community_needs_statement(need_id)).first()
+    row = session.exec(
+        _community_needs_statement(need_id=need_id, active_only=False)
+    ).first()
     if row is None:
         raise HTTPException(status_code=404, detail="Community need not found.")
 
@@ -133,7 +170,11 @@ def community_need_detail(
     return templates.TemplateResponse(
         request=request,
         name="communityneeddetail.html",
-        context={"active_page": "donate", "need": need},
+        context={
+            "active_page": "donate",
+            "need": need,
+            "need_is_open": _community_need_is_open(need),
+        },
         headers={"Cache-Control": "no-store"},
     )
 
@@ -142,6 +183,7 @@ def community_need_detail(
 @router.get("", response_class=HTMLResponse)
 def get_donate_page(
     request: Request,
+    need_id: int | None = None,
     session: Session = Depends(get_session),
 ):
     community_needs = [
@@ -151,13 +193,19 @@ def get_donate_page(
         }
         for row in session.exec(_public_community_needs_statement()).all()
     ]
+    available_need_ids = {str(need["id"]) for need in community_needs}
+    selected_need_id = (
+        str(need_id)
+        if need_id is not None and str(need_id) in available_need_ids
+        else None
+    )
     return templates.TemplateResponse(
         request=request,
         name="donate.html",
         context={
             "active_page": "donate",
             "community_needs": community_needs,
-            "selected_need_id": None,
+            "selected_need_id": selected_need_id,
         },
     )
 
@@ -236,6 +284,7 @@ def submit_donation_form(
 
     amount_val = Decimal("0.00")
     cause_val = None
+    selected_need = None
 
     if donation_type == "monetary":
         raw_amount = form_data.get("amount", "0")
@@ -267,9 +316,20 @@ def submit_donation_form(
             if cleaned_need_id in SUPPORT_AREAS:
                 cause_val = SUPPORT_AREAS[cleaned_need_id]
             else:
-                raise HTTPException(
-                    status_code=400, detail="Choose a valid donation support option."
-                )
+                try:
+                    parsed_need_id = int(cleaned_need_id)
+                except ValueError:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Choose a valid community need.",
+                    ) from None
+                selected_need = session.get(BeneficiaryNeed, parsed_need_id)
+                if not selected_need or not _community_need_is_open(selected_need):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="That community need is no longer accepting pledges.",
+                    )
+                cause_val = f"Community need: {selected_need.anonymised_title}"
 
     # In-Kind Attributes
     item_category = (
@@ -293,6 +353,7 @@ def submit_donation_form(
         else None
     )
 
+    donor = get_public_user(request, session)
     new_donation = Donation(
         donor_name=donor_name,
         donor_email=donor_email,
@@ -300,7 +361,7 @@ def submit_donation_form(
         donation_type=donation_type,
         amount=amount_val,
         cause=cause_val,
-        need_id=None,
+        need_id=selected_need.id if selected_need is not None else None,
         item_category=item_category,
         item_description=item_description,
         logistics_type=logistics_type,
@@ -316,6 +377,12 @@ def submit_donation_form(
         message=message_val,
         is_anonymous=is_anon,
         is_verified=False,
+        status=(
+            DonationStatus.PAYMENT_PENDING.value
+            if selected_need is not None
+            else DonationStatus.SUBMITTED.value
+        ),
+        user_id=donor.id if donor else None,
     )
 
     receipt_token = None
@@ -330,6 +397,23 @@ def submit_donation_form(
         new_donation,
         tax_receipt_requested=req_tax,
     )
+    if (
+        selected_need is not None
+        and new_donation.user_id is not None
+        and new_donation.id is not None
+    ):
+        session.add(
+            UserNotification(
+                user_id=new_donation.user_id,
+                donation_id=new_donation.id,
+                event_type="need_pledge_pending",
+                message=(
+                    f"Your pledge of R{amount_val:.2f} for "
+                    f"{selected_need.anonymised_title} is pending admin review. "
+                    "It is not included in the community total yet."
+                ),
+            )
+        )
     session.commit()
     session.refresh(new_donation)
 
@@ -343,6 +427,12 @@ def submit_donation_form(
             "request_tax": req_tax,
             "amount": f"{amount_val:.2f}",
             "community_needs": request.state.donation_community_needs,
+            "selected_need_id": str(selected_need.id)
+            if selected_need is not None
+            else None,
+            "selected_need_title": (
+                selected_need.anonymised_title if selected_need is not None else None
+            ),
         },
     )
 

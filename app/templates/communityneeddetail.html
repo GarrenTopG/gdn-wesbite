@@ -40,10 +40,21 @@
         </article>
 
         <aside class="h-fit rounded-2xl border border-gray-200 bg-white p-6 shadow-sm lg:sticky lg:top-28">
-            <p class="text-sm font-bold uppercase tracking-widest text-brand-700">Support local priorities</p>
-            <p class="mt-3 text-sm leading-relaxed text-gray-600">You can submit a general donation pledge or an in-kind offer. Donations through the form are not earmarked for this individual need.</p>
-            <a href="/donate#donation-form" class="mt-6 block rounded-lg bg-brand-800 px-4 py-3 text-center font-bold text-white transition hover:bg-brand-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-800 focus-visible:ring-offset-2">
+            <p class="text-sm font-bold uppercase tracking-widest text-brand-700">Support this need</p>
+            <p class="mt-3 text-sm leading-relaxed text-gray-600">
+                Submit a pledge for this specific community need. It will be added to the public total after an administrator approves it. No payment is processed online.
+            </p>
+            {% if need_is_open %}
+            <a href="/donate?need_id={{ need.id }}#donation-form" class="mt-6 block rounded-lg bg-brand-800 px-4 py-3 text-center font-bold text-white transition hover:bg-brand-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-800 focus-visible:ring-offset-2">
                 Continue to donation form
+            </a>
+            {% else %}
+            <p class="mt-6 rounded-lg bg-gray-100 px-4 py-3 text-center font-bold text-gray-600" role="status">
+                This community need is closed to new pledges.
+            </p>
+            {% endif %}
+            <a href="/donate#community-needs-heading" class="mt-4 block text-center text-sm font-semibold text-brand-800 underline underline-offset-2">
+                Browse other community needs
             </a>
         </aside>
     </div>

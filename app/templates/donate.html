@@ -66,6 +66,11 @@
                             <span class="font-extrabold text-gray-900">R{{ "%.2f"|format(current) }}</span>
                             <span class="text-gray-600">of R{{ "%.2f"|format(target) }} target</span>
                         </div>
+                        {% if current >= target %}
+                        <p class="mt-2 text-xs font-semibold text-emerald-800">
+                            Target reached. Pledges remain open {% if need.deadline %}until this need’s due date.{% else %}until this card is archived.{% endif %}
+                        </p>
+                        {% endif %}
                         <div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-100" role="progressbar"
                              aria-label="Funding progress for {{ need.anonymised_title }}"
                              aria-valuenow="{{ [percent, 100]|min|round|int }}" aria-valuemin="0" aria-valuemax="100">
@@ -96,9 +101,9 @@
 <section id="donation-form" class="py-12 px-4 bg-gray-50 min-h-screen">
     <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200/80 p-8 md:p-12">
         <div class="mb-8">
-            <p class="text-sm font-bold uppercase tracking-widest text-brand-700">Other ways to give</p>
-            <h2 class="mt-1 text-3xl font-extrabold text-gray-900">General donation or in-kind offer</h2>
-            <p class="mt-2 text-sm leading-relaxed text-gray-600">General monetary pledges and goods offers continue to use the existing review process. No online payment is processed.</p>
+            <p class="text-sm font-bold uppercase tracking-widest text-brand-700">Make a pledge</p>
+            <h2 class="mt-1 text-3xl font-extrabold text-gray-900">Donation pledge or in-kind offer</h2>
+            <p class="mt-2 text-sm leading-relaxed text-gray-600">Choose a specific community need or the general fund. Pledges are reviewed by our team; no online payment is processed.</p>
         </div>
 
         {% if error %}
@@ -119,8 +124,17 @@
             </div>
             <h2 class="text-2xl font-bold text-emerald-900 mb-2">Your pledge has been recorded</h2>
             <p class="text-emerald-700 text-base mb-4">
+                {% if selected_need_title %}
+                Your pledge for <strong>{{ selected_need_title }}</strong> is pending admin review. No payment was processed, and it will be added to the public total only if approved.
+                {% else %}
                 No payment was taken. This confirmation records your pledge or offer only; it is not a payment confirmation or a tax receipt.
+                {% endif %}
             </p>
+            {% if selected_need_title and request.state.public_user %}
+            <a href="/account/notifications" class="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-900">
+                <i class="fa-regular fa-bell" aria-hidden="true"></i> View pledge status
+            </a>
+            {% endif %}
             {% if request_tax and receipt_token %}
             <p class="text-sm text-emerald-800">Your sample certificate is ready. Download the PDF below to keep a copy with your donation details.</p>
             <form id="demo-receipt-download" action="/donate/tax-certificate" method="post" class="mt-3">
@@ -204,15 +218,14 @@
                 </div>
 
                 <div class="mb-5">
-                    <label for="need_id" class="block text-base font-semibold text-gray-800 mb-1.5">What Will Your Donation Support?</label>
+                    <label for="need_id" class="block text-base font-semibold text-gray-800 mb-1.5">Choose what your pledge supports</label>
                     <select id="need_id" name="need_id" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-800 outline-none text-base bg-white">
                         <option value="" {% if not selected_need_id %}selected{% endif %}>General fund — where most needed</option>
-                        <option value="food_relief" {% if selected_need_id == 'food_relief' %}selected{% endif %}>Food relief</option>
-                        <option value="youth_learning" {% if selected_need_id == 'youth_learning' %}selected{% endif %}>Youth and learning</option>
-                        <option value="community_library" {% if selected_need_id == 'community_library' %}selected{% endif %}>Community library</option>
-                        <option value="community_development" {% if selected_need_id == 'community_development' %}selected{% endif %}>Community development</option>
+                        {% for need in community_needs %}
+                        <option value="{{ need.id }}" {% if selected_need_id == need.id|string %}selected{% endif %}>{{ need.anonymised_title }}</option>
+                        {% endfor %}
                     </select>
-                    <p class="mt-2 text-xs text-gray-500">This form records a general pledge or in-kind offer; it does not earmark donations to an individual community need.</p>
+                    <p class="mt-2 text-xs text-gray-500">A pledge for a community need stays linked to that need. It is included in the public total only after an administrator approves it. General fund pledges are separate.</p>
                 </div>
 
             </div>

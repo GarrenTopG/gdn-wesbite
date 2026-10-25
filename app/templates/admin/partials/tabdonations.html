@@ -41,7 +41,7 @@
           <tr class="border-b border-white/10 text-zinc-400 font-semibold text-xs tracking-wider uppercase">
             <th class="py-3 px-4">Donor</th>
             <th class="py-3 px-4">Total Amount</th>
-            <th class="py-3 px-4">Allocated</th>
+            <th class="py-3 px-4">Applied / Allocated</th>
             <th class="py-3 px-4">Type</th>
             <th class="py-3 px-4">Workflow state</th>
             <th class="py-3 px-4">Date</th>
@@ -59,15 +59,28 @@
               {% if donation.campaign_id and campaigns_by_id.get(donation.campaign_id) %}
               <span class="block text-xs font-normal text-pink-200">{{ campaigns_by_id.get(donation.campaign_id).title }} · simulated</span>
               {% endif %}
+              {% if donation.need_id and donation_needs_by_id.get(donation.need_id) %}
+              <span class="block text-xs font-normal text-pink-200">For: {{ donation_needs_by_id.get(donation.need_id).anonymised_title }}</span>
+              {% endif %}
             </td>
             <td data-label="Total Amount" class="py-4 px-4 font-extrabold text-white">{{ "R %.2f"|format(total) }}</td>
-            <td data-label="Allocated" class="py-4 px-4 font-medium text-emerald-300">{{ "R %.2f"|format(allocated) }}</td>
+            <td data-label="Applied / Allocated" class="py-4 px-4 font-medium text-emerald-300">
+              {% if donation.need_id and donation.status == 'Received/Verified' %}
+              {{ "R %.2f"|format(total) }}
+              {% elif donation.need_id and donation.status == 'Payment Pending' %}
+              Pending approval
+              {% elif donation.need_id and donation.status == 'Rejected' %}
+              Not applied
+              {% else %}
+              {{ "R %.2f"|format(allocated) }}
+              {% endif %}
+            </td>
             <td data-label="Type" class="py-4 px-4 text-zinc-300">{{ donation.donation_type or 'General Fund' }}</td>
             <td data-label="Workflow State" class="py-4 px-4">
               {% if donation.archived_at %}
               <span class="admin-status-pill admin-status-neutral">Archived - {{ donation.status }}</span>
               {% else %}
-              <span class="admin-status-pill {% if donation.status == 'Received/Verified' or donation.status == 'Allocated' %}admin-status-success{% elif donation.status == 'Payment Pending' or donation.status == 'Submitted' %}admin-status-warning{% elif donation.status == 'Refunded' or donation.status == 'Rejected' %}admin-status-danger{% else %}admin-status-neutral{% endif %}">{% if donation.campaign_id and donation.status == 'Received/Verified' %}Verified (demo){% elif donation.campaign_id and donation.status == 'Refunded' %}Reversed (demo){% else %}{{ donation.status }}{% endif %}</span>
+              <span class="admin-status-pill {% if donation.status == 'Received/Verified' or donation.status == 'Allocated' %}admin-status-success{% elif donation.status == 'Payment Pending' or donation.status == 'Submitted' %}admin-status-warning{% elif donation.status == 'Refunded' or donation.status == 'Rejected' %}admin-status-danger{% else %}admin-status-neutral{% endif %}">{% if donation.need_id and donation.status == 'Received/Verified' %}Approved{% elif donation.need_id and donation.status == 'Payment Pending' %}Pending review{% elif donation.campaign_id and donation.status == 'Received/Verified' %}Verified (demo){% elif donation.campaign_id and donation.status == 'Refunded' %}Reversed (demo){% else %}{{ donation.status }}{% endif %}</span>
               {% if donation.status == 'Submitted' %}
               <form action="/admin/donations/{{ donation.id }}/status" method="post" class="mt-2">
                 {{ csrf_input(request) }}<input type="hidden" name="status" value="Payment Pending">
@@ -76,12 +89,12 @@
               {% elif donation.status == 'Payment Pending' %}
               <form action="/admin/donations/{{ donation.id }}/verify" method="post" class="mt-2">
                 {{ csrf_input(request) }}
-                <button class="admin-action-button admin-action-primary">{% if donation.campaign_id %}Approve simulated contribution{% else %}Verify received{% endif %}</button>
+                <button class="admin-action-button admin-action-primary">{% if donation.need_id %}Approve pledge{% elif donation.campaign_id %}Approve simulated contribution{% else %}Verify received{% endif %}</button>
               </form>
-              {% if donation.campaign_id %}
+              {% if donation.campaign_id or donation.need_id %}
               <form action="/admin/donations/{{ donation.id }}/reject" method="post" class="mt-2">
                 {{ csrf_input(request) }}
-                <button class="admin-action-button admin-action-danger">Reject contribution</button>
+                <button class="admin-action-button admin-action-danger">{% if donation.need_id %}Reject pledge{% else %}Reject contribution{% endif %}</button>
               </form>
               {% endif %}
               {% endif %}
@@ -90,18 +103,18 @@
             <td data-label="Date" class="py-4 px-4 text-zinc-400 text-xs">{{ donation.created_at.strftime('%Y-%m-%d') }}</td>
             <td data-label="Actions" class="py-4 px-4 text-right">
               {% if not donation.archived_at %}
-              {% if not donation.campaign_id and donation.status == 'Received/Verified' and remaining > 0 %}
+              {% if not donation.campaign_id and not donation.need_id and donation.status == 'Received/Verified' and remaining > 0 %}
                 <button type="button"
                         onclick="openAllocateModal('{{ donation.id }}', '{{ remaining }}')"
                         class="admin-action-button admin-action-primary">
                   Allocate (R {{ "%.2f"|format(remaining) }} left)
                 </button>
-              {% elif not donation.campaign_id and donation.status == 'Allocated' %}
+              {% elif not donation.campaign_id and not donation.need_id and donation.status == 'Allocated' %}
                 <span class="admin-status-pill admin-status-success">
                   <i class="fa-solid fa-link mr-1"></i> Fully Allocated
                 </span>
               {% endif %}
-              {% if donation.status != 'Refunded' %}
+              {% if donation.status != 'Refunded' and not donation.need_id %}
               <form action="/admin/donations/{{ donation.id }}/status" method="post" class="mt-2">
                 {{ csrf_input(request) }}<input type="hidden" name="status" value="Refunded">
                 <button class="admin-action-button admin-action-danger">{% if donation.campaign_id %}Reverse demo approval{% else %}Mark refunded{% endif %}</button>

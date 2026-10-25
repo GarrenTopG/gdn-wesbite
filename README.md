@@ -6,8 +6,8 @@ Aurorah CAN Digital Hub is a community support platform built to connect benefic
 
 - Request assistance through a structured, privacy-aware beneficiary form
 - Publish staff-created fundraising campaigns with admin-reviewed simulated contributions
-- Accept general monetary pledges and in-kind offers with existing review support
-- Give signed-in contributors a private notifications page for campaign review updates
+- Accept general monetary pledges, need-specific pledges, and in-kind offers with admin review
+- Give signed-in donors a private notifications page for pledge and campaign review updates
 - Register and track volunteers by skills, availability, and assigned tasks
 - Publish updates and impact stories through a news and announcements feed
 - Manage operations from a secure admin dashboard with login, data review, and exports
@@ -302,6 +302,8 @@ The Read-Only dashboard uses aggregate database queries and does not return bene
 - The dashboard priority queue links urgent assistance cases, donations awaiting verification, volunteer assignments due within seven days, and overdue case follow-ups to the underlying records.
 - Assistance lists support status, urgency, category, region, and date-range filters. Contact details are masked in the list and visible only on the permission-checked case detail page. Assignment, internal notes, follow-up dates, status changes, and their reasons are recorded in case history. A reason is required to fulfil/close or reject a request.
 - General donation states remain `Submitted` → `Payment Pending` → `Received/Verified` → `Allocated`, with `Refunded` available from pending, verified, or allocated states. Allocation checks both the remaining donation balance and the target need's remaining funding server-side.
+- A monetary pledge made from a public community need is linked to that specific need and starts as `Payment Pending`. Staff approve or reject the pledge without reallocating it. Only approved pledges count toward the need's public total; reaching the target does not close the card, and the due date controls when new pledges stop. Pledges submitted before the due date remain reviewable after it.
+- Signed-in donors see pending, approved, and rejected community-pledge updates on `/account/notifications`, linked below their name in the account menu. Guest pledges remain available but are not linked to an in-app notification account.
 - Campaign contributions are simulated school-project records, require a signed-in account, and do not process or collect payment credentials. Staff approve or reject them; only approved, non-reversed contributions count in campaign progress. Approval, rejection, campaign lifecycle updates, and completion updates appear on the contributor's private `/account/notifications` page. Simulated campaign contributions are kept out of general donation totals and the donation PDF/CSV exports; campaign progress is shown separately in campaign management.
 - Public campaigns are separate from private beneficiary assistance records. Campaigns follow `Draft` → `Published` → `Paused` / automatically `Completed` → `Archived`; completed campaigns remain visible below active campaigns but cannot accept new contributions. Archiving hides a campaign without removing its history.
 - Tax receipts are not available from an unverified pledge. A donor who requests one receives a private download link that remains unusable until staff verify payment; successful verification creates the time-limited receipt access record.
@@ -371,11 +373,12 @@ http://127.0.0.1:8000/donate
 The donation flow supports:
 
 - general monetary pledges
+- monetary pledges linked to a specific open community need
 - in-kind donations
 - staff-created public campaigns with simulated contributions
 - optional tax certificate requests
 
-General monetary contributions remain pledges only. Campaign contributions require an account and admin approval, but are simulations only: the site does not take payment or collect card/bank details. Progress counts approved demo contributions, not pending submissions. Campaign images can currently be added by URL; uploads are deferred until durable storage is confirmed for the Render deployment. Any requested certificate is a clearly marked demo document and is not valid proof of payment or for tax purposes.
+General monetary contributions remain pledges only. Community-need pledges stay attached to the need selected by the donor; approval updates its public progress, and rejection does not. The card remains open after reaching its target until its due date. Campaign contributions require an account and admin approval, but are simulations only: the site does not take payment or collect card/bank details. Progress counts approved demo contributions, not pending submissions. Campaign images can currently be added by URL; uploads are deferred until durable storage is confirmed for the Render deployment. Any requested certificate is a clearly marked demo document and is not valid proof of payment or for tax purposes.
 
 Example API-style flow:
 
