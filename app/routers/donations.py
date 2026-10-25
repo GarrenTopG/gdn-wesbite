@@ -14,7 +14,14 @@ import secrets
 from app.db.session import get_session
 from app.routers.form_data import parse_form_data
 from app.services.donations import create_donation_with_history
-from app.models.entities import Campaign, CampaignStatus, Donation, ReceiptAccess
+from app.models.entities import (
+    BeneficiaryNeed,
+    Campaign,
+    CampaignStatus,
+    Donation,
+    NeedStatus,
+    ReceiptAccess,
+)
 from app.services.campaigns import campaign_progress_by_id
 from app.security import (
     enforce_receipt_rate_limit,
@@ -65,6 +72,31 @@ def _public_campaigns_statement():
     )
 
 
+def _public_community_needs_statement():
+    return (
+        select(
+            BeneficiaryNeed.anonymised_title,
+            BeneficiaryNeed.area,
+            BeneficiaryNeed.category,
+            BeneficiaryNeed.urgency,
+            BeneficiaryNeed.target_amount,
+            BeneficiaryNeed.current_amount,
+            BeneficiaryNeed.article,
+            BeneficiaryNeed.image_url,
+            BeneficiaryNeed.image_alt,
+            BeneficiaryNeed.deadline,
+        )
+        .where(
+            BeneficiaryNeed.is_community_need == true(),
+            BeneficiaryNeed.status.notin_(
+                (NeedStatus.FULFILLED, NeedStatus.REJECTED)
+            ),
+            BeneficiaryNeed.archived_at.is_(None),
+        )
+        .order_by(BeneficiaryNeed.created_at.desc())
+    )
+
+
 # Donation route to render the donation page
 @router.get("", response_class=HTMLResponse)
 def get_donate_page(
@@ -72,6 +104,10 @@ def get_donate_page(
     session: Session = Depends(get_session),
 ):
     campaigns = session.exec(_public_campaigns_statement()).all()
+    community_needs = [
+        dict(row._mapping)
+        for row in session.exec(_public_community_needs_statement()).all()
+    ]
     campaigns.sort(
         key=lambda campaign: (
             {
@@ -88,6 +124,7 @@ def get_donate_page(
         context={
             "active_page": "donate",
             "campaigns": campaigns,
+            "community_needs": community_needs,
             "campaign_progress": campaign_progress_by_id(session, campaigns),
             "today": date.today(),
             "selected_need_id": None,
@@ -103,6 +140,10 @@ def submit_donation_form(
     session: Session = Depends(get_session),
 ):
     campaigns = session.exec(_public_campaigns_statement()).all()
+    request.state.donation_community_needs = [
+        dict(row._mapping)
+        for row in session.exec(_public_community_needs_statement()).all()
+    ]
     campaigns.sort(
         key=lambda campaign: (
             {
@@ -284,6 +325,7 @@ def submit_donation_form(
             "request_tax": req_tax,
             "amount": f"{amount_val:.2f}",
             "campaigns": campaigns,
+            "community_needs": request.state.donation_community_needs,
             "campaign_progress": request.state.donation_campaign_progress,
             "today": date.today(),
         },

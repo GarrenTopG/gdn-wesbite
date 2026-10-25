@@ -26,7 +26,10 @@ from app.models.entities import (
 )
 from app.manage_staff import hash_password
 from app.security import STAFF_COOKIE_NAME
-from app.routers.donations import _public_campaigns_statement
+from app.routers.donations import (
+    _public_campaigns_statement,
+    _public_community_needs_statement,
+)
 from tests.migration_support import (
     normalize_user_roles as _normalize_user_roles,
     normalize_volunteer_available_days as _normalize_volunteer_available_days,
@@ -724,7 +727,7 @@ class PublicWebTests(DatabaseTestCase):
         )
         self.assertEqual(limited.status_code, 429)
 
-    def test_donate_page_does_not_expose_legacy_assistance_need_as_campaign(self):
+    def test_donate_page_shows_community_needs_separately_from_campaigns(self):
         with Session(self.engine) as session:
             session.add(
                 BeneficiaryNeed(
@@ -735,6 +738,7 @@ class PublicWebTests(DatabaseTestCase):
                     anonymised_title="Community food parcels",
                     area="Kuils River",
                     category="Food",
+                    article="Public details about the food parcel need.",
                     status=NeedStatus.Open,
                 )
             )
@@ -742,7 +746,46 @@ class PublicWebTests(DatabaseTestCase):
 
         response = self.client.get("/donate")
         self.assertEqual(response.status_code, 200, response.text)
-        self.assertNotIn("Community food parcels", response.text)
+        self.assertIn("Community needs", response.text)
+        self.assertIn("Community food parcels", response.text)
+        self.assertIn("Public details about the food parcel need.", response.text)
+        self.assertIn("Current campaigns", response.text)
+        self.assertNotIn("Private Contact", response.text)
+        self.assertNotIn("555-0100", response.text)
+        self.assertNotIn("Private Address", response.text)
+        self.assertNotIn('href="/campaigns/community-food-parcels"', response.text)
+
+    def test_public_community_needs_hide_terminal_and_archived_records(self):
+        with Session(self.engine) as session:
+            for title, need_status, archived in (
+                ("Visible need", NeedStatus.PENDING, False),
+                ("Fulfilled need", NeedStatus.FULFILLED, False),
+                ("Rejected need", NeedStatus.REJECTED, False),
+                ("Archived need", NeedStatus.Open, True),
+                ("Private beneficiary case", NeedStatus.Open, False),
+            ):
+                session.add(
+                    BeneficiaryNeed(
+                        is_community_need=title != "Private beneficiary case",
+                        contact_name="Private Contact",
+                        contact_phone="555-0100",
+                        full_address="Private Address",
+                        anonymised_title=title,
+                        area="Kuils River",
+                        category="Food",
+                        status=need_status,
+                        archived_at=datetime.now(timezone.utc) if archived else None,
+                    )
+                )
+            session.commit()
+
+        response = self.client.get("/donate")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIn("Visible need", response.text)
+        self.assertNotIn("Fulfilled need", response.text)
+        self.assertNotIn("Rejected need", response.text)
+        self.assertNotIn("Archived need", response.text)
+        self.assertNotIn("Private beneficiary case", response.text)
 
     def test_public_browse_pages_render(self):
         for path in ("/", "/about", "/donate", "/account/register"):
@@ -756,6 +799,11 @@ class PublicWebTests(DatabaseTestCase):
         self.assertEqual(stylesheet.status_code, 200)
         self.assertIn(".bg-brand-800", stylesheet.text)
         self.assertIn(".animate-pulse-heart", stylesheet.text)
+        modern_stylesheet = self.client.get("/static/css/modern.css")
+        self.assertEqual(modern_stylesheet.status_code, 200)
+        self.assertIn("@media (max-width: 767px)", modern_stylesheet.text)
+        self.assertIn("@media (min-width: 768px)", modern_stylesheet.text)
+        self.assertIn(".mobile-menu-toggle", modern_stylesheet.text)
         admin_stylesheet = self.client.get("/static/css/admin-tailwind.css")
         self.assertEqual(admin_stylesheet.status_code, 200)
         self.assertIn(".bg-brand-900", admin_stylesheet.text)
@@ -788,6 +836,13 @@ class PublicWebTests(DatabaseTestCase):
         query = str(_public_campaigns_statement().compile(dialect=mssql.dialect()))
         self.assertIn("campaign.status IN", query)
         self.assertIn("campaign.archived_at IS NULL", query)
+
+    def test_public_community_needs_query_compiles_for_sql_server(self):
+        query = str(
+            _public_community_needs_statement().compile(dialect=mssql.dialect())
+        )
+        self.assertIn("beneficiaryneed.is_community_need = 1", query)
+        self.assertIn("beneficiaryneed.archived_at IS NULL", query)
 
     def test_verified_donation_query_uses_sql_server_bit_comparison(self):
         query = str(

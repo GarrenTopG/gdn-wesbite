@@ -60,6 +60,15 @@ class CommunityNeedAdminTests(DatabaseTestCase):
         self.assertIn('id="editNeedForm"', dashboard.text)
         self.assertIn('data-title="Winter clothing support"', dashboard.text)
 
+        public_page = self.client.get("/donate")
+        self.assertEqual(public_page.status_code, 200, public_page.text)
+        self.assertIn("Winter clothing support", public_page.text)
+        self.assertIn(data["article"], public_page.text)
+        self.assertIn(data["image_alt"], public_page.text)
+        self.assertNotIn("Private address", public_page.text)
+        self.assertNotIn("Private Contact", public_page.text)
+        self.assertNotIn("needs-admin@example.org", public_page.text)
+
         edit_response = self.client.post(
             f"/admin/needs/{need_id}/edit",
             data={
@@ -74,6 +83,10 @@ class CommunityNeedAdminTests(DatabaseTestCase):
             follow_redirects=False,
         )
         self.assertEqual(edit_response.status_code, 303, edit_response.text)
+        public_page = self.client.get("/donate")
+        self.assertIn("Updated winter clothing support", public_page.text)
+        self.assertIn("Updated article content.", public_page.text)
+        self.assertNotIn("Winter clothing support", public_page.text)
         with Session(self.engine) as session:
             updated = session.get(BeneficiaryNeed, need_id)
             self.assertEqual(
