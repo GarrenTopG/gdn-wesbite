@@ -1,5 +1,5 @@
 <!-- TAB 7: REPORTS -->
-<div id="tab-reports" class="tab-content hidden space-y-6">
+<div id="tab-reports" class="tab-content{% if active_tab != 'reports' %} hidden{% endif %} space-y-6">
   {% if is_read_only %}
   <section class="bg-[#121215] p-6 rounded-2xl border border-white/5 shadow-sm">
     <h2 class="text-lg font-bold text-white">Operational summaries</h2>

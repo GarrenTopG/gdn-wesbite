@@ -468,6 +468,8 @@ class PublicWebTests(DatabaseTestCase):
         self.assertIn("max-age=43200", verification.headers["set-cookie"].lower())
         dashboard = self.client.get("/admin/dashboard")
         self.assertEqual(dashboard.status_code, 200, dashboard.text[:1000])
+        self.assertIn('id="tab-overview"', dashboard.text)
+        self.assertNotIn('id="tab-donations"', dashboard.text)
         self.assertIn('id="notifications-panel"', dashboard.text)
         self.assertIn("Donation pledges to review", dashboard.text)
         self.assertRegex(
@@ -486,6 +488,13 @@ class PublicWebTests(DatabaseTestCase):
             re.DOTALL,
         )
         self.assertIsNotNone(donation_notification)
+        donations_dashboard = self.client.get("/admin/dashboard?tab=donations")
+        self.assertEqual(
+            donations_dashboard.status_code, 200, donations_dashboard.text[:1000]
+        )
+        self.assertIn('id="tab-donations"', donations_dashboard.text)
+        self.assertNotIn('id="tab-overview"', donations_dashboard.text)
+        self.assertIn("Donation pledges to review", donations_dashboard.text)
         read_response = self.client.post(
             "/admin/notifications/read",
             data={

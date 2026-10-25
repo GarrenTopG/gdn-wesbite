@@ -1,5 +1,5 @@
 import hashlib
-from datetime import date, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Dict, NotRequired, Optional, TypedDict
@@ -67,6 +67,436 @@ def _notification_fingerprint(record_ids: list[Optional[int]]) -> str:
     return hashlib.sha256(identifiers.encode("utf-8")).hexdigest()
 
 
+def _overview_dashboard(
+    request: Request,
+    session: Session,
+    staff_user: User,
+    date_from: date,
+    date_to: date,
+    active_tab: str = "overview",
+) -> HTMLResponse:
+    can_view_volunteers = role_has_permission(staff_user.role, "volunteers.read")
+    can_view_donations = role_has_permission(staff_user.role, "donations.read")
+    can_view_beneficiaries = role_has_permission(staff_user.role, "beneficiaries.read")
+    can_view_needs = role_has_permission(staff_user.role, "needs.read")
+    can_view_campaigns = role_has_permission(staff_user.role, "campaigns.read")
+    can_view_news = role_has_permission(staff_user.role, "news.read")
+    can_view_reports = role_has_permission(staff_user.role, "reports.read")
+    is_read_only = staff_user.role == UserRole.READ_ONLY
+    start_at = datetime.combine(date_from, time.min)
+    end_at = datetime.combine(date_to + timedelta(days=1), time.min)
+    queue_now = now_utc().replace(tzinfo=None)
+
+    months = []
+    month = date_from.replace(day=1)
+    final_month = date_to.replace(day=1)
+    while month <= final_month:
+        months.append(month)
+        month = (month.replace(day=28) + timedelta(days=4)).replace(day=1)
+    month_keys = [item.strftime("%Y-%m") for item in months]
+    chart_month_labels = [item.strftime("%b %Y") for item in months]
+    volunteer_counts = dict.fromkeys(month_keys, 0)
+    donation_totals = dict.fromkeys(month_keys, Decimal("0.00"))
+
+    volunteer_activity = []
+    upcoming_volunteers = []
+    pending_volunteer_ids: list[Optional[int]] = []
+    if can_view_volunteers:
+        volunteer_activity = session.exec(
+            select(Volunteer.created_at).where(
+                Volunteer.archived_at.is_(None),
+                Volunteer.created_at >= start_at,
+                Volunteer.created_at < end_at,
+            )
+        ).all()
+        upcoming_volunteers = session.exec(
+            select(Volunteer.full_name, Volunteer.next_assignment_at)
+            .where(
+                Volunteer.archived_at.is_(None),
+                Volunteer.next_assignment_at.is_not(None),
+                Volunteer.next_assignment_at >= queue_now,
+                Volunteer.next_assignment_at <= queue_now + timedelta(days=7),
+            )
+            .order_by(Volunteer.next_assignment_at)
+        ).all()
+        pending_volunteer_ids = session.exec(
+            select(Volunteer.id).where(
+                Volunteer.archived_at.is_(None),
+                Volunteer.onboarding_status == "Pending",
+            )
+        ).all()
+
+    donation_activity = []
+    unverified_donations = []
+    pending_donation_ids: list[Optional[int]] = []
+    total_donation_amount = Decimal("0.00")
+    if can_view_donations:
+        donation_activity = session.exec(
+            select(
+                Donation.created_at,
+                Donation.amount,
+                Donation.is_verified,
+                Donation.status,
+                Donation.donation_type,
+                Donation.campaign_id,
+            ).where(
+                Donation.created_at >= start_at,
+                Donation.created_at < end_at,
+                Donation.archived_at.is_(None),
+            )
+        ).all()
+        unverified_donations = session.exec(
+            select(Donation.id, Donation.status)
+            .where(
+                Donation.archived_at.is_(None),
+                Donation.status.in_(
+                    [
+                        DonationStatus.SUBMITTED.value,
+                        DonationStatus.PAYMENT_PENDING.value,
+                    ]
+                ),
+            )
+            .order_by(Donation.id.desc())
+        ).all()
+        pending_donation_ids = [row[0] for row in unverified_donations]
+
+    pending_beneficiary_ids: list[Optional[int]] = []
+    pending_need_ids: list[Optional[int]] = []
+    urgent_assistance = []
+    overdue_followups = []
+    if can_view_beneficiaries:
+        pending_beneficiary_ids = session.exec(
+            select(BeneficiaryNeed.id).where(
+                BeneficiaryNeed.is_community_need == false(),
+                BeneficiaryNeed.archived_at.is_(None),
+                BeneficiaryNeed.status == NeedStatus.PENDING,
+            )
+        ).all()
+        urgent_rows = session.exec(
+            select(
+                BeneficiaryNeed.id,
+                BeneficiaryNeed.anonymised_title,
+                BeneficiaryNeed.area,
+                BeneficiaryNeed.urgency,
+            )
+            .where(
+                BeneficiaryNeed.is_community_need == false(),
+                BeneficiaryNeed.archived_at.is_(None),
+                BeneficiaryNeed.urgency.in_([NeedUrgency.HIGH, NeedUrgency.CRITICAL]),
+                BeneficiaryNeed.status.notin_(
+                    [NeedStatus.FULFILLED, NeedStatus.REJECTED]
+                ),
+            )
+            .order_by(BeneficiaryNeed.created_at.desc())
+        ).all()
+        urgent_assistance = [
+            SimpleNamespace(
+                id=row[0],
+                anonymised_title=row[1],
+                area=row[2],
+                urgency=row[3],
+            )
+            for row in urgent_rows
+        ]
+        overdue_rows = session.exec(
+            select(
+                BeneficiaryNeed.id,
+                BeneficiaryNeed.anonymised_title,
+                BeneficiaryNeed.follow_up_at,
+            )
+            .where(
+                BeneficiaryNeed.is_community_need == false(),
+                BeneficiaryNeed.archived_at.is_(None),
+                BeneficiaryNeed.follow_up_at.is_not(None),
+                BeneficiaryNeed.follow_up_at < queue_now,
+                BeneficiaryNeed.status.notin_(
+                    [NeedStatus.FULFILLED, NeedStatus.REJECTED]
+                ),
+            )
+            .order_by(BeneficiaryNeed.follow_up_at)
+        ).all()
+        overdue_followups = [
+            SimpleNamespace(id=row[0], anonymised_title=row[1], follow_up_at=row[2])
+            for row in overdue_rows
+        ]
+    if can_view_needs:
+        pending_need_ids = session.exec(
+            select(BeneficiaryNeed.id).where(
+                BeneficiaryNeed.is_community_need == true(),
+                BeneficiaryNeed.archived_at.is_(None),
+                BeneficiaryNeed.status == NeedStatus.PENDING,
+            )
+        ).all()
+    pending_offer_ids = (
+        session.exec(
+            select(VolunteerOffer.id).where(VolunteerOffer.status == "Pending")
+        ).all()
+        if can_view_needs
+        else []
+    )
+
+    pending_donations = len(pending_donation_ids)
+    pending_beneficiaries = len(pending_beneficiary_ids)
+    pending_needs = len(pending_need_ids)
+    volunteer_offer_count = len(pending_offer_ids)
+
+    total_volunteers = len(volunteer_activity)
+    if is_read_only:
+        total_volunteers = session.exec(
+            select(func.count(Volunteer.id)).where(
+                Volunteer.archived_at.is_(None),
+                Volunteer.created_at >= start_at,
+                Volunteer.created_at < end_at,
+            )
+        ).one()
+    for created_at in volunteer_activity:
+        key = created_at.strftime("%Y-%m")
+        if key in volunteer_counts:
+            volunteer_counts[key] += 1
+
+    has_verified_donation_activity = False
+    for (
+        created_at,
+        amount,
+        is_verified,
+        status_value,
+        donation_type,
+        campaign_id,
+    ) in donation_activity:
+        if (
+            is_verified
+            and status_value != DonationStatus.REFUNDED.value
+            and donation_type == "monetary"
+            and campaign_id is None
+            and amount
+        ):
+            total_donation_amount += amount
+            key = created_at.strftime("%Y-%m")
+            if key in donation_totals:
+                donation_totals[key] += amount
+            has_verified_donation_activity = True
+    if is_read_only:
+        total_donation_amount = session.exec(
+            select(func.coalesce(func.sum(Donation.amount), 0)).where(
+                Donation.is_verified == true(),
+                Donation.status != DonationStatus.REFUNDED.value,
+                Donation.donation_type == "monetary",
+                Donation.campaign_id.is_(None),
+                Donation.created_at >= start_at,
+                Donation.created_at < end_at,
+            )
+        ).one()
+
+    total_requests = (
+        session.exec(
+            select(func.count(BeneficiaryNeed.id)).where(
+                BeneficiaryNeed.is_community_need == false(),
+                BeneficiaryNeed.archived_at.is_(None),
+                BeneficiaryNeed.created_at >= start_at,
+                BeneficiaryNeed.created_at < end_at,
+            )
+        ).one()
+        if can_view_beneficiaries or is_read_only
+        else 0
+    )
+    total_news = (
+        session.exec(
+            select(func.count(NewsArticle.id)).where(
+                NewsArticle.status == NewsStatus.PUBLISHED.value,
+                NewsArticle.archived_at.is_(None),
+                NewsArticle.created_at >= start_at,
+                NewsArticle.created_at < end_at,
+            )
+        ).one()
+        if can_view_news or is_read_only
+        else 0
+    )
+
+    notification_items: list[NotificationItem] = []
+    pending_groups = [
+        (
+            can_view_volunteers,
+            "volunteers",
+            "Volunteer applications to review",
+            pending_volunteer_ids,
+            "volunteers",
+        ),
+        (
+            can_view_donations,
+            "donations",
+            "Donation pledges to review",
+            pending_donation_ids,
+            "donations",
+        ),
+        (
+            can_view_beneficiaries,
+            "beneficiaries",
+            "Assistance requests to review",
+            pending_beneficiary_ids,
+            "beneficiaries",
+        ),
+        (
+            can_view_needs,
+            "needs",
+            "Community needs to review",
+            pending_need_ids,
+            "needs",
+        ),
+        (
+            can_view_needs,
+            "volunteer_offers",
+            "Volunteer offers to review",
+            pending_offer_ids,
+            "needs",
+        ),
+    ]
+    notification_items = [
+        {
+            "key": key,
+            "label": label,
+            "count": len(record_ids),
+            "tab": tab,
+            "fingerprint": _notification_fingerprint(record_ids),
+        }
+        for visible, key, label, record_ids, tab in pending_groups
+        if visible and record_ids
+    ]
+    notification_reads = {
+        item.notification_key: item.fingerprint
+        for item in session.exec(
+            select(StaffNotificationRead).where(
+                StaffNotificationRead.staff_user_id == staff_user.id
+            )
+        ).all()
+    }
+    for item in notification_items:
+        item["is_read"] = notification_reads.get(item["key"]) == item["fingerprint"]
+    unread_notification_count = sum(
+        item["count"] for item in notification_items if not item.get("is_read", False)
+    )
+
+    visible_areas = [
+        name
+        for name, visible in (
+            ("volunteers", can_view_volunteers),
+            ("donations", can_view_donations),
+            ("beneficiaries", can_view_beneficiaries),
+            ("needs", can_view_needs),
+            ("campaigns", can_view_campaigns),
+            ("news", can_view_news),
+            ("aggregate_reports", is_read_only),
+        )
+        if visible
+    ]
+    add_audit_event(
+        session,
+        request,
+        "dashboard.view",
+        "admin_dashboard",
+        details={"role": staff_user.role.value, "visible_areas": visible_areas},
+    )
+    session.commit()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="admindashboard.html",
+        context={
+            "active_page": "admin",
+            "active_tab": active_tab,
+            "volunteers": [],
+            "filtered_volunteers": [],
+            "donations": [],
+            "needs": [],
+            "volunteer_offers": [],
+            "allocation_needs": [],
+            "beneficiaries": [],
+            "news_articles": [],
+            "campaigns": [],
+            "campaign_progress": {},
+            "campaigns_by_id": {},
+            "donation_needs_by_id": {},
+            "notification_items": notification_items,
+            "notification_count": unread_notification_count,
+            "staff_user": staff_user,
+            "can_view_volunteers": can_view_volunteers,
+            "can_view_donations": can_view_donations,
+            "can_view_beneficiaries": can_view_beneficiaries,
+            "can_view_needs": can_view_needs,
+            "can_view_campaigns": can_view_campaigns,
+            "can_view_news": can_view_news,
+            "can_view_reports": can_view_reports,
+            "can_write_needs": role_has_permission(staff_user.role, "needs.write"),
+            "can_write_campaigns": role_has_permission(
+                staff_user.role, "campaigns.write"
+            ),
+            "can_export_volunteers": role_has_permission(
+                staff_user.role, "exports.volunteers"
+            ),
+            "can_export_donations": role_has_permission(
+                staff_user.role, "exports.donations"
+            ),
+            "can_export_needs": role_has_permission(staff_user.role, "exports.needs"),
+            "can_export_beneficiaries": role_has_permission(
+                staff_user.role, "exports.beneficiaries"
+            ),
+            "is_administrator": staff_user.role == UserRole.ADMINISTRATOR,
+            "is_read_only": is_read_only,
+            "total_volunteers": total_volunteers,
+            "total_donation_amount": f"{total_donation_amount:.2f}",
+            "total_requests": total_requests,
+            "total_news": total_news,
+            "need_funding_progress": {},
+            "need_history": {},
+            "chart_month_labels": chart_month_labels,
+            "monthly_volunteer_counts": [volunteer_counts[key] for key in month_keys],
+            "monthly_verified_donations": [
+                float(donation_totals[key]) for key in month_keys
+            ],
+            "has_volunteer_activity": bool(volunteer_activity),
+            "has_verified_donation_activity": has_verified_donation_activity,
+            "date_from": date_from.isoformat(),
+            "date_to": date_to.isoformat(),
+            "pending_donations": pending_donations,
+            "pending_beneficiaries": pending_beneficiaries,
+            "pending_needs": pending_needs,
+            "pending_work_count": sum(
+                (
+                    len(urgent_assistance),
+                    len(unverified_donations),
+                    len(upcoming_volunteers),
+                    len(overdue_followups),
+                    volunteer_offer_count,
+                )
+            ),
+            "urgent_assistance": urgent_assistance,
+            "unverified_donations": [
+                SimpleNamespace(id=row[0], status=row[1])
+                for row in unverified_donations
+            ],
+            "upcoming_volunteers": [
+                SimpleNamespace(full_name=row[0], next_assignment_at=row[1])
+                for row in upcoming_volunteers
+            ],
+            "overdue_followups": overdue_followups,
+            "assistance_filters": {
+                "status": "",
+                "urgency": "",
+                "category": "",
+                "region": "",
+            },
+            "volunteer_filters": {
+                "skills": "",
+                "location": "",
+                "availability": "",
+                "onboarding": "",
+            },
+            "include_archived": False,
+            "need_statuses": list(NeedStatus),
+            "need_urgencies": list(NeedUrgency),
+        },
+    )
+
+
 @router.get("/dashboard", response_class=HTMLResponse)
 def get_admin_dashboard(
     request: Request,
@@ -103,6 +533,23 @@ def get_admin_dashboard(
     can_view_campaigns = role_has_permission(staff_user.role, "campaigns.read")
     can_view_news = role_has_permission(staff_user.role, "news.read")
     can_view_reports = role_has_permission(staff_user.role, "reports.read")
+    active_tab = request.query_params.get("tab", "overview")
+    tab_permissions = {
+        "overview": True,
+        "volunteers": can_view_volunteers,
+        "donations": can_view_donations,
+        "beneficiaries": can_view_beneficiaries,
+        "needs": can_view_needs,
+        "news": can_view_news,
+        "reports": can_view_reports,
+    }
+    if not tab_permissions.get(active_tab, False):
+        active_tab = "overview"
+    if active_tab in {"overview", "reports"}:
+        return _overview_dashboard(
+            request, session, staff_user, date_from, date_to, active_tab
+        )
+
     include_archived = (
         request.query_params.get("include_archived", "").lower() == "true"
     )
@@ -113,12 +560,12 @@ def get_admin_dashboard(
             .where(True if include_archived else Volunteer.archived_at.is_(None))
             .order_by(Volunteer.id.desc())
         ).all()
-        if can_view_volunteers
+        if can_view_volunteers and active_tab == "volunteers"
         else []
     )
     donation_activity = (
         session.exec(select(Donation).order_by(col(Donation.id).desc())).all()
-        if can_view_donations
+        if can_view_donations and active_tab == "donations"
         else []
     )
     donations = [
@@ -126,13 +573,14 @@ def get_admin_dashboard(
         for donation in donation_activity
         if include_archived or donation.archived_at is None
     ]
-    if can_view_beneficiaries:
+    if can_view_beneficiaries and active_tab == "beneficiaries":
         all_needs = session.exec(
             select(BeneficiaryNeed).where(
-                True if include_archived else BeneficiaryNeed.archived_at.is_(None)
+                BeneficiaryNeed.is_community_need == false(),
+                True if include_archived else BeneficiaryNeed.archived_at.is_(None),
             )
         ).all()
-    elif can_view_needs:
+    elif can_view_needs and active_tab == "needs":
         need_rows = session.exec(
             select(
                 BeneficiaryNeed.id,
@@ -177,17 +625,23 @@ def get_admin_dashboard(
         ]
     else:
         all_needs = []
-    news_articles = session.exec(select(NewsArticle)).all() if can_view_news else []
+    news_articles = (
+        session.exec(select(NewsArticle)).all()
+        if can_view_news and active_tab == "news"
+        else []
+    )
     campaigns = (
         session.exec(
             select(Campaign)
             .where(True if include_archived else Campaign.archived_at.is_(None))
             .order_by(Campaign.created_at.desc())
         ).all()
-        if can_view_campaigns
+        if can_view_campaigns and active_tab == "needs"
         else []
     )
-    campaign_progress = campaign_progress_by_id(session, campaigns)
+    campaign_progress = (
+        campaign_progress_by_id(session, campaigns) if active_tab == "needs" else {}
+    )
     donation_campaign_ids = {
         donation.campaign_id
         for donation in donations
@@ -201,7 +655,7 @@ def get_admin_dashboard(
             ).all()
             if campaign.id is not None
         }
-        if can_view_donations and donation_campaign_ids
+        if active_tab == "donations" and donation_campaign_ids
         else {}
     )
     donation_need_ids = {
@@ -211,13 +665,11 @@ def get_admin_dashboard(
         {
             need.id: need
             for need in session.exec(
-                select(BeneficiaryNeed).where(
-                    BeneficiaryNeed.id.in_(donation_need_ids)
-                )
+                select(BeneficiaryNeed).where(BeneficiaryNeed.id.in_(donation_need_ids))
             ).all()
             if need.id is not None
         }
-        if can_view_donations and donation_need_ids
+        if active_tab == "donations" and donation_need_ids
         else {}
     )
 
@@ -518,7 +970,7 @@ def get_admin_dashboard(
     ]
     community_need_ids = [need.id for need in community_needs if need.id is not None]
     volunteer_offers = []
-    if can_view_needs:
+    if can_view_needs and active_tab == "needs":
         offer_rows = session.exec(
             select(
                 VolunteerOffer,
@@ -547,95 +999,96 @@ def get_admin_dashboard(
     pending_volunteer_offers = [
         offer for offer in volunteer_offers if offer.status == "Pending"
     ]
-    notification_items: list[NotificationItem] = []
-    if can_view_volunteers:
-        pending_volunteer_records = [
-            volunteer
-            for volunteer in volunteers
-            if volunteer.archived_at is None
-            and volunteer.onboarding_status == "Pending"
-        ]
-        pending_volunteer_applications = len(pending_volunteer_records)
-        if pending_volunteer_applications:
-            notification_items.append(
-                {
-                    "key": "volunteers",
-                    "label": "Volunteer applications to review",
-                    "count": pending_volunteer_applications,
-                    "tab": "volunteers",
-                    "fingerprint": _notification_fingerprint(
-                        [volunteer.id for volunteer in pending_volunteer_records]
+    pending_groups = [
+        (
+            can_view_volunteers,
+            "volunteers",
+            "Volunteer applications to review",
+            session.exec(
+                select(Volunteer.id).where(
+                    Volunteer.archived_at.is_(None),
+                    Volunteer.onboarding_status == "Pending",
+                )
+            ).all()
+            if can_view_volunteers
+            else [],
+            "volunteers",
+        ),
+        (
+            can_view_donations,
+            "donations",
+            "Donation pledges to review",
+            session.exec(
+                select(Donation.id).where(
+                    Donation.archived_at.is_(None),
+                    Donation.status.in_(
+                        [
+                            DonationStatus.SUBMITTED.value,
+                            DonationStatus.PAYMENT_PENDING.value,
+                        ]
                     ),
-                }
-            )
-    if can_view_donations and pending_donations:
-        pending_donation_records = [
-            donation
-            for donation in donations
-            if donation.archived_at is None
-            and donation.status
-            in {
-                DonationStatus.SUBMITTED.value,
-                DonationStatus.PAYMENT_PENDING.value,
-            }
-        ]
-        notification_items.append(
-            {
-                "key": "donations",
-                "label": "Donation pledges to review",
-                "count": pending_donations,
-                "tab": "donations",
-                "fingerprint": _notification_fingerprint(
-                    [donation.id for donation in pending_donation_records]
-                ),
-            }
-        )
-    if can_view_beneficiaries and pending_beneficiaries:
-        pending_beneficiary_records = [
-            need
-            for need in beneficiaries
-            if need.archived_at is None and need.status == NeedStatus.PENDING
-        ]
-        notification_items.append(
-            {
-                "key": "beneficiaries",
-                "label": "Assistance requests to review",
-                "count": pending_beneficiaries,
-                "tab": "beneficiaries",
-                "fingerprint": _notification_fingerprint(
-                    [need.id for need in pending_beneficiary_records]
-                ),
-            }
-        )
-    if can_view_needs and pending_needs:
-        pending_community_records = [
-            need
-            for need in community_needs
-            if need.archived_at is None and need.status == NeedStatus.PENDING
-        ]
-        notification_items.append(
-            {
-                "key": "needs",
-                "label": "Community needs to review",
-                "count": pending_needs,
-                "tab": "needs",
-                "fingerprint": _notification_fingerprint(
-                    [need.id for need in pending_community_records]
-                ),
-            }
-        )
-    if can_view_needs and pending_volunteer_offers:
-        notification_items.append(
-            {
-                "key": "volunteer_offers",
-                "label": "Volunteer offers to review",
-                "count": len(pending_volunteer_offers),
-                "tab": "needs",
-                "fingerprint": _notification_fingerprint(
-                    [offer.id for offer in pending_volunteer_offers]
-                ),
-            }
-        )
+                )
+            ).all()
+            if can_view_donations
+            else [],
+            "donations",
+        ),
+        (
+            can_view_beneficiaries,
+            "beneficiaries",
+            "Assistance requests to review",
+            session.exec(
+                select(BeneficiaryNeed.id).where(
+                    BeneficiaryNeed.is_community_need == false(),
+                    BeneficiaryNeed.archived_at.is_(None),
+                    BeneficiaryNeed.status == NeedStatus.PENDING,
+                )
+            ).all()
+            if can_view_beneficiaries
+            else [],
+            "beneficiaries",
+        ),
+        (
+            can_view_needs,
+            "needs",
+            "Community needs to review",
+            session.exec(
+                select(BeneficiaryNeed.id).where(
+                    BeneficiaryNeed.is_community_need == true(),
+                    BeneficiaryNeed.archived_at.is_(None),
+                    BeneficiaryNeed.status == NeedStatus.PENDING,
+                )
+            ).all()
+            if can_view_needs
+            else [],
+            "needs",
+        ),
+        (
+            can_view_needs,
+            "volunteer_offers",
+            "Volunteer offers to review",
+            session.exec(
+                select(VolunteerOffer.id).where(VolunteerOffer.status == "Pending")
+            ).all()
+            if can_view_needs
+            else [],
+            "needs",
+        ),
+    ]
+    notification_items: list[NotificationItem] = [
+        {
+            "key": key,
+            "label": label,
+            "count": len(record_ids),
+            "tab": tab,
+            "fingerprint": _notification_fingerprint(record_ids),
+        }
+        for visible, key, label, record_ids, tab in pending_groups
+        if visible and record_ids
+    ]
+    pending_donations = len(pending_groups[1][3])
+    pending_beneficiaries = len(pending_groups[2][3])
+    pending_needs = len(pending_groups[3][3])
     notification_reads = {
         item.notification_key: item.fingerprint
         for item in session.exec(
@@ -689,6 +1142,7 @@ def get_admin_dashboard(
         name="admindashboard.html",
         context={
             "active_page": "admin",
+            "active_tab": active_tab,
             "volunteers": volunteers,
             "filtered_volunteers": filtered_volunteers,
             "donations": donations,

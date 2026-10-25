@@ -136,34 +136,34 @@
     </header>
 
     <main class="admin-content" id="admin-main" tabindex="-1">
-      <h1 class="admin-page-title" id="page-title">Overview</h1>
+      <h1 class="admin-page-title" id="page-title">{{ {'overview': 'Overview', 'volunteers': 'Volunteers', 'donations': 'Donations', 'beneficiaries': 'Beneficiaries', 'needs': 'Community Needs', 'news': 'News & Announcements', 'reports': 'Reports'}.get(active_tab, 'Overview') }}</h1>
       <p id="admin-loading" class="admin-loading-state" role="status" aria-live="polite" hidden>
         <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Updating date-filtered metrics…
       </p>
-      {% include "admin/partials/taboverview.html" %}
-      {% if can_view_volunteers %}{% include "admin/partials/tabvolunteers.html" %}{% endif %}
-      {% if can_view_donations %}{% include "admin/partials/tabdonations.html" %}{% endif %}
-      {% if can_view_beneficiaries %}{% include "admin/partials/tabbeneficiaries.html" %}{% endif %}
-      {% if can_view_needs %}{% include "admin/partials/tabneeds.html" %}{% endif %}
-      {% if can_view_news %}{% include "admin/partials/tabnews.html" %}{% endif %}
-      {% if can_view_reports %}{% include "admin/partials/tabreports.html" %}{% endif %}
+      {% if active_tab == 'overview' %}{% include "admin/partials/taboverview.html" %}{% endif %}
+      {% if active_tab == 'volunteers' and can_view_volunteers %}{% include "admin/partials/tabvolunteers.html" %}{% endif %}
+      {% if active_tab == 'donations' and can_view_donations %}{% include "admin/partials/tabdonations.html" %}{% endif %}
+      {% if active_tab == 'beneficiaries' and can_view_beneficiaries %}{% include "admin/partials/tabbeneficiaries.html" %}{% endif %}
+      {% if active_tab == 'needs' and can_view_needs %}{% include "admin/partials/tabneeds.html" %}{% endif %}
+      {% if active_tab == 'news' and can_view_news %}{% include "admin/partials/tabnews.html" %}{% endif %}
+      {% if active_tab == 'reports' and can_view_reports %}{% include "admin/partials/tabreports.html" %}{% endif %}
     </main>
   </div>
 </div>
 
 <!-- Modals -->
-{% if can_view_news %}
+{% if active_tab == 'news' and can_view_news %}
   {% include "admin/partials/modaladdnews.html" %}
   {% include "admin/partials/modaleditnews.html" %}
 {% endif %}
-{% if can_write_needs %}
+{% if active_tab == 'needs' and can_write_needs %}
   {% include "admin/partials/modaladdneed.html" %}
   {% include "admin/partials/modaleditneed.html" %}
 {% endif %}
-{% if can_write_campaigns %}{% include "admin/partials/modaladdcampaign.html" %}{% endif %}
+{% if active_tab == 'needs' and can_write_campaigns %}{% include "admin/partials/modaladdcampaign.html" %}{% endif %}
 
 <!-- Dashboard Scripts -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% if active_tab == 'overview' %}<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>{% endif %}
 <script>
   const tabLabels = {
     overview: 'Overview',
@@ -183,7 +183,11 @@
     });
 
     const target = document.getElementById(`tab-${tabName}`);
-    if (target) target.classList.remove('hidden');
+    if (!target) {
+      window.location.assign(`/admin/dashboard?tab=${encodeURIComponent(tabName)}`);
+      return;
+    }
+    target.classList.remove('hidden');
 
     const activeBtn = document.getElementById(`tab-btn-${tabName}`);
     if (activeBtn) activeBtn.setAttribute('aria-current', 'page');
@@ -243,10 +247,6 @@
         target.focus({ preventScroll: true });
       }
     }
-
-    window.addEventListener('popstate', () => {
-      switchTab(new URLSearchParams(window.location.search).get('tab') || 'overview', false);
-    });
 
     const workspace = document.getElementById('admin-workspace');
     const mobileToggle = document.getElementById('mobile-sidebar-toggle');

@@ -2,50 +2,50 @@
 <nav class="flex flex-col space-y-1.5 w-full">
   <div class="admin-section-label">Operations</div>
 
-  <button type="button" onclick="switchTab('overview')" id="tab-btn-overview"
-          class="tab-btn" title="Overview">
+  <a href="/admin/dashboard?tab=overview&amp;from={{ date_from }}&amp;to={{ date_to }}" id="tab-btn-overview"
+     class="tab-btn" title="Overview"{% if active_tab == 'overview' %} aria-current="page"{% endif %}>
     <i class="fa-solid fa-border-all text-base w-5 text-center"></i>
     <span>Overview</span>
-  </button>
+  </a>
 
-  {% if can_view_volunteers %}<button type="button" onclick="switchTab('volunteers')" id="tab-btn-volunteers"
-          class="tab-btn" title="Volunteers">
+  {% if can_view_volunteers %}<a href="/admin/dashboard?tab=volunteers&amp;from={{ date_from }}&amp;to={{ date_to }}" id="tab-btn-volunteers"
+          class="tab-btn" title="Volunteers"{% if active_tab == 'volunteers' %} aria-current="page"{% endif %}>
     <i class="fa-solid fa-users text-base w-5 text-center"></i>
     <span>Volunteers</span>
-  </button>{% endif %}
+  </a>{% endif %}
 
-  {% if can_view_donations %}<button type="button" onclick="switchTab('donations')" id="tab-btn-donations"
-          class="tab-btn" title="Donations">
+  {% if can_view_donations %}<a href="/admin/dashboard?tab=donations&amp;from={{ date_from }}&amp;to={{ date_to }}" id="tab-btn-donations"
+          class="tab-btn" title="Donations"{% if active_tab == 'donations' %} aria-current="page"{% endif %}>
     <i class="fa-solid fa-heart text-base w-5 text-center"></i>
     <span>Donations</span>
     {% if pending_donations %}<span class="admin-nav-badge" aria-label="{{ pending_donations }} unverified donations">{{ pending_donations }}</span>{% endif %}
-  </button>{% endif %}
+  </a>{% endif %}
 
-  {% if can_view_beneficiaries %}<button type="button" onclick="switchTab('beneficiaries')" id="tab-btn-beneficiaries"
-          class="tab-btn" title="Beneficiaries">
+  {% if can_view_beneficiaries %}<a href="/admin/dashboard?tab=beneficiaries&amp;from={{ date_from }}&amp;to={{ date_to }}" id="tab-btn-beneficiaries"
+          class="tab-btn" title="Beneficiaries"{% if active_tab == 'beneficiaries' %} aria-current="page"{% endif %}>
     <i class="fa-solid fa-hand-holding-heart text-base w-5 text-center"></i>
     <span>Beneficiaries</span>
     {% if pending_beneficiaries %}<span class="admin-nav-badge" aria-label="{{ pending_beneficiaries }} pending beneficiary requests">{{ pending_beneficiaries }}</span>{% endif %}
-  </button>{% endif %}
+  </a>{% endif %}
 
-  {% if can_view_needs %}<button type="button" onclick="switchTab('needs')" id="tab-btn-needs"
-          class="tab-btn" title="Community Needs">
+  {% if can_view_needs %}<a href="/admin/dashboard?tab=needs&amp;from={{ date_from }}&amp;to={{ date_to }}" id="tab-btn-needs"
+          class="tab-btn" title="Community Needs"{% if active_tab == 'needs' %} aria-current="page"{% endif %}>
     <i class="fa-solid fa-hand-holding-medical text-base w-5 text-center"></i>
     <span>Community Needs</span>
     {% if pending_needs %}<span class="admin-nav-badge" aria-label="{{ pending_needs }} pending community needs">{{ pending_needs }}</span>{% endif %}
-  </button>{% endif %}
+  </a>{% endif %}
 
-  {% if can_view_news %}<button type="button" onclick="switchTab('news')" id="tab-btn-news"
-          class="tab-btn" title="News and Announcements">
+  {% if can_view_news %}<a href="/admin/dashboard?tab=news&amp;from={{ date_from }}&amp;to={{ date_to }}" id="tab-btn-news"
+          class="tab-btn" title="News and Announcements"{% if active_tab == 'news' %} aria-current="page"{% endif %}>
     <i class="fa-solid fa-newspaper text-base w-5 text-center"></i>
     <span>News & Announcements</span>
-  </button>{% endif %}
+  </a>{% endif %}
 
-  {% if can_view_reports %}<button type="button" onclick="switchTab('reports')" id="tab-btn-reports"
-          class="tab-btn" title="Reports">
+  {% if can_view_reports %}<a href="/admin/dashboard?tab=reports&amp;from={{ date_from }}&amp;to={{ date_to }}" id="tab-btn-reports"
+          class="tab-btn" title="Reports"{% if active_tab == 'reports' %} aria-current="page"{% endif %}>
     <i class="fa-solid fa-chart-column text-base w-5 text-center"></i>
     <span>Reports</span>
-  </button>{% endif %}
+  </a>{% endif %}
 
   {% if is_administrator %}<a href="/admin/security" class="tab-btn" title="Staff security">
     <i class="fa-solid fa-shield-halved text-base w-5 text-center" aria-hidden="true"></i>
