@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 
 from app.db.session import get_session
 from app.manage_staff import hash_password, verify_password
-from app.models.entities import AuthSession, User, UserRole
+from app.models.entities import AuditLog, AuthSession, ExternalIdentity, User, UserRole
 from app.routers.mobile_dependencies import (
     DUMMY_PASSWORD_HASH,
     _auth_response,
@@ -15,6 +15,7 @@ from app.routers.mobile_dependencies import (
     _session_digest,
     require_mobile_user,
 )
+from app.routers.sso import _has_legacy_google_sign_in
 from app.schemas.mobile import (
     AuthResponse,
     ChangePasswordRequest,
@@ -126,13 +127,14 @@ def google_sso(
     except ImportError as exc:
         raise HTTPException(
             status_code=503,
-            detail="Google sign-in is not configured on this server.",
+            detail="Legacy Google sign-in is unavailable on this server.",
         ) from exc
 
     project_id = os.environ.get("FIREBASE_PROJECT_ID", "").strip()
     if not project_id:
         raise HTTPException(
-            status_code=503, detail="Google sign-in is not configured on this server."
+            status_code=503,
+            detail="Legacy Google sign-in is not configured on this server.",
         )
     try:
         try:
@@ -143,10 +145,15 @@ def google_sso(
                 options={"projectId": project_id},
             )
         claims = auth.verify_id_token(body.id_token, app=app, check_revoked=True)
+        firebase_user = auth.get_user(
+            str(claims.get("uid") or claims.get("sub") or ""),
+            app=app,
+        )
     except (
         auth.InvalidIdTokenError,
         auth.ExpiredIdTokenError,
         auth.RevokedIdTokenError,
+        auth.UserNotFoundError,
     ) as exc:
         raise HTTPException(
             status_code=401, detail="Invalid Google sign-in token."
@@ -160,34 +167,86 @@ def google_sso(
             status_code=503, detail="Unable to verify Google sign-in at this time."
         ) from exc
 
+    google_identity = next(
+        (
+            identity
+            for identity in firebase_user.provider_data
+            if identity.provider_id == "google.com"
+        ),
+        None,
+    )
     email = str(claims.get("email", "")).strip().lower()
-    full_name = str(claims.get("name", "")).strip()
-    if not email or claims.get("email_verified") is not True:
+    subject = str(google_identity.uid if google_identity else "")
+    if (
+        not subject
+        or len(subject) > 255
+        or not email
+        or len(email) > 255
+        or email.count("@") != 1
+        or claims.get("email_verified") is not True
+    ):
         raise HTTPException(
-            status_code=401, detail="A verified Google email is required."
+            status_code=401,
+            detail="A verified Google identity and email are required.",
         )
-    user = session.exec(select(User).where(User.email == email)).first()
-    if user and user.role != UserRole.USER:
-        raise HTTPException(
-            status_code=403,
-            detail="Staff accounts cannot sign in through the mobile app.",
+
+    identity = session.exec(
+        select(ExternalIdentity).where(
+            ExternalIdentity.provider == "google",
+            ExternalIdentity.subject == subject,
         )
-    if not user:
-        user = User(
-            full_name=full_name or email.partition("@")[0],
-            email=email,
-            hashed_password=hash_password(secrets.token_urlsafe(48)),
-            role=UserRole.USER,
+    ).first()
+    user = session.get(User, identity.user_id) if identity else None
+    if not identity:
+        user = session.exec(select(User).where(User.email == email)).first()
+        if user and not _has_legacy_google_sign_in(session, user):
+            raise HTTPException(
+                status_code=409,
+                detail="This email already has an account. Sign in to that account and connect Google.",
+            )
+        if not user:
+            user = User(
+                full_name=str(claims.get("name") or email.partition("@")[0])[:200],
+                email=email,
+                hashed_password=hash_password(secrets.token_urlsafe(48)),
+                role=UserRole.USER,
+            )
+            session.add(user)
+            try:
+                session.flush()
+            except IntegrityError as exc:
+                session.rollback()
+                raise HTTPException(
+                    status_code=409,
+                    detail="This email already has an account. Sign in to that account and connect Google.",
+                ) from exc
+        session.add(
+            ExternalIdentity(
+                user_id=user.id,
+                provider="google",
+                subject=subject,
+                email=email,
+            )
         )
-        session.add(user)
-        session.flush()
-        request.state.mobile_user = user
-        add_record_history(
-            session, request, "user", user.id, "mobile_account_registered_google"
-        )
-    elif not user.is_active:
-        raise HTTPException(status_code=403, detail="This account is inactive.")
+    elif not user or not user.is_active or user.role != UserRole.USER:
+        raise HTTPException(status_code=403, detail="This account is unavailable.")
+    else:
+        identity.email = email
+        session.add(identity)
+
+    if not user or not user.is_active or user.role != UserRole.USER:
+        raise HTTPException(status_code=403, detail="This account is unavailable.")
     request.state.mobile_user = user
+    session.add(
+        AuditLog(
+            actor_id=user.id,
+            actor_identity=user.email,
+            action="auth.sso_login_success",
+            target_type="user",
+            target_id=str(user.id),
+            details='{"provider":"google","client":"mobile","legacy":true}',
+        )
+    )
     add_record_history(session, request, "user", user.id, "mobile_google_login")
     response = _auth_response(session, user, "Signed in.")
     session.commit()

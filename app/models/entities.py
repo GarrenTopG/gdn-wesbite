@@ -92,6 +92,42 @@ class AuthSession(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class ExternalIdentity(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("provider", "subject"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    provider: str = Field(max_length=30, index=True)
+    subject: str = Field(max_length=255)
+    email: str = Field(max_length=255)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class SsoTransaction(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    state_hash: str = Field(max_length=64, unique=True, index=True)
+    provider: str = Field(max_length=30, index=True)
+    client_type: str = Field(max_length=10)
+    intent: str = Field(default="login", max_length=10)
+    next_path: str = Field(default="/", max_length=2048)
+    nonce: str = Field(max_length=128)
+    provider_code_verifier: str = Field(max_length=128)
+    mobile_code_challenge: Optional[str] = Field(default=None, max_length=128)
+    link_user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    expires_at: datetime = Field(index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class MobileSsoCode(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    code_hash: str = Field(max_length=64, unique=True, index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    code_challenge: str = Field(max_length=128)
+    expires_at: datetime = Field(index=True)
+    consumed_at: Optional[datetime] = Field(default=None, index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class StaffNotificationRead(SQLModel, table=True):
     __table_args__ = (UniqueConstraint("staff_user_id", "notification_key"),)
 

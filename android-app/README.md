@@ -26,6 +26,29 @@ This folder contains a Jetpack Compose Android app screen implementation. It is 
    <uses-permission android:name="android.permission.INTERNET" />
    ```
 
+   Add `android:launchMode="singleTop"` to the activity and add this verified
+   HTTPS app-link filter to its existing `<activity>` element. Keep any existing
+   launcher filter:
+
+   ```xml
+   <intent-filter android:autoVerify="true">
+       <action android:name="android.intent.action.VIEW" />
+       <category android:name="android.intent.category.DEFAULT" />
+       <category android:name="android.intent.category.BROWSABLE" />
+       <data
+           android:scheme="https"
+           android:host="aurorah-web-hub.onrender.com"
+           android:path="/mobile-auth/callback" />
+   </intent-filter>
+   ```
+
+   The website must serve `/.well-known/assetlinks.json` with the Android
+   application ID and the SHA-256 fingerprint of the signing certificate used
+   for the build. Android Studio's debug certificate and the Play Store release
+   certificate have different fingerprints; publish both if both builds should
+   open the app link. Do not replace the verified HTTPS app link with a custom
+   URL scheme.
+
 6. Start an emulator or connect an Android device, then click **Run**. The app calls the live site at `https://aurorah-web-hub.onrender.com`.
 
 ### Test against a local backend
@@ -41,6 +64,17 @@ The local backend must be running and include this repository's mobile API route
 - **Get Involved**: community needs feed, offer-to-help flow, donation pledge flow, and volunteer roles/application.
 - **Stories**: category-filtered public news feed with article images, full article detail, and a link to the website article.
 - **Profile**: sign-in/register, editable name and phone, contact preference, sign-out, and links to About, Contact, and Privacy.
+
+Profile sign-in supports email/password plus Google and Microsoft. Provider
+authentication opens in the system browser and returns through the verified
+`https://aurorah-web-hub.onrender.com/mobile-auth/callback` app link. The app creates a
+PKCE verifier before starting, exchanges the one-use callback code with the
+backend, and only then stores the mobile bearer token in memory. Configure
+Google/Microsoft server credentials and callback URLs as described in the root
+README; the buttons appear only when the server reports those providers as
+configured. If a provider email matches an existing password account, sign in
+to that website account and explicitly connect the provider from the website
+account menu before using that identity in the mobile app.
 
 The bottom navigation labels remain visible with their icons. Browsing stories and learning about Aurorah CAN do not require an account; sign-in is requested only when submitting a task that requires it.
 

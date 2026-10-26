@@ -26,6 +26,18 @@ class GoogleSsoRequest(BaseModel):
     id_token: str = Field(alias="idToken", min_length=1)
 
 
+class SsoExchangeRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    code: str = Field(min_length=32, max_length=128, pattern=r"^[A-Za-z0-9_-]+$")
+    code_verifier: str = Field(
+        alias="codeVerifier",
+        min_length=43,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9._~-]+$",
+    )
+
+
 class ChangePasswordRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 

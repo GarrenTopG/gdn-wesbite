@@ -27,6 +27,18 @@
             <i class="fa-regular fa-bell" aria-hidden="true"></i>
             My notifications
         </a>
+        {% if 'google' in request.state.sso_providers %}
+        <form action="/account/sso/link/google" method="post" class="sso-link-form">
+            {{ csrf_input(request) }}
+            <button type="submit" class="account-menu-link">Connect Google sign-in</button>
+        </form>
+        {% endif %}
+        {% if 'microsoft' in request.state.sso_providers %}
+        <form action="/account/sso/link/microsoft" method="post" class="sso-link-form">
+            {{ csrf_input(request) }}
+            <button type="submit" class="account-menu-link">Connect Microsoft sign-in</button>
+        </form>
+        {% endif %}
         <form action="/account/logout" method="post">
             {{ csrf_input(request) }}
             <button type="submit">

@@ -32,6 +32,7 @@ from app.routers import (
     donations,
     mobile_api,
     news,
+    sso,
     user_notifications,
     volunteers,
 )
@@ -42,6 +43,7 @@ from app.security import (
     valid_csrf_token,
     validate_security_configuration,
 )
+from app.routers.sso import validate_sso_configuration
 from app.templatesconfig import templates
 
 logger = logging.getLogger(__name__)
@@ -64,6 +66,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         validate_security_configuration()
+        validate_sso_configuration()
         if application.state.initialize_database:
             validate_database_ready(application.state.database_engine)
         yield
@@ -142,8 +145,7 @@ def create_app(
             "http://10.0.2.2:8000",
             "http://localhost:8000",
             "http://127.0.0.1:8000",
-            "https://aurorahcan.org.za",
-            "https://www.aurorahcan.org.za",
+            "https://aurorah-web-hub.onrender.com",
         ]
     )
     application.add_middleware(
@@ -268,6 +270,7 @@ def create_app(
         token_valid = bool(cookie_token) and valid_csrf_token(cookie_token)
         request.state.csrf_token = cookie_token if token_valid else make_csrf_token()
         request.state.public_user = None
+        request.state.sso_providers = sso.available_providers()
         if request.cookies.get(
             accounts.USER_COOKIE_NAME
         ) and not request.url.path.startswith("/static/"):
@@ -294,6 +297,8 @@ def create_app(
         if (
             request.url.path.startswith("/admin/")
             or request.url.path.startswith("/api/auth/")
+            or request.url.path.startswith("/auth/sso/")
+            or request.url.path.startswith("/account/sso/")
             or request.url.path == "/donate/tax-certificate"
             or request.url.path.startswith("/campaigns/")
             or request.url.path.startswith("/account/notifications")
@@ -318,6 +323,7 @@ def create_app(
     application.include_router(accounts.router)
     application.include_router(user_notifications.router)
     application.include_router(mobile_api.router)
+    application.include_router(sso.router)
     application.include_router(news.router)
     application.include_router(admin.router)
 

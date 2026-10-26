@@ -12,6 +12,7 @@ files = [
     "app/db/session.py",
     "app/security.py",
     "app/routers/accounts.py",
+    "app/routers/sso.py",
     "app/routers/admin/auth.py",
     "app/routers/admin/admincases.py",
     "app/routers/admin/adminstaff.py",

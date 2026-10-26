@@ -75,6 +75,8 @@ def _render_account(
     email: str = "",
     status_code: int = status.HTTP_200_OK,
 ) -> HTMLResponse:
+    from app.routers.sso import available_providers
+
     return templates.TemplateResponse(
         request=request,
         name="account.html",
@@ -86,6 +88,7 @@ def _render_account(
             "error": error,
             "full_name": full_name,
             "email": email,
+            "sso_providers": available_providers(),
         },
     )
 
@@ -109,7 +112,16 @@ def account_login_page(
     user = get_public_user(request, session)
     if user:
         return RedirectResponse(_safe_next_path(next_path), status_code=303)
-    return _render_account(request, mode="login", next_path=next_path)
+    return _render_account(
+        request,
+        mode="login",
+        next_path=next_path,
+        error=(
+            "Sign-in could not be completed. Please try again or use your password."
+            if request.query_params.get("sso_error")
+            else None
+        ),
+    )
 
 
 def _get_staff_user(request: Request, session: Session) -> Optional[User]:

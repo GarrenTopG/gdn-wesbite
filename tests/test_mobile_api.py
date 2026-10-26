@@ -53,7 +53,7 @@ class MobileApiTests(DatabaseTestCase):
         for origin in (
             "http://10.0.2.2:8000",
             "http://192.168.1.27:8080",
-            "https://aurorahcan.org.za",
+            "https://aurorah-web-hub.onrender.com",
         ):
             with self.subTest(origin=origin):
                 response = self.client.options(
@@ -583,7 +583,7 @@ class MobileApiTests(DatabaseTestCase):
             )
             self.assertEqual(saved_donation.status, "Submitted")
 
-    def test_google_sign_in_fails_clearly_without_server_configuration(self):
+    def test_legacy_google_sign_in_fails_clearly_without_server_configuration(self):
         with patch.dict(os.environ, {"FIREBASE_PROJECT_ID": ""}):
             response = self.client.post(
                 "/api/auth/google-sso",

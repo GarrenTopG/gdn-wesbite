@@ -53,6 +53,24 @@
             </button>
         </form>
 
+        {% if sso_providers %}
+        <div class="mt-6 space-y-3">
+            <p class="text-center text-sm font-semibold text-gray-600">Or continue with</p>
+            {% if 'google' in sso_providers %}
+            <a href="/account/sso/google?next_path={{ next_path|urlencode }}"
+               class="block w-full rounded-lg border border-gray-300 px-4 py-3 text-center font-semibold text-gray-800 hover:bg-gray-50">
+                Continue with Google
+            </a>
+            {% endif %}
+            {% if 'microsoft' in sso_providers %}
+            <a href="/account/sso/microsoft?next_path={{ next_path|urlencode }}"
+               class="block w-full rounded-lg border border-gray-300 px-4 py-3 text-center font-semibold text-gray-800 hover:bg-gray-50">
+                Continue with Microsoft
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <p class="mt-6 text-center text-sm text-gray-600">
             {% if mode == 'register' %}
             Already have an account? <a class="font-semibold text-brand-800 underline" href="/account/login?next_path={{ next_path|urlencode }}">Sign in</a>

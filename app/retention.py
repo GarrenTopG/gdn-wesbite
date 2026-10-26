@@ -9,8 +9,10 @@ from app.models.entities import (
     AuthSession,
     BeneficiaryNeed,
     Donation,
+    MobileSsoCode,
     RateLimitHit,
     ReceiptAccess,
+    SsoTransaction,
 )
 
 
@@ -106,6 +108,12 @@ def purge_expired_personal_data(apply_changes: bool = False) -> tuple[int, int]:
                 session.delete(receipt)
             for auth_session in expired_sessions:
                 session.delete(auth_session)
+            session.exec(
+                SsoTransaction.__table__.delete().where(SsoTransaction.expires_at < now)
+            )
+            session.exec(
+                MobileSsoCode.__table__.delete().where(MobileSsoCode.expires_at < now)
+            )
             session.exec(
                 RateLimitHit.__table__.delete().where(
                     RateLimitHit.occurred_at < int(now.timestamp()) - 86400

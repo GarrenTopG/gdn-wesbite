@@ -78,10 +78,15 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
+import java.security.MessageDigest
+import java.security.SecureRandom
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Base64
 
 private const val SITE_BASE_URL = "https://aurorah-web-hub.onrender.com"
+private const val MOBILE_SSO_REDIRECT_HOST = "aurorah-web-hub.onrender.com"
+private const val MOBILE_SSO_REDIRECT_PATH = "/mobile-auth/callback"
 private const val ORG_ADDRESS = "27 Lovebird Walk, Sunbird Park, Cape Town, 7580"
 private val Brand = Color(0xFF752D42)
 private val BrandMid = Color(0xFF943D56)
@@ -91,8 +96,11 @@ private val Ink = Color(0xFF28252A)
 private val Muted = Color(0xFF625D62)
 
 class MainActivity : ComponentActivity() {
+    private val ssoCallbackUri = mutableStateOf<Uri?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ssoCallbackUri.value = intent?.data
         setContent {
             MaterialTheme(
                 colorScheme = lightColorScheme(
@@ -104,9 +112,21 @@ class MainActivity : ComponentActivity() {
                     onSurface = Ink
                 )
             ) {
-                AurorahApp()
+                AurorahApp(
+                    ssoCallbackUri = ssoCallbackUri.value,
+                    onClearSsoCallback = {
+                        setIntent(Intent(this, MainActivity::class.java))
+                        ssoCallbackUri.value = null
+                    }
+                )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        ssoCallbackUri.value = intent.data
     }
 }
 
@@ -169,9 +189,15 @@ private fun resolveImageUrl(imageUrl: String?): String? {
 }
 
 @Composable
-private fun AurorahApp() {
+private fun AurorahApp(
+    ssoCallbackUri: Uri?,
+    onClearSsoCallback: () -> Unit
+) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     var user by remember { mutableStateOf<AppUser?>(null) }
+    LaunchedEffect(ssoCallbackUri) {
+        if (ssoCallbackUri != null) selectedTab = 4
+    }
     val context = LocalContext.current
     val openWebsite: (String) -> Unit = { path ->
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$SITE_BASE_URL$path")))
@@ -218,7 +244,9 @@ private fun AurorahApp() {
                 modifier = Modifier.padding(padding),
                 user = user,
                 onUserChanged = { user = it },
-                onOpenWebsite = openWebsite
+                onOpenWebsite = openWebsite,
+                ssoCallbackUri = ssoCallbackUri,
+                onClearSsoCallback = onClearSsoCallback
             )
         }
     }
@@ -755,7 +783,9 @@ private fun ProfileScreen(
     modifier: Modifier,
     user: AppUser?,
     onUserChanged: (AppUser?) -> Unit,
-    onOpenWebsite: (String) -> Unit
+    onOpenWebsite: (String) -> Unit,
+    ssoCallbackUri: Uri?,
+    onClearSsoCallback: () -> Unit
 ) {
     var isRegister by rememberSaveable { mutableStateOf(false) }
     var fullName by rememberSaveable { mutableStateOf("") }
@@ -769,7 +799,98 @@ private fun ProfileScreen(
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
+    var mobileCodeVerifier by remember { mutableStateOf<String?>(null) }
+    var ssoProviders by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var ssoProviderError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val ssoPreferences = remember {
+        context.getSharedPreferences("mobile_sso", android.content.Context.MODE_PRIVATE)
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            val result = withContext(Dispatchers.IO) {
+                Api.get("/api/auth/sso/providers")
+            }
+            val providers = result.optJSONArray("providers") ?: JSONArray()
+            ssoProviders = (0 until providers.length())
+                .mapNotNull { providers.optString(it).takeIf { name -> name.isNotBlank() } }
+                .toSet()
+        } catch (_: IOException) {
+            ssoProviders = emptySet()
+            ssoProviderError = "Single sign-on options could not be loaded."
+        } catch (_: JSONException) {
+            ssoProviders = emptySet()
+            ssoProviderError = "The server returned invalid sign-in options."
+        }
+    }
+
+    LaunchedEffect(ssoCallbackUri) {
+        val callback = ssoCallbackUri ?: return@LaunchedEffect
+        if (
+            callback.scheme != "https" ||
+            callback.host != MOBILE_SSO_REDIRECT_HOST ||
+            callback.path != MOBILE_SSO_REDIRECT_PATH
+        ) {
+            onClearSsoCallback()
+            return@LaunchedEffect
+        }
+        val code = callback.getQueryParameter("code")
+        val storedVerifier = ssoPreferences.getString("code_verifier", null)
+        val storedExpiry = ssoPreferences.getLong("expires_at", 0L)
+        val verifier = mobileCodeVerifier ?: storedVerifier?.takeIf {
+            storedExpiry > System.currentTimeMillis()
+        }
+        when {
+            callback.getQueryParameter("error") != null -> {
+                error = "Sign-in was not completed. Please try again."
+                mobileCodeVerifier = null
+                ssoPreferences.edit().clear().apply()
+            }
+            code.isNullOrBlank() || verifier.isNullOrBlank() -> {
+                error = "Sign-in could not be completed. Please try again."
+                mobileCodeVerifier = null
+                ssoPreferences.edit().clear().apply()
+            }
+            else -> {
+                busy = true
+                try {
+                    val response = withContext(Dispatchers.IO) {
+                        Api.post(
+                            "/api/auth/sso/exchange",
+                            JSONObject().put("code", code).put("codeVerifier", verifier)
+                        )
+                    }
+                    val account = response.getJSONObject("user")
+                    onUserChanged(
+                        AppUser(
+                            account.optInt("userId"),
+                            account.optString("fullName"),
+                            account.optString("email"),
+                            account.optString("role"),
+                            response.getString("token")
+                        )
+                    )
+                    message = response.optString("message", "Signed in.")
+                    error = null
+                    mobileCodeVerifier = null
+                    ssoPreferences.edit().clear().apply()
+                } catch (e: IOException) {
+                    error = e.message ?: "Sign-in could not be completed."
+                    mobileCodeVerifier = null
+                    ssoPreferences.edit().clear().apply()
+                } catch (e: JSONException) {
+                    error = e.message ?: "The server returned an invalid response."
+                    mobileCodeVerifier = null
+                    ssoPreferences.edit().clear().apply()
+                } finally {
+                    busy = false
+                }
+            }
+        }
+        onClearSsoCallback()
+    }
 
     LaunchedEffect(user?.id) {
         if (user != null) {
@@ -798,6 +919,7 @@ private fun ProfileScreen(
         if (user == null) {
             BodyText("Browse stories and learn about the organization without signing in. Sign in is only needed to submit a request, pledge, volunteer application, or offer to help.")
             message?.let { Notice(it, BrandPale, Brand) }
+            ssoProviderError?.let { ErrorNotice(it) }
             SectionTitle(if (isRegister) "Create account" else "Sign in")
             if (isRegister) InputField("Full name", fullName, { fullName = it }, required = true)
             InputField("Email", email, { email = it }, keyboardType = KeyboardType.Email, required = true)
@@ -834,6 +956,40 @@ private fun ProfileScreen(
                         catch (e: JSONException) { error = e.message ?: "The server returned an invalid response." }
                         finally { busy = false }
                     }
+                }
+            }
+            if (!isRegister && "google" in ssoProviders) {
+                OutlinedButton(
+                    onClick = {
+                        beginMobileSso("google", context) {
+                            mobileCodeVerifier = it
+                            ssoPreferences.edit()
+                                .putString("code_verifier", it)
+                                .putLong("expires_at", System.currentTimeMillis() + 300_000)
+                                .apply()
+                        }
+                    },
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Continue with Google")
+                }
+            }
+            if (!isRegister && "microsoft" in ssoProviders) {
+                OutlinedButton(
+                    onClick = {
+                        beginMobileSso("microsoft", context) {
+                            mobileCodeVerifier = it
+                            ssoPreferences.edit()
+                                .putString("code_verifier", it)
+                                .putLong("expires_at", System.currentTimeMillis() + 300_000)
+                                .apply()
+                        }
+                    },
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Continue with Microsoft")
                 }
             }
             TextButton(onClick = { isRegister = !isRegister; error = null }) {
@@ -903,6 +1059,26 @@ private fun ProfileScreen(
         LinkButton("Privacy and POPIA") { onOpenWebsite("/about#privacy-notice") }
         BodyText("Personal information is used to review submissions and contact you. Please only provide details needed for the task.")
     }
+}
+
+private fun beginMobileSso(
+    provider: String,
+    context: android.content.Context,
+    onVerifierCreated: (String) -> Unit
+) {
+    val random = SecureRandom()
+    val verifierBytes = ByteArray(64).also(random::nextBytes)
+    val verifier = Base64.getUrlEncoder().withoutPadding().encodeToString(verifierBytes)
+    val challenge = Base64.getUrlEncoder().withoutPadding().encodeToString(
+        MessageDigest.getInstance("SHA-256")
+            .digest(verifier.toByteArray(Charsets.US_ASCII))
+    )
+    onVerifierCreated(verifier)
+    val startUrl = Uri.parse("$SITE_BASE_URL/api/auth/sso/$provider/start")
+        .buildUpon()
+        .appendQueryParameter("challenge", challenge)
+        .build()
+    context.startActivity(Intent(Intent.ACTION_VIEW, startUrl))
 }
 
 @Composable
@@ -1211,7 +1387,7 @@ private object Api {
     fun put(path: String, payload: JSONObject, token: String): JSONObject =
         JSONObject(request("PUT", path, payload, token))
 
-    fun get(path: String, token: String): JSONObject =
+    fun get(path: String, token: String? = null): JSONObject =
         JSONObject(request("GET", path, token = token))
 
     private fun request(method: String, path: String, payload: JSONObject? = null, token: String? = null): String {

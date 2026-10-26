@@ -267,8 +267,10 @@ def enforce_rate_limit(
     bucket: str,
     limit: int,
     window_seconds: int,
+    *,
+    methods: tuple[str, ...] = ("POST",),
 ) -> None:
-    if request.method != "POST":
+    if request.method not in methods:
         return
     client_host = request.client.host if request.client else "unknown"
     client_hash = hmac.new(

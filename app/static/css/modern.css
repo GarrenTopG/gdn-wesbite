@@ -561,6 +561,11 @@ textarea:focus-visible {
     padding-top: 0.6rem;
 }
 
+.account-menu-popover form.sso-link-form {
+    border: 0;
+    padding: 0;
+}
+
 .account-menu-popover form button {
     display: flex;
     width: 100%;
