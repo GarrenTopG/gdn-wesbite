@@ -145,7 +145,15 @@ private data class CommunityNeed(
     val description: String,
     val location: String,
     val priority: String,
-    val category: String
+    val category: String,
+    val status: String = "Open",
+    val targetAmount: Double = 0.0,
+    val currentAmount: Double = 0.0,
+    val imageUrl: String? = null,
+    val imageAlt: String? = null,
+    val article: String? = null,
+    val articleExcerpt: String? = null,
+    val deadline: String? = null
 )
 
 private fun resolveImageUrl(imageUrl: String?): String? {
@@ -1034,17 +1042,49 @@ private fun InfoCard(title: String, description: String) {
 
 @Composable
 private fun NeedCard(need: CommunityNeed, onClick: () -> Unit) {
+    val excerpt = need.articleExcerpt.takeUnless { it.isNullOrBlank() } ?: need.description
+
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(need.title, color = Brand, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            BodyText(need.description.ifBlank { "See how you can help with this community need." })
-            Text(listOf(need.location, need.category, need.priority).filter { it.isNotBlank() }.joinToString(" · "), color = Muted, fontSize = 12.sp)
-            Text("Offer to help  →", color = Brand, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+        Column {
+            NeedImage(need, Modifier.fillMaxWidth().height(190.dp))
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(need.title, color = Brand, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                BodyText(excerpt.ifBlank { "See how you can help with this community need." })
+                Text(listOf(need.location, need.category, need.priority).filter { it.isNotBlank() }.joinToString(" · "), color = Muted, fontSize = 12.sp)
+                if (need.targetAmount > 0.0) {
+                    Text("R${String.format(java.util.Locale.US, "%.2f", need.currentAmount)} raised of R${String.format(java.util.Locale.US, "%.2f", need.targetAmount)} target", color = Muted, fontSize = 12.sp)
+                }
+                if (!need.deadline.isNullOrBlank()) {
+                    Text("Need deadline: ${need.deadline}", color = Muted, fontSize = 12.sp)
+                }
+                Text("Offer to help  →", color = Brand, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun NeedImage(need: CommunityNeed, modifier: Modifier = Modifier) {
+    val imageUrl = need.imageUrl
+    if (imageUrl.isNullOrBlank()) {
+        StoryImagePlaceholder(modifier)
+    } else {
+        SubcomposeAsyncImage(
+            model = imageUrl,
+            contentDescription = need.imageAlt?.takeIf { it.isNotBlank() } ?: "Image for ${need.title}",
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+        ) {
+            when (painter.state) {
+                is AsyncImagePainter.State.Loading,
+                is AsyncImagePainter.State.Error -> StoryImagePlaceholder(Modifier.fillMaxSize())
+                else -> SubcomposeAsyncImageContent()
+            }
         }
     }
 }
@@ -1147,8 +1187,20 @@ private object Api {
             val item = json.optJSONObject(index) ?: return@mapNotNull null
             val title = item.optString("title").trim()
             if (title.isBlank()) null else CommunityNeed(
-                item.optInt("needId"), title, item.optString("description"),
-                item.optString("location"), item.optString("priority"), item.optString("category")
+                item.optInt("needId"),
+                title,
+                item.optString("description"),
+                item.optString("location"),
+                item.optString("priority"),
+                item.optString("category"),
+                item.optString("status", "Open"),
+                item.optDouble("targetAmount", 0.0),
+                item.optDouble("currentAmount", 0.0),
+                resolveImageUrl(item.optString("imageUrl")),
+                item.optString("imageAlt").takeIf { it.isNotBlank() && it != "null" },
+                item.optString("article").takeIf { it.isNotBlank() && it != "null" },
+                item.optString("articleExcerpt").takeIf { it.isNotBlank() && it != "null" },
+                item.optString("deadline").takeIf { it.isNotBlank() && it != "null" }
             )
         }
     }

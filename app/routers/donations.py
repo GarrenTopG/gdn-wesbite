@@ -101,6 +101,8 @@ def _community_needs_statement(
             BeneficiaryNeed.deadline,
             BeneficiaryNeed.is_community_need,
             BeneficiaryNeed.archived_at,
+            BeneficiaryNeed.request_details,
+            BeneficiaryNeed.created_at,
         )
         .where(
             BeneficiaryNeed.is_community_need == true(),

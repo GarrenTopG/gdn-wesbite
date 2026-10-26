@@ -330,6 +330,13 @@ class MobileApiTests(DatabaseTestCase):
                 "category",
                 "status",
                 "createdAt",
+                "targetAmount",
+                "currentAmount",
+                "imageUrl",
+                "imageAlt",
+                "article",
+                "articleExcerpt",
+                "deadline",
             },
         )
         self.assertEqual(needs[0]["title"], "Food support")
@@ -355,6 +362,154 @@ class MobileApiTests(DatabaseTestCase):
             news[0]["image_url"],
             "/static/images/news/community-cook-off.png",
         )
+
+    def test_mobile_needs_feed_aligns_with_website_donate_page(self):
+        now = datetime.now(timezone.utc)
+        yesterday = now - timedelta(days=2)
+        tomorrow = now + timedelta(days=2)
+
+        with Session(self.engine) as session:
+            # Need 1: Active community need, no deadline (latest)
+            n1 = BeneficiaryNeed(
+                contact_name="Internal",
+                contact_phone="555-0100",
+                full_address="1 Main St",
+                anonymised_title="Active Need No Deadline",
+                area="Kuils River",
+                category="Food",
+                urgency=NeedUrgency.HIGH,
+                status=NeedStatus.PENDING,
+                is_community_need=True,
+                target_amount=1000.0,
+                current_amount=250.0,
+                article="Full article story for Need 1.",
+                image_url="/static/images/need1.jpg",
+                image_alt="Need 1 Image",
+                created_at=now,
+            )
+            # Need 2: Active community need, future deadline
+            n2 = BeneficiaryNeed(
+                contact_name="Internal",
+                contact_phone="555-0100",
+                full_address="1 Main St",
+                anonymised_title="Active Need Future Deadline",
+                area="Sunbird Park",
+                category="Education",
+                urgency=NeedUrgency.MEDIUM,
+                status=NeedStatus.IN_PROGRESS,
+                is_community_need=True,
+                deadline=tomorrow,
+                target_amount=5000.0,
+                current_amount=1200.0,
+                article="Full article story for Need 2.",
+                created_at=now - timedelta(hours=1),
+            )
+            # Need 3: Fulfilled community need, future deadline (included by both)
+            n3 = BeneficiaryNeed(
+                contact_name="Internal",
+                contact_phone="555-0100",
+                full_address="1 Main St",
+                anonymised_title="Fulfilled Need Future Deadline",
+                area="Kuils River",
+                category="Health",
+                urgency=NeedUrgency.LOW,
+                status=NeedStatus.FULFILLED,
+                is_community_need=True,
+                deadline=tomorrow,
+                created_at=now - timedelta(hours=2),
+            )
+            # Need 4: Past deadline (excluded by both)
+            n4 = BeneficiaryNeed(
+                contact_name="Internal",
+                contact_phone="555-0100",
+                full_address="1 Main St",
+                anonymised_title="Expired Need",
+                area="Kuils River",
+                category="Food",
+                urgency=NeedUrgency.CRITICAL,
+                status=NeedStatus.PENDING,
+                is_community_need=True,
+                deadline=yesterday,
+                created_at=now - timedelta(hours=3),
+            )
+            # Need 5: Rejected need (excluded by both)
+            n5 = BeneficiaryNeed(
+                contact_name="Internal",
+                contact_phone="555-0100",
+                full_address="1 Main St",
+                anonymised_title="Rejected Need",
+                area="Kuils River",
+                category="Other",
+                urgency=NeedUrgency.LOW,
+                status=NeedStatus.REJECTED,
+                is_community_need=True,
+                created_at=now - timedelta(hours=4),
+            )
+            # Need 6: Archived need (excluded by both)
+            n6 = BeneficiaryNeed(
+                contact_name="Internal",
+                contact_phone="555-0100",
+                full_address="1 Main St",
+                anonymised_title="Archived Need",
+                area="Kuils River",
+                category="Other",
+                urgency=NeedUrgency.LOW,
+                status=NeedStatus.PENDING,
+                is_community_need=True,
+                archived_at=now,
+                created_at=now - timedelta(hours=5),
+            )
+            # Need 7: Private/non-community need (excluded by both)
+            n7 = BeneficiaryNeed(
+                contact_name="Private Beneficiary",
+                contact_phone="555-0100",
+                full_address="1 Main St",
+                anonymised_title="Private Need",
+                area="Private",
+                category="Food",
+                urgency=NeedUrgency.HIGH,
+                status=NeedStatus.PENDING,
+                is_community_need=False,
+                created_at=now - timedelta(hours=6),
+            )
+            session.add_all([n1, n2, n3, n4, n5, n6, n7])
+            session.commit()
+            session.refresh(n1)
+            session.refresh(n2)
+            session.refresh(n3)
+            expected_ids = [n1.id, n2.id, n3.id]
+
+        # Call Mobile API /api/needs
+        api_response = self.client.get("/api/needs")
+        self.assertEqual(api_response.status_code, 200)
+        api_needs = api_response.json()
+        api_need_ids = [item["needId"] for item in api_needs]
+
+        # Fetch Website /donate page
+        web_response = self.client.get("/donate")
+        self.assertEqual(web_response.status_code, 200)
+        web_html = web_response.text
+
+        # Both website and mobile API show exact same need IDs in same order
+        self.assertEqual(api_need_ids, expected_ids)
+        for need_id in expected_ids:
+            self.assertIn(f"/community-needs/{need_id}", web_html)
+        self.assertNotIn("Expired Need", web_html)
+        self.assertNotIn("Rejected Need", web_html)
+        self.assertNotIn("Archived Need", web_html)
+
+        # Check returned real database values for n1 in API response
+        n1_data = api_needs[0]
+        self.assertEqual(n1_data["title"], "Active Need No Deadline")
+        self.assertEqual(n1_data["location"], "Kuils River")
+        self.assertEqual(n1_data["category"], "Food")
+        self.assertEqual(n1_data["priority"], "High")
+        self.assertEqual(float(n1_data["targetAmount"]), 1000.0)
+        self.assertEqual(float(n1_data["currentAmount"]), 250.0)
+        self.assertEqual(n1_data["imageUrl"], "/static/images/need1.jpg")
+        self.assertEqual(n1_data["imageAlt"], "Need 1 Image")
+        self.assertEqual(n1_data["article"], "Full article story for Need 1.")
+        self.assertEqual(n1_data["articleExcerpt"], "Full article story for Need 1.")
 
     def test_offers_and_donations_require_the_account_identity(self):
         account = self.register()

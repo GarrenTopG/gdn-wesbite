@@ -46,7 +46,7 @@ The bottom navigation labels remain visible with their icons. Browsing stories a
 
 ## API limits and behavior
 
-- Home, Stories, and current community needs use the public `/api/news` and `/api/needs` feeds. News responses include the article `summary`, full `content`, and optional `image_url`, which the app loads over HTTPS. There is no separate mobile article-detail endpoint. Deploy the backend update as well as updating the Android app for full article content to appear.
+- Home, Stories, and current community needs use the public `/api/news` and `/api/needs` feeds. Need cards display the optional `imageUrl` and `imageAlt` from the community-need record; staff must provide an image URL in the website admin for the actual image to appear. Missing or unavailable images use a neutral placeholder. News responses include the article `summary`, full `content`, and optional `image_url`, which the app loads over HTTPS. There is no separate mobile article-detail endpoint.
 - Assistance requests, volunteer applications, donation pledges, and offers to help require sign-in and are submitted to the existing mobile API.
 - A donation is a pledge only: the app does not process payments. The mobile API does not collect Section 18A tax-receipt information, so the app links to the website for that flow.
 - The API does not expose request, donation, or volunteer submission history/status. The app does not show tracking or application-history features.

@@ -11,6 +11,10 @@ from app.models.entities import (
     User,
     VolunteerOffer,
 )
+from app.routers.donations import (
+    _community_need_excerpt,
+    _public_community_needs_statement,
+)
 from app.routers.mobile_dependencies import _rate_limit, require_mobile_user
 from app.schemas.mobile import (
     NeedResponse,
@@ -49,28 +53,40 @@ def get_news(session: Session = Depends(get_session)):
 
 @router.get("/needs", response_model=list[NeedResponse])
 def get_needs(session: Session = Depends(get_session)):
-    needs = session.exec(
-        select(BeneficiaryNeed)
-        .where(
-            BeneficiaryNeed.is_community_need == true(),
-            BeneficiaryNeed.status.notin_([NeedStatus.FULFILLED, NeedStatus.REJECTED]),
-            BeneficiaryNeed.archived_at.is_(None),
+    rows = session.exec(_public_community_needs_statement()).all()
+    results = []
+    for row in rows:
+        urgency_val = (
+            row.urgency.value if hasattr(row.urgency, "value") else str(row.urgency)
         )
-        .order_by(BeneficiaryNeed.created_at.desc())
-    ).all()
-    return [
-        {
-            "needId": need.id,
-            "title": need.anonymised_title,
-            "description": need.request_details or "",
-            "location": need.area,
-            "priority": need.urgency.value,
-            "category": need.category,
-            "status": need.status.value,
-            "createdAt": need.created_at.isoformat(),
-        }
-        for need in needs
-    ]
+        status_val = (
+            row.status.value if hasattr(row.status, "value") else str(row.status)
+        )
+        excerpt = _community_need_excerpt(row.article)
+        created_at_val = getattr(row, "created_at", None)
+        created_at_str = created_at_val.isoformat() if created_at_val else None
+        deadline_str = row.deadline.isoformat() if row.deadline else None
+
+        results.append(
+            {
+                "needId": row.id,
+                "title": row.anonymised_title,
+                "description": excerpt or getattr(row, "request_details", "") or "",
+                "location": row.area,
+                "priority": urgency_val,
+                "category": row.category,
+                "status": status_val,
+                "createdAt": created_at_str,
+                "targetAmount": row.target_amount,
+                "currentAmount": row.current_amount,
+                "imageUrl": row.image_url,
+                "imageAlt": row.image_alt,
+                "article": row.article,
+                "articleExcerpt": excerpt,
+                "deadline": deadline_str,
+            }
+        )
+    return results
 
 
 @router.post(

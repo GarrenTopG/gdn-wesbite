@@ -129,12 +129,19 @@ class NewsItemResponse(BaseModel):
 class NeedResponse(BaseModel):
     need_id: int = Field(alias="needId")
     title: str
-    description: str
+    description: Optional[str] = ""
     location: str
     priority: str
     category: str
     status: str
-    created_at: str = Field(alias="createdAt")
+    created_at: Optional[str] = Field(default=None, alias="createdAt")
+    target_amount: Optional[Decimal] = Field(default=None, alias="targetAmount")
+    current_amount: Optional[Decimal] = Field(default=None, alias="currentAmount")
+    image_url: Optional[str] = Field(default=None, alias="imageUrl")
+    image_alt: Optional[str] = Field(default=None, alias="imageAlt")
+    article: Optional[str] = None
+    article_excerpt: Optional[str] = Field(default=None, alias="articleExcerpt")
+    deadline: Optional[str] = None
 
     model_config = ConfigDict(populate_by_name=True)
 
