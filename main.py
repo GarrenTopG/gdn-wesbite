@@ -87,6 +87,23 @@ def create_app(
 
         application.dependency_overrides[get_session] = configured_session
 
+    @application.get("/.well-known/assetlinks.json", include_in_schema=False)
+    def android_asset_links():
+        return JSONResponse(
+            content=[
+                {
+                    "relation": ["delegate_permission/common.handle_all_urls"],
+                    "target": {
+                        "namespace": "android_app",
+                        "package_name": "org.aurorahcan.app",
+                        "sha256_cert_fingerprints": [
+                            "F5:16:90:CF:4C:C1:15:0D:57:9A:8E:94:99:89:04:70:38:FC:5F:F8:55:34:4E:D5:6C:4D:E8:1F:D7:24:1E:A7"
+                        ],
+                    },
+                }
+            ]
+        )
+
     def admin_form_error_redirect(
         request: Request, message: str
     ) -> Optional[RedirectResponse]:

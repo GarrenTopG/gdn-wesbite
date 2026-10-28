@@ -44,6 +44,26 @@ class AppFactoryTests(unittest.TestCase):
             first_app.dependency_overrides, second_app.dependency_overrides
         )
         with TestClient(first_app) as client:
+            asset_links = client.get("/.well-known/assetlinks.json")
+            self.assertEqual(asset_links.status_code, 200)
+            self.assertTrue(
+                asset_links.headers["content-type"].startswith("application/json")
+            )
+            self.assertEqual(
+                asset_links.json(),
+                [
+                    {
+                        "relation": ["delegate_permission/common.handle_all_urls"],
+                        "target": {
+                            "namespace": "android_app",
+                            "package_name": "org.aurorahcan.app",
+                            "sha256_cert_fingerprints": [
+                                "F5:16:90:CF:4C:C1:15:0D:57:9A:8E:94:99:89:04:70:38:FC:5F:F8:55:34:4E:D5:6C:4D:E8:1F:D7:24:1E:A7"
+                            ],
+                        },
+                    }
+                ],
+            )
             response = client.options(
                 "/api/news",
                 headers={
