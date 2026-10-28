@@ -95,7 +95,7 @@ def create_app(
                     "relation": ["delegate_permission/common.handle_all_urls"],
                     "target": {
                         "namespace": "android_app",
-                        "package_name": "org.aurorahcan.app",
+                        "package_name": "com.aurorah.can",
                         "sha256_cert_fingerprints": [
                             "F5:16:90:CF:4C:C1:15:0D:57:9A:8E:94:99:89:04:70:38:FC:5F:F8:55:34:4E:D5:6C:4D:E8:1F:D7:24:1E:A7"
                         ],

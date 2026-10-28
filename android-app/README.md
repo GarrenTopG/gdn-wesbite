@@ -10,7 +10,7 @@ This folder contains a Jetpack Compose Android app screen implementation. It is 
    - Enable **Jetpack Compose**
    - Use a minimum SDK of **26 or higher**
 2. In the generated project, open `app/src/main/java/<your package path>/MainActivity.kt`. Replace that file's contents with the complete `android-app/MainActivity.kt` file from this repository.
-3. If the generated package differs from `org.aurorahcan.app`, edit the first `package` line in the pasted Kotlin file so it matches your Android Studio project's package. Keep the rest of the file unchanged.
+3. If the generated Kotlin package differs from the first `package` line in the pasted Kotlin file, edit that line so it matches your Android Studio project. The Kotlin package is distinct from the app's `applicationId`; the `assetlinks.json` association must use the exact `applicationId`, which is `com.aurorah.can` for this app.
 4. Open the **app module** `build.gradle.kts`. Keep the Compose dependencies and Compose BOM that Android Studio generated. Inside the `dependencies { }` block, add:
 
    ```kotlin
