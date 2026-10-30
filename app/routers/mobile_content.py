@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import true
 from sqlmodel import Session, select
 
 from app.db.session import get_session
