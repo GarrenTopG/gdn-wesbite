@@ -180,12 +180,16 @@ def create_app(
 
     @application.exception_handler(SQLAlchemyError)
     async def handle_database_error(request: Request, exc: SQLAlchemyError):
-        if not request.url.path.startswith("/api/"):
-            raise exc
         logger.exception("Database operation failed for %s", request.url.path)
-        return JSONResponse(
-            {"detail": "Database temporarily unavailable."},
+        if request.url.path.startswith("/api/"):
+            return JSONResponse(
+                {"detail": "Database temporarily unavailable."},
+                status_code=503,
+            )
+        return HTMLResponse(
+            "The service is temporarily unavailable. Please try again shortly.",
             status_code=503,
+            headers={"Retry-After": "30"},
         )
 
     @application.exception_handler(HTTPException)

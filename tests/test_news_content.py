@@ -1,12 +1,26 @@
 from tests.support import DatabaseTestCase
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
+from app.db.session import get_session
 from app.models.entities import NewsArticle
 from app.news_content import COMMUNITY_STORIES, seed_community_stories
 
 
 class CommunityNewsContentTests(DatabaseTestCase):
+    def test_news_feed_returns_service_unavailable_when_database_fails(self):
+        def failing_session():
+            raise SQLAlchemyError("test database unavailable")
+            yield
+
+        self.app.dependency_overrides[get_session] = failing_session
+        response = self.client.get("/news")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.headers["retry-after"], "30")
+        self.assertIn("temporarily unavailable", response.text)
+
     def test_supplied_stories_are_seeded_once_and_duplicate_is_removed(self):
         with Session(self.engine) as session:
             seed_community_stories(session)
