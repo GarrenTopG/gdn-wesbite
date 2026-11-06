@@ -82,9 +82,7 @@ def _public_community_needs_statement(need_id: int | None = None):
     return _community_needs_statement(need_id=need_id, active_only=True)
 
 
-def _community_needs_statement(
-    *, need_id: int | None = None, active_only: bool
-):
+def _community_needs_statement(*, need_id: int | None = None, active_only: bool):
     statement = (
         select(
             BeneficiaryNeed.id,

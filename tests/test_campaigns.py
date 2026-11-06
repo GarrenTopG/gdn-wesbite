@@ -207,7 +207,9 @@ class CampaignWebTests(DatabaseTestCase):
             self.assertEqual(pending.amount, Decimal("25.00"))
             self.assertEqual(need.current_amount, Decimal("50.00"))
 
-    def test_need_pledge_can_be_reviewed_after_due_date_and_rejection_is_not_counted(self):
+    def test_need_pledge_can_be_reviewed_after_due_date_and_rejection_is_not_counted(
+        self,
+    ):
         need_id = self.create_community_need(title="Winter blankets")
         donor_id = self.create_public_user()
         submitted = self.submit_need_pledge(need_id, "20.00")
@@ -262,9 +264,7 @@ class CampaignWebTests(DatabaseTestCase):
                 session.get(Donation, donation_id).status,
                 DonationStatus.RECEIVED_VERIFIED.value,
             )
-            self.assertEqual(
-                rejected_donation.status, DonationStatus.REJECTED.value
-            )
+            self.assertEqual(rejected_donation.status, DonationStatus.REJECTED.value)
             self.assertTrue(session.get(Donation, donation_id).is_verified)
             self.assertFalse(rejected_donation.is_verified)
             self.assertEqual(need.current_amount, Decimal("20.00"))

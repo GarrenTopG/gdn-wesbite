@@ -568,8 +568,7 @@ class PublicWebTests(DatabaseTestCase):
             self.assertTrue(auth_session.mfa_setup_secret)
             setup_secret = auth_session.mfa_setup_secret
         grouped_secret = " ".join(
-            setup_secret[index : index + 4]
-            for index in range(0, len(setup_secret), 4)
+            setup_secret[index : index + 4] for index in range(0, len(setup_secret), 4)
         )
         self.assertIn(grouped_secret, mfa_page.text)
         self.assertIn("O is the letter, not zero", mfa_page.text)
@@ -852,7 +851,9 @@ class PublicWebTests(DatabaseTestCase):
         self.assertIn("@media (min-width: 768px)", modern_stylesheet.text)
         self.assertIn(".mobile-menu-toggle", modern_stylesheet.text)
         normalized_stylesheet = modern_stylesheet.text.replace("\r\n", "\n")
-        self.assertIn(".mobile-menu-toggle {\n    display: none;", normalized_stylesheet)
+        self.assertIn(
+            ".mobile-menu-toggle {\n    display: none;", normalized_stylesheet
+        )
         admin_stylesheet = self.client.get("/static/css/admin-tailwind.css")
         self.assertEqual(admin_stylesheet.status_code, 200)
         self.assertIn(".bg-brand-900", admin_stylesheet.text)

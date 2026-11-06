@@ -146,11 +146,15 @@ class CommunityNeedAdminTests(DatabaseTestCase):
         )
         self.assertEqual(create_response.status_code, 303, create_response.text)
         with Session(self.engine) as session:
-            need_id = session.exec(
-                select(BeneficiaryNeed).where(
-                    BeneficiaryNeed.anonymised_title == "Need to edit"
+            need_id = (
+                session.exec(
+                    select(BeneficiaryNeed).where(
+                        BeneficiaryNeed.anonymised_title == "Need to edit"
+                    )
                 )
-            ).one().id
+                .one()
+                .id
+            )
 
         edit_data = {
             "anonymised_title": "Need to edit",
