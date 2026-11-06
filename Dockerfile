@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 # Install system dependencies including MS ODBC Driver 18 for Azure SQL
 RUN apt-get update && apt-get install -y --no-install-recommends \
