@@ -316,6 +316,10 @@ def create_app(
                 request.state.public_user = await run_in_threadpool(resolve_public_user)
             response = await call_next(request)
             response_status = response.status_code
+            if request.url.path.startswith("/admin/"):
+                response.headers["X-Admin-Request-Duration-Ms"] = (
+                    f"{(perf_counter() - started_at) * 1000:.1f}"
+                )
             if not token_valid:
                 response.set_cookie(
                     key=CSRF_COOKIE_NAME,
@@ -337,13 +341,15 @@ def create_app(
             return response
         finally:
             if request.url.path.startswith("/admin/"):
-                logger.info(
-                    "Admin request completed method=%s path=%s status=%s duration_ms=%.1f",
-                    request.method,
-                    request.url.path,
-                    response_status,
-                    (perf_counter() - started_at) * 1000,
-                )
+                duration_ms = (perf_counter() - started_at) * 1000
+                if duration_ms >= 1000:
+                    logger.warning(
+                        "Slow admin request method=%s path=%s status=%s duration_ms=%.1f",
+                        request.method,
+                        request.url.path,
+                        response_status,
+                        duration_ms,
+                    )
 
     application.mount(
         "/static",

@@ -560,6 +560,9 @@ class PublicWebTests(DatabaseTestCase):
         unauthorized = self.client.get("/admin/dashboard", follow_redirects=False)
         self.assertEqual(unauthorized.status_code, 401)
         self.assertEqual(unauthorized.json(), {"detail": "Staff sign-in required."})
+        self.assertGreater(
+            float(unauthorized.headers["x-admin-request-duration-ms"]), 0
+        )
         mfa_page = self.client.get("/admin/mfa")
         self.assertEqual(mfa_page.status_code, 200)
         with Session(self.engine) as session:
