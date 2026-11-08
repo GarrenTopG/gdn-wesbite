@@ -6,7 +6,7 @@ from typing import Dict, NotRequired, Optional, TypedDict
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
-from sqlalchemy import false, true
+from sqlalchemy import false, literal, true, union_all
 from sqlmodel import Session, func, select
 
 from app.db.session import get_session
@@ -1000,27 +1000,46 @@ def get_admin_dashboard(
     pending_volunteer_offers = [
         offer for offer in volunteer_offers if offer.status == "Pending"
     ]
-    pending_groups = [
-        (
-            can_view_volunteers,
-            "volunteers",
-            "Volunteer applications to review",
-            session.exec(
-                select(Volunteer.id).where(
+    pending_ids_by_key: dict[str, list[Optional[int]]] = {}
+    pending_id_queries = []
+    if can_view_volunteers:
+        if active_tab == "volunteers":
+            pending_ids_by_key["volunteers"] = [
+                volunteer.id
+                for volunteer in volunteers
+                if volunteer.id is not None
+                and volunteer.archived_at is None
+                and volunteer.onboarding_status == "Pending"
+            ]
+        else:
+            pending_id_queries.append(
+                select(
+                    literal("volunteers").label("notification_key"),
+                    Volunteer.id.label("record_id"),
+                ).where(
                     Volunteer.archived_at.is_(None),
                     Volunteer.onboarding_status == "Pending",
                 )
-            ).all()
-            if can_view_volunteers
-            else [],
-            "volunteers",
-        ),
-        (
-            can_view_donations,
-            "donations",
-            "Donation pledges to review",
-            session.exec(
-                select(Donation.id).where(
+            )
+    if can_view_donations:
+        if active_tab == "donations":
+            pending_ids_by_key["donations"] = [
+                donation.id
+                for donation in donation_activity
+                if donation.id is not None
+                and donation.archived_at is None
+                and donation.status
+                in {
+                    DonationStatus.SUBMITTED.value,
+                    DonationStatus.PAYMENT_PENDING.value,
+                }
+            ]
+        else:
+            pending_id_queries.append(
+                select(
+                    literal("donations").label("notification_key"),
+                    Donation.id.label("record_id"),
+                ).where(
                     Donation.archived_at.is_(None),
                     Donation.status.in_(
                         [
@@ -1029,50 +1048,96 @@ def get_admin_dashboard(
                         ]
                     ),
                 )
-            ).all()
-            if can_view_donations
-            else [],
+            )
+    if can_view_beneficiaries:
+        if active_tab == "beneficiaries":
+            pending_ids_by_key["beneficiaries"] = [
+                need.id
+                for need in all_needs
+                if need.id is not None
+                and need.archived_at is None
+                and need.status == NeedStatus.PENDING
+            ]
+        else:
+            pending_id_queries.append(
+                select(
+                    literal("beneficiaries").label("notification_key"),
+                    BeneficiaryNeed.id.label("record_id"),
+                ).where(
+                    BeneficiaryNeed.is_community_need == false(),
+                    BeneficiaryNeed.archived_at.is_(None),
+                    BeneficiaryNeed.status == NeedStatus.PENDING,
+                )
+            )
+    if can_view_needs:
+        if active_tab == "needs":
+            pending_ids_by_key["needs"] = [
+                need.id
+                for need in all_needs
+                if need.id is not None
+                and need.archived_at is None
+                and need.status == NeedStatus.PENDING
+            ]
+            pending_ids_by_key["volunteer_offers"] = [
+                offer.id
+                for offer in volunteer_offers
+                if offer.id is not None and offer.status == "Pending"
+            ]
+        else:
+            pending_id_queries.extend(
+                [
+                    select(
+                        literal("needs").label("notification_key"),
+                        BeneficiaryNeed.id.label("record_id"),
+                    ).where(
+                        BeneficiaryNeed.is_community_need == true(),
+                        BeneficiaryNeed.archived_at.is_(None),
+                        BeneficiaryNeed.status == NeedStatus.PENDING,
+                    ),
+                    select(
+                        literal("volunteer_offers").label("notification_key"),
+                        VolunteerOffer.id.label("record_id"),
+                    ).where(VolunteerOffer.status == "Pending"),
+                ]
+            )
+    if pending_id_queries:
+        for key, record_id in session.exec(union_all(*pending_id_queries)).all():
+            pending_ids_by_key.setdefault(key, []).append(record_id)
+
+    pending_groups = [
+        (
+            can_view_volunteers,
+            "volunteers",
+            "Volunteer applications to review",
+            pending_ids_by_key.get("volunteers", []),
+            "volunteers",
+        ),
+        (
+            can_view_donations,
+            "donations",
+            "Donation pledges to review",
+            pending_ids_by_key.get("donations", []),
             "donations",
         ),
         (
             can_view_beneficiaries,
             "beneficiaries",
             "Assistance requests to review",
-            session.exec(
-                select(BeneficiaryNeed.id).where(
-                    BeneficiaryNeed.is_community_need == false(),
-                    BeneficiaryNeed.archived_at.is_(None),
-                    BeneficiaryNeed.status == NeedStatus.PENDING,
-                )
-            ).all()
-            if can_view_beneficiaries
-            else [],
+            pending_ids_by_key.get("beneficiaries", []),
             "beneficiaries",
         ),
         (
             can_view_needs,
             "needs",
             "Community needs to review",
-            session.exec(
-                select(BeneficiaryNeed.id).where(
-                    BeneficiaryNeed.is_community_need == true(),
-                    BeneficiaryNeed.archived_at.is_(None),
-                    BeneficiaryNeed.status == NeedStatus.PENDING,
-                )
-            ).all()
-            if can_view_needs
-            else [],
+            pending_ids_by_key.get("needs", []),
             "needs",
         ),
         (
             can_view_needs,
             "volunteer_offers",
             "Volunteer offers to review",
-            session.exec(
-                select(VolunteerOffer.id).where(VolunteerOffer.status == "Pending")
-            ).all()
-            if can_view_needs
-            else [],
+            pending_ids_by_key.get("volunteer_offers", []),
             "needs",
         ),
     ]

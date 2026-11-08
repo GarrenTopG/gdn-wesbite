@@ -495,6 +495,15 @@ class PublicWebTests(DatabaseTestCase):
         self.assertIn('id="tab-donations"', donations_dashboard.text)
         self.assertNotIn('id="tab-overview"', donations_dashboard.text)
         self.assertIn("Donation pledges to review", donations_dashboard.text)
+        donations_notification = re.search(
+            r'data-notification-key="donations".*?data-notification-fingerprint="([0-9a-f]{64})"',
+            donations_dashboard.text,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(donations_notification)
+        self.assertEqual(
+            donations_notification.group(1), donation_notification.group(1)
+        )
         read_response = self.client.post(
             "/admin/notifications/read",
             data={
