@@ -53,6 +53,8 @@ class CommunityNeedAdminTests(DatabaseTestCase):
 
         dashboard = self.client.get("/admin/dashboard?tab=needs")
         self.assertEqual(dashboard.status_code, 200, dashboard.text)
+        self.assertGreater(int(dashboard.headers["x-admin-database-queries"]), 0)
+        self.assertGreaterEqual(float(dashboard.headers["x-admin-database-time-ms"]), 0)
         self.assertIn("Winter clothing support", dashboard.text)
         self.assertIn("Read article", dashboard.text)
         self.assertIn("A pile of warm winter clothing", dashboard.text)

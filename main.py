@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from datetime import date
 import logging
@@ -15,6 +16,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import event
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.engine import Engine
 from starlette.concurrency import run_in_threadpool
@@ -49,6 +51,29 @@ from app.templatesconfig import templates
 
 logger = logging.getLogger(__name__)
 
+_admin_query_metrics: ContextVar[Optional[dict[str, float]]] = ContextVar(
+    "admin_query_metrics", default=None
+)
+
+
+def _start_admin_query(
+    connection, cursor, statement, parameters, context, executemany
+) -> None:
+    if _admin_query_metrics.get() is not None:
+        context._admin_query_started_at = perf_counter()
+
+
+def _finish_admin_query(
+    connection, cursor, statement, parameters, context, executemany
+) -> None:
+    metrics = _admin_query_metrics.get()
+    started_at = getattr(context, "_admin_query_started_at", None)
+    if metrics is not None and started_at is not None:
+        duration_ms = (perf_counter() - started_at) * 1000
+        metrics["count"] += 1
+        metrics["total_ms"] += duration_ms
+        metrics["max_ms"] = max(metrics["max_ms"], duration_ms)
+
 
 @dataclass(frozen=True)
 class AppSettings:
@@ -63,6 +88,14 @@ def create_app(
 ) -> FastAPI:
     configured_engine = database_engine or default_engine
     app_settings = settings or AppSettings()
+    if not event.contains(
+        configured_engine, "before_cursor_execute", _start_admin_query
+    ):
+        event.listen(configured_engine, "before_cursor_execute", _start_admin_query)
+    if not event.contains(
+        configured_engine, "after_cursor_execute", _finish_admin_query
+    ):
+        event.listen(configured_engine, "after_cursor_execute", _finish_admin_query)
 
     @asynccontextmanager
     async def lifespan(application: FastAPI):
@@ -290,6 +323,14 @@ def create_app(
     async def add_csrf_cookie(request: Request, call_next):
         started_at = perf_counter()
         response_status = 500
+        metrics = (
+            {"count": 0.0, "total_ms": 0.0, "max_ms": 0.0}
+            if request.url.path.startswith("/admin/")
+            else None
+        )
+        metrics_token: Token[Optional[dict[str, float]]] = _admin_query_metrics.set(
+            metrics
+        )
         try:
             cookie_token = request.cookies.get(CSRF_COOKIE_NAME, "")
             token_valid = bool(cookie_token) and valid_csrf_token(cookie_token)
@@ -317,8 +358,15 @@ def create_app(
             response = await call_next(request)
             response_status = response.status_code
             if request.url.path.startswith("/admin/"):
+                assert metrics is not None
                 response.headers["X-Admin-Request-Duration-Ms"] = (
                     f"{(perf_counter() - started_at) * 1000:.1f}"
+                )
+                response.headers["X-Admin-Database-Queries"] = str(
+                    int(metrics["count"])
+                )
+                response.headers["X-Admin-Database-Time-Ms"] = (
+                    f"{metrics['total_ms']:.1f}"
                 )
             if not token_valid:
                 response.set_cookie(
@@ -344,12 +392,16 @@ def create_app(
                 duration_ms = (perf_counter() - started_at) * 1000
                 if duration_ms >= 1000:
                     logger.warning(
-                        "Slow admin request method=%s path=%s status=%s duration_ms=%.1f",
+                        "Slow admin request method=%s path=%s status=%s duration_ms=%.1f db_query_count=%s db_total_ms=%.1f db_max_ms=%.1f",
                         request.method,
                         request.url.path,
                         response_status,
                         duration_ms,
+                        int(metrics["count"]) if metrics is not None else 0,
+                        metrics["total_ms"] if metrics is not None else 0.0,
+                        metrics["max_ms"] if metrics is not None else 0.0,
                     )
+            _admin_query_metrics.reset(metrics_token)
 
     application.mount(
         "/static",
