@@ -5,6 +5,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from time import perf_counter
 from typing import Optional
 from urllib.parse import urlencode
 
@@ -287,47 +288,62 @@ def create_app(
 
     @application.middleware("http")
     async def add_csrf_cookie(request: Request, call_next):
-        cookie_token = request.cookies.get(CSRF_COOKIE_NAME, "")
-        token_valid = bool(cookie_token) and valid_csrf_token(cookie_token)
-        request.state.csrf_token = cookie_token if token_valid else make_csrf_token()
-        request.state.public_user = None
-        request.state.sso_providers = sso.available_providers()
-        if request.cookies.get(
-            accounts.USER_COOKIE_NAME
-        ) and not request.url.path.startswith("/static/"):
-            session_provider = request.app.dependency_overrides.get(
-                get_session, get_session
+        started_at = perf_counter()
+        response_status = 500
+        try:
+            cookie_token = request.cookies.get(CSRF_COOKIE_NAME, "")
+            token_valid = bool(cookie_token) and valid_csrf_token(cookie_token)
+            request.state.csrf_token = (
+                cookie_token if token_valid else make_csrf_token()
             )
+            request.state.public_user = None
+            request.state.sso_providers = sso.available_providers()
+            if request.cookies.get(
+                accounts.USER_COOKIE_NAME
+            ) and not request.url.path.startswith("/static/"):
+                session_provider = request.app.dependency_overrides.get(
+                    get_session, get_session
+                )
 
-            def resolve_public_user():
-                session_generator = session_provider()
-                try:
-                    database_session = next(session_generator)
-                    return accounts.get_public_user(request, database_session)
-                finally:
-                    session_generator.close()
+                def resolve_public_user():
+                    session_generator = session_provider()
+                    try:
+                        database_session = next(session_generator)
+                        return accounts.get_public_user(request, database_session)
+                    finally:
+                        session_generator.close()
 
-            request.state.public_user = await run_in_threadpool(resolve_public_user)
-        response = await call_next(request)
-        if not token_valid:
-            response.set_cookie(
-                key=CSRF_COOKIE_NAME,
-                value=request.state.csrf_token,
-                **csrf_cookie_options(),
-            )
-        if (
-            request.url.path.startswith("/admin/")
-            or request.url.path.startswith("/api/auth/")
-            or request.url.path.startswith("/auth/sso/")
-            or request.url.path.startswith("/account/sso/")
-            or request.url.path == "/donate/tax-certificate"
-            or request.url.path.startswith("/campaigns/")
-            or request.url.path.startswith("/account/notifications")
-            or (request.url.path == "/donate" and request.method == "POST")
-        ):
-            response.headers.setdefault("Cache-Control", "no-store")
-            response.headers.setdefault("Referrer-Policy", "no-referrer")
-        return response
+                request.state.public_user = await run_in_threadpool(resolve_public_user)
+            response = await call_next(request)
+            response_status = response.status_code
+            if not token_valid:
+                response.set_cookie(
+                    key=CSRF_COOKIE_NAME,
+                    value=request.state.csrf_token,
+                    **csrf_cookie_options(),
+                )
+            if (
+                request.url.path.startswith("/admin/")
+                or request.url.path.startswith("/api/auth/")
+                or request.url.path.startswith("/auth/sso/")
+                or request.url.path.startswith("/account/sso/")
+                or request.url.path == "/donate/tax-certificate"
+                or request.url.path.startswith("/campaigns/")
+                or request.url.path.startswith("/account/notifications")
+                or (request.url.path == "/donate" and request.method == "POST")
+            ):
+                response.headers.setdefault("Cache-Control", "no-store")
+                response.headers.setdefault("Referrer-Policy", "no-referrer")
+            return response
+        finally:
+            if request.url.path.startswith("/admin/"):
+                logger.info(
+                    "Admin request completed method=%s path=%s status=%s duration_ms=%.1f",
+                    request.method,
+                    request.url.path,
+                    response_status,
+                    (perf_counter() - started_at) * 1000,
+                )
 
     application.mount(
         "/static",
