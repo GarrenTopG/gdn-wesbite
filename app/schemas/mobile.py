@@ -60,6 +60,7 @@ class DonationRequest(BaseModel):
 
     donation_type: str = Field(default="monetary", alias="donationType", max_length=50)
     category: Optional[str] = Field(default=None, max_length=200)
+    need_id: Optional[int] = Field(default=None, alias="needId", gt=0)
     amount: Optional[Decimal] = Field(default=None, max_digits=12, decimal_places=2)
     payment_method: Optional[str] = Field(
         default=None, alias="paymentMethod", max_length=100

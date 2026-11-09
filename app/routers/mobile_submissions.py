@@ -11,9 +11,11 @@ from app.models.entities import (
     DonationStatus,
     NeedStatus,
     User,
+    UserNotification,
     Volunteer,
     VolunteerStatus,
 )
+from app.routers.donations import _community_need_is_open
 from app.routers.mobile_dependencies import _rate_limit, require_mobile_user
 from app.schemas.mobile import (
     AssistanceRequest,
@@ -137,6 +139,7 @@ def submit_donation(
     item_description = (body.item_description or "").strip()
 
     amount = Decimal("0.00")
+    selected_need = None
     if donation_type == "monetary":
         if body.amount is None:
             raise HTTPException(status_code=400, detail="Donation amount is required.")
@@ -152,8 +155,21 @@ def submit_donation(
                 status_code=400,
                 detail="Donation amount must be positive and use at most two decimals.",
             )
+        if body.need_id is not None:
+            selected_need = session.get(BeneficiaryNeed, body.need_id)
+            if not selected_need or not _community_need_is_open(selected_need):
+                raise HTTPException(
+                    status_code=400,
+                    detail="That community need is no longer accepting pledges.",
+                )
+            category = f"Community need: {selected_need.anonymised_title}"
         payment_method = "Pledge - No Online Payment"
     else:
+        if body.need_id is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="A community need can only be selected for monetary pledges.",
+            )
         if not item_category or not item_description:
             raise HTTPException(
                 status_code=400,
@@ -194,8 +210,14 @@ def submit_donation(
             else None
         ),
         payment_method=payment_method,
-        status=DonationStatus.SUBMITTED.value,
+        status=(
+            DonationStatus.PAYMENT_PENDING.value
+            if selected_need is not None
+            else DonationStatus.SUBMITTED.value
+        ),
         is_verified=False,
+        need_id=selected_need.id if selected_need is not None else None,
+        user_id=user.id,
     )
     session.add(donation)
     session.flush()
@@ -205,14 +227,36 @@ def submit_donation(
         "donation",
         donation.id,
         "submitted",
-        {"source": "mobile", "status": donation.status},
+        {
+            "source": "mobile",
+            "status": donation.status,
+            "need_id": donation.need_id,
+        },
     )
+    if selected_need is not None:
+        session.add(
+            UserNotification(
+                user_id=user.id,
+                donation_id=donation.id,
+                event_type="need_pledge_pending",
+                message=(
+                    f"Your pledge of R{amount:.2f} for "
+                    f"{selected_need.anonymised_title} is pending admin review. "
+                    "It is not included in the community total yet."
+                ),
+            )
+        )
     session.commit()
     return {
         "success": True,
         "transactionRef": f"AC-{donation.id:06d}",
         "message": (
-            "Your donation pledge has been recorded. No payment was processed."
+            (
+                f"Your pledge for {selected_need.anonymised_title} has been recorded "
+                "and is pending admin review. No payment was processed."
+                if selected_need is not None
+                else "Your donation pledge has been recorded. No payment was processed."
+            )
             if donation_type == "monetary"
             else "Your in-kind donation offer has been recorded."
         ),

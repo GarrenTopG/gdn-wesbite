@@ -62,6 +62,9 @@
               {% if donation.need_id and donation_needs_by_id.get(donation.need_id) %}
               <span class="block text-xs font-normal text-pink-200">For: {{ donation_needs_by_id.get(donation.need_id).anonymised_title }}</span>
               {% endif %}
+              {% if donation.cause and not donation.need_id and not donation.campaign_id %}
+              <span class="block text-xs font-normal text-pink-200">Cause: {{ donation.cause }}</span>
+              {% endif %}
             </td>
             <td data-label="Total Amount" class="py-4 px-4 font-extrabold text-white">{{ "R %.2f"|format(total) }}</td>
             <td data-label="Applied / Allocated" class="py-4 px-4 font-medium text-emerald-300">
@@ -89,7 +92,7 @@
               {% elif donation.status == 'Payment Pending' %}
               <form action="/admin/donations/{{ donation.id }}/verify" method="post" class="mt-2">
                 {{ csrf_input(request) }}
-                <button class="admin-action-button admin-action-primary">{% if donation.need_id %}Approve pledge{% elif donation.campaign_id %}Approve simulated contribution{% else %}Verify received{% endif %}</button>
+                <button class="admin-action-button admin-action-primary">{% if donation.need_id %}Confirm payment received{% elif donation.campaign_id %}Approve simulated contribution{% else %}Verify received{% endif %}</button>
               </form>
               {% if donation.campaign_id or donation.need_id %}
               <form action="/admin/donations/{{ donation.id }}/reject" method="post" class="mt-2">

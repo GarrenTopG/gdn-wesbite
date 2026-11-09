@@ -624,6 +624,32 @@ def get_admin_dashboard(
             )
             for row in need_rows
         ]
+    elif can_view_donations and active_tab == "donations":
+        allocation_need_rows = session.exec(
+            select(
+                BeneficiaryNeed.id,
+                BeneficiaryNeed.anonymised_title,
+                BeneficiaryNeed.status,
+                BeneficiaryNeed.target_amount,
+                BeneficiaryNeed.current_amount,
+                BeneficiaryNeed.archived_at,
+            ).where(
+                BeneficiaryNeed.is_community_need == true(),
+                True if include_archived else BeneficiaryNeed.archived_at.is_(None),
+            )
+        ).all()
+        all_needs = [
+            SimpleNamespace(
+                id=row[0],
+                is_community_need=True,
+                anonymised_title=row[1],
+                status=row[2],
+                target_amount=row[3],
+                current_amount=row[4],
+                archived_at=row[5],
+            )
+            for row in allocation_need_rows
+        ]
     else:
         all_needs = []
     news_articles = (
@@ -648,31 +674,41 @@ def get_admin_dashboard(
         for donation in donations
         if donation.campaign_id is not None
     }
-    campaigns_by_id = (
-        {
-            campaign.id: campaign
-            for campaign in session.exec(
-                select(Campaign).where(Campaign.id.in_(donation_campaign_ids))
-            ).all()
-            if campaign.id is not None
-        }
-        if active_tab == "donations" and donation_campaign_ids
-        else {}
-    )
     donation_need_ids = {
         donation.need_id for donation in donations if donation.need_id is not None
     }
-    donation_needs_by_id = (
-        {
-            need.id: need
-            for need in session.exec(
-                select(BeneficiaryNeed).where(BeneficiaryNeed.id.in_(donation_need_ids))
-            ).all()
-            if need.id is not None
-        }
-        if active_tab == "donations" and donation_need_ids
-        else {}
-    )
+    donation_related_queries = []
+    if active_tab == "donations" and donation_campaign_ids:
+        donation_related_queries.append(
+            select(
+                literal("campaign"),
+                Campaign.id,
+                Campaign.title,
+            ).where(Campaign.id.in_(donation_campaign_ids))
+        )
+    if active_tab == "donations" and donation_need_ids:
+        donation_related_queries.append(
+            select(
+                literal("need"),
+                BeneficiaryNeed.id,
+                BeneficiaryNeed.anonymised_title,
+            ).where(BeneficiaryNeed.id.in_(donation_need_ids))
+        )
+    campaigns_by_id = {}
+    donation_needs_by_id = {}
+    if donation_related_queries:
+        related_query = (
+            union_all(*donation_related_queries)
+            if len(donation_related_queries) > 1
+            else donation_related_queries[0]
+        )
+        for related_type, related_id, title in session.exec(related_query).all():
+            if related_type == "campaign":
+                campaigns_by_id[related_id] = SimpleNamespace(title=title)
+            else:
+                donation_needs_by_id[related_id] = SimpleNamespace(
+                    anonymised_title=title
+                )
 
     beneficiaries = [need for need in all_needs if not need.is_community_need]
     community_needs = [need for need in all_needs if need.is_community_need]

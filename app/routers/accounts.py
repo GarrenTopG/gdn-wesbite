@@ -49,17 +49,19 @@ def get_public_user(request: Request, session: Session) -> Optional[User]:
     token = request.cookies.get(USER_COOKIE_NAME)
     if not token:
         return None
-    auth_session = session.exec(
-        select(AuthSession).where(AuthSession.token_hash == _session_digest(token))
+    session_and_user = session.exec(
+        select(AuthSession, User)
+        .join(User, User.id == AuthSession.user_id)
+        .where(AuthSession.token_hash == _session_digest(token))
     ).first()
-    if not auth_session:
+    if not session_and_user:
         return None
+    auth_session, user = session_and_user
     expires_at = auth_session.expires_at
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=now_utc().tzinfo)
     if expires_at <= now_utc():
         return None
-    user = session.get(User, auth_session.user_id)
     if not user or not user.is_active or user.role != UserRole.USER:
         return None
     return user

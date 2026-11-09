@@ -105,6 +105,49 @@ class CampaignWebTests(DatabaseTestCase):
             follow_redirects=False,
         )
 
+    def test_donations_dashboard_loads_needs_for_allocation(self):
+        need_id = self.create_community_need(
+            title="Community food parcels", target="100.00"
+        )
+        with Session(self.engine) as session:
+            donation = Donation(
+                donor_name="General Fund Donor",
+                cause="Food relief",
+                amount=Decimal("50.00"),
+                is_verified=True,
+                status=DonationStatus.RECEIVED_VERIFIED.value,
+            )
+            session.add(donation)
+            session.commit()
+            session.refresh(donation)
+            donation_id = donation.id
+
+        self.create_admin()
+        dashboard = self.client.get("/admin/dashboard?tab=donations")
+        self.assertEqual(dashboard.status_code, 200, dashboard.text)
+        self.assertIn(
+            f'<option value="{need_id}">Community food parcels',
+            dashboard.text,
+        )
+        self.assertIn("Cause: Food relief", dashboard.text)
+        self.assertIn("Allocate (R 50.00 left)", dashboard.text)
+
+        allocated = self.client.post(
+            f"/admin/donations/{donation_id}/allocate",
+            data={
+                "csrf_token": self.csrf_token,
+                "need_id": str(need_id),
+                "allocate_amount": "50.00",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(allocated.status_code, 303, allocated.text)
+        with Session(self.engine) as session:
+            donation = session.get(Donation, donation_id)
+            need = session.get(BeneficiaryNeed, need_id)
+            self.assertEqual(donation.allocated_amount, Decimal("50.00"))
+            self.assertEqual(need.current_amount, Decimal("50.00"))
+
     def test_donate_page_lists_needs_without_removing_campaign_details(self):
         self.create_campaign(
             title="Active campaign", slug="active", status=CampaignStatus.PUBLISHED

@@ -44,10 +44,15 @@ def get_staff_user(request: Request, session: Session) -> Optional[User]:
     if not token:
         return None
 
-    active_session = session.exec(
-        select(AuthSession).where(AuthSession.token_hash == _session_digest(token))
+    session_and_user = session.exec(
+        select(AuthSession, User)
+        .join(User, User.id == AuthSession.user_id)
+        .where(AuthSession.token_hash == _session_digest(token))
     ).first()
-    if not active_session or not active_session.mfa_verified:
+    if not session_and_user:
+        return None
+    active_session, user = session_and_user
+    if not active_session.mfa_verified:
         return None
     expires_at = active_session.expires_at
     if expires_at.tzinfo is None:
@@ -55,7 +60,6 @@ def get_staff_user(request: Request, session: Session) -> Optional[User]:
     if expires_at <= now_utc():
         return None
 
-    user = session.get(User, active_session.user_id)
     if not user or not user.is_active or user.role == UserRole.USER:
         return None
     return user

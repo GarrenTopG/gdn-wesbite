@@ -470,7 +470,7 @@ private fun InvolvedScreen(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(destination) {
-        if (destination == "hub") {
+        if (destination == "hub" || destination == "donate") {
             loadingNeeds = true
             try {
                 needs = withContext(Dispatchers.IO) { Api.needs() }
@@ -484,7 +484,16 @@ private fun InvolvedScreen(
     }
 
     when (destination) {
-        "donate" -> DonationScreen(modifier, user, onSignIn, onBack = { destination = "hub" }, onOpenWebsite = onOpenWebsite)
+        "donate" -> DonationScreen(
+            modifier,
+            user,
+            needs,
+            loadingNeeds,
+            needsError,
+            onSignIn,
+            onBack = { destination = "hub" },
+            onOpenWebsite = onOpenWebsite
+        )
         "volunteer" -> VolunteerScreen(modifier, user, onSignIn, onBack = { destination = "hub" })
         "offer" -> selectedNeed?.let { need ->
             OfferHelpScreen(modifier, user, need, onSignIn) { destination = "hub" }
@@ -513,12 +522,16 @@ private fun InvolvedScreen(
 private fun DonationScreen(
     modifier: Modifier,
     user: AppUser?,
+    needs: List<CommunityNeed>,
+    loadingNeeds: Boolean,
+    needsError: String?,
     onSignIn: () -> Unit,
     onBack: () -> Unit,
     onOpenWebsite: (String) -> Unit
 ) {
     var donationType by rememberSaveable { mutableStateOf("monetary") }
     var amount by rememberSaveable { mutableStateOf("") }
+    var selectedNeedId by rememberSaveable { mutableStateOf<Int?>(null) }
     var itemCategory by rememberSaveable { mutableStateOf("Non-Perishable Food / Canned Goods") }
     var itemDescription by rememberSaveable { mutableStateOf("") }
     var logistics by rememberSaveable { mutableStateOf("dropoff") }
@@ -542,6 +555,7 @@ private fun DonationScreen(
                 step = 0
                 amount = ""
                 itemDescription = ""
+                selectedNeedId = null
             }
         } else {
             Text("Step ${step + 1} of 3", color = Brand, fontWeight = FontWeight.Bold)
@@ -551,6 +565,29 @@ private fun DonationScreen(
                         donationType = if (it == "Monetary") "monetary" else "inkind"
                     }
                     if (donationType == "monetary") {
+                        Text("Cause", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        when {
+                            loadingNeeds -> BodyText("Loading community causes…")
+                            needsError != null -> ErrorNotice(needsError)
+                            needs.isEmpty() -> BodyText("No specific community causes are currently listed.")
+                        }
+                        Row(
+                            Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = selectedNeedId == null,
+                                onClick = { selectedNeedId = null },
+                                label = { Text("General Fund") }
+                            )
+                            needs.forEach { need ->
+                                FilterChip(
+                                    selected = selectedNeedId == need.id,
+                                    onClick = { selectedNeedId = need.id },
+                                    label = { Text(need.title) }
+                                )
+                            }
+                        }
                         ChoiceChips("Suggested amount", listOf("R50", "R200", "R500", "R1000", "Custom"), "Custom") { selected ->
                             amount = selected.removePrefix("R").takeUnless { selected == "Custom" }.orEmpty()
                         }
@@ -577,7 +614,14 @@ private fun DonationScreen(
                 }
                 else -> {
                     SectionTitle("Review your pledge")
-                    BodyText(if (donationType == "monetary") "Monetary pledge: R${amount.trim()}" else "In-kind offer: $itemCategory — $itemDescription")
+                    val selectedNeed = needs.firstOrNull { it.id == selectedNeedId }
+                    BodyText(
+                        if (donationType == "monetary") {
+                            "Monetary pledge: R${amount.trim()} for ${selectedNeed?.title ?: "General Fund"}"
+                        } else {
+                            "In-kind offer: $itemCategory — $itemDescription"
+                        }
+                    )
                     if (donationType == "inkind") BodyText(if (logistics == "dropoff") "You will drop items off at $ORG_ADDRESS." else "Collection address: $pickupAddress")
                     Notice("No payment is processed by this app.", Color(0xFFFFF6E5), Color(0xFF7A4B00))
                 }
@@ -602,6 +646,7 @@ private fun DonationScreen(
                                 if (donationType == "monetary") {
                                     payload.put("amount", amount.trim())
                                         .put("category", "General Fund (Where Most Needed)")
+                                    selectedNeedId?.let { payload.put("needId", it) }
                                 } else {
                                     payload.put("itemCategory", itemCategory)
                                         .put("itemDescription", itemDescription.trim())

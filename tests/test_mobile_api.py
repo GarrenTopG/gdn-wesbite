@@ -3,6 +3,7 @@ import os
 import secrets
 import unittest
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from unittest.mock import patch
 
 from tests.support import DatabaseTestCase
@@ -16,10 +17,12 @@ from app.models.entities import (
     BeneficiaryNeed,
     AuthSession,
     Donation,
+    DonationStatus,
     NeedStatus,
     NeedUrgency,
     NewsArticle,
     NewsStatus,
+    UserNotification,
     VolunteerOffer,
     User,
     UserRole,
@@ -273,6 +276,90 @@ class MobileApiTests(DatabaseTestCase):
             self.assertEqual(donation.item_description, "Three clean blankets")
             self.assertEqual(donation.logistics_type, "dropoff")
             self.assertEqual(donation.amount, 0)
+
+    def test_mobile_need_pledge_is_ready_for_direct_admin_confirmation(self):
+        account = self.register()
+        with Session(self.engine) as session:
+            need = BeneficiaryNeed(
+                is_community_need=True,
+                contact_name="Private Contact",
+                contact_phone="555-0100",
+                full_address="Private Address",
+                anonymised_title="Emergency food parcels",
+                area="Kuils River",
+                category="Food",
+                status=NeedStatus.PENDING,
+            )
+            session.add(need)
+            session.commit()
+            session.refresh(need)
+            need_id = need.id
+
+        response = self.client.post(
+            "/api/donations",
+            headers={"Authorization": "Bearer " + account["token"]},
+            json={
+                "donationType": "monetary",
+                "amount": "3500.00",
+                "needId": need_id,
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIn("Emergency food parcels", response.json()["message"])
+        self.assertIn("pending admin review", response.json()["message"])
+        self.assertIn("No payment was processed", response.json()["message"])
+
+        with Session(self.engine) as session:
+            donation = session.exec(select(Donation)).one()
+            pending_notice = session.exec(
+                select(UserNotification).where(
+                    UserNotification.user_id == account["user"]["userId"],
+                    UserNotification.event_type == "need_pledge_pending",
+                )
+            ).one()
+            self.assertEqual(donation.need_id, need_id)
+            self.assertEqual(donation.user_id, account["user"]["userId"])
+            self.assertEqual(
+                donation.cause, "Community need: Emergency food parcels"
+            )
+            self.assertEqual(donation.status, DonationStatus.PAYMENT_PENDING.value)
+            self.assertFalse(donation.is_verified)
+            self.assertEqual(pending_notice.donation_id, donation.id)
+            donation_id = donation.id
+
+        self.client.get("/account/login")
+        admin = User(
+            full_name="Donation Admin",
+            email="donation-admin@example.org",
+            hashed_password="not-used-in-this-test",
+            role=UserRole.ADMINISTRATOR,
+        )
+        self.authenticate_staff(admin)
+        csrf_token = self.client.cookies.get("csrf_token", "")
+        queue = self.client.get("/admin/dashboard?tab=donations")
+        self.assertIn("Confirm payment received", queue.text)
+        self.assertIn("For: Emergency food parcels", queue.text)
+
+        confirmed = self.client.post(
+            f"/admin/donations/{donation_id}/verify",
+            data={"csrf_token": csrf_token},
+            follow_redirects=False,
+        )
+        self.assertEqual(confirmed.status_code, 303, confirmed.text)
+
+        with Session(self.engine) as session:
+            donation = session.get(Donation, donation_id)
+            need = session.get(BeneficiaryNeed, need_id)
+            approved_notice = session.exec(
+                select(UserNotification).where(
+                    UserNotification.user_id == account["user"]["userId"],
+                    UserNotification.event_type == "need_pledge_approved",
+                )
+            ).one()
+            self.assertEqual(donation.status, DonationStatus.RECEIVED_VERIFIED.value)
+            self.assertTrue(donation.is_verified)
+            self.assertEqual(need.current_amount, Decimal("3500.00"))
+            self.assertIn("approved", approved_notice.message)
 
     def test_public_feeds_return_only_public_records(self):
         with Session(self.engine) as session:
